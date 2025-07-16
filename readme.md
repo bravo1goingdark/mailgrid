@@ -2,9 +2,18 @@
   <img src="./assets/readme-banner.svg" alt="Mailgrid Logo" width="100%" height="100%"/>
 </p>
 
-
+<p align="center">
+  <a href="https://github.com/your-org/mailgrid/tree/main/docs">
+    <img src="https://img.shields.io/badge/📘 Documentation-blue?style=for-the-badge" alt="Docs Badge"/>
+  </a>
+  <a href="https://github.com/bravo1goingdark/blipmq">
+    <img src="https://img.shields.io/badge/Built%20by-BlipMQ-8E44AD?style=for-the-badge&logo=github" alt="Built By BlipMQ"/>
+  </a>
+</p>
 
 **Mailgrid** is a high-performance, ultra-lightweight CLI tool written in Go for sending bulk emails via SMTP from CSV or Google Sheets (coming soon). Built for speed, reliability, and minimalism — no bloated web UIs, just powerful automation.
+
+
 
 ---
 
