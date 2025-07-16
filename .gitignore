@@ -30,7 +30,6 @@ go.work
 go.work.sum
 
 # Configs and secrets
-config.json
 .env
 *.key
 *.pem

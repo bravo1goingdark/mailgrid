@@ -1,0 +1,11 @@
+{
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "username": "kumarashutosh34169@gmail.com",
+    "password": "your_app_password",
+    "from": "kumarashutosh34169@gmail.com"
+  },
+  "rate_limit": 10,
+  "timeout_ms": 5000
+}
