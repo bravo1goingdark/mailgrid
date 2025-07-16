@@ -1,0 +1,51 @@
+# Binaries
+/mailgrid
+*.exe
+*.out
+*.dll
+*.so
+*.dylib
+
+# Build artifacts
+*.log
+*.test
+*.prof
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE/editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# Dependency directories (if using vendoring)
+vendor/
+
+# Go Modules (don't ignore go.sum)
+go.work
+go.work.sum
+
+# Configs and secrets
+config.json
+.env
+*.key
+*.pem
+
+# Coverage files
+coverage.*
+*.coverprofile
+*.cov
+
+# Logs
+logs/
+*.log
+
+# Backup files
+*~
+
+# Test cache
+/tmp/
