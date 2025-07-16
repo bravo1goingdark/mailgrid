@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="./assets/readme-banner.svg" alt="Mailgrid Logo" width="100%" height="100%"/>
+</p>
+
+
 # 📨 Mailgrid
 
 **Mailgrid** is a high-performance, ultra-lightweight CLI tool written in Go for sending bulk emails via SMTP from CSV or Google Sheets (coming soon). Built for speed, reliability, and minimalism — no bloated web UIs, just powerful automation.
