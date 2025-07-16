@@ -19,7 +19,7 @@ func main() {
 		dryRun       bool
 	)
 
-	// CLI flag definitions
+	// flag definitions
 	pflag.StringVar(&envPath, "env", "example/config.json", "Path to SMTP config JSON (required)")
 	pflag.StringVar(&csvPath, "csv", "example/test_contacts.csv", "Path to recipient CSV file (required)")
 	pflag.StringVarP(&templatePath, "template", "t", "example/welcome.html", "Path to email HTML template")
@@ -40,12 +40,18 @@ func main() {
 		log.Fatalf("❌ Failed to parse CSV: %v", err)
 	}
 
+	// Summary counters
+	sentCount := 0
+	failCount := 0
+	skippedCount := 0
+
 	// Iterate through recipients and process emails
 	for i, r := range recipients {
 		// Render the email template with dynamic fields
 		rendered, err := email.RenderTemplate(r, templatePath)
 		if err != nil {
 			log.Printf("❌ Failed to render email for %s: %v", r.Email, err)
+			failCount++
 			continue
 		}
 
@@ -58,11 +64,14 @@ func main() {
 		}
 		if len(missingFields) > 0 {
 			log.Printf("⚠️ Missing fields [%v] in CSV for %s", missingFields, r.Email)
+			skippedCount++
+			continue
 		}
 
 		// If dry-run, just print the email to console
 		if dryRun {
 			fmt.Printf("📩 Email #%d for %s (dry-run):\n%s\n\n", i+1, r.Email, rendered)
+			sentCount++
 			continue
 		}
 
@@ -70,8 +79,14 @@ func main() {
 		err = email.SendEmail(cfg.SMTP, r.Email, subject, rendered)
 		if err != nil {
 			log.Printf("❌ Failed to send email to %s: %v", r.Email, err)
+			failCount++
 		} else {
 			log.Printf("✅ Sent email to %s", r.Email)
+			sentCount++
 		}
 	}
+
+	// final summary
+	fmt.Println()
+	fmt.Printf("📊 Summary: Sent ✅ %d | Failed ❌ %d | Skipped ⚠️ %d\n", sentCount, failCount, skippedCount)
 }
