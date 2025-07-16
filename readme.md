@@ -3,7 +3,6 @@
 </p>
 
 
-# 📨 Mailgrid
 
 **Mailgrid** is a high-performance, ultra-lightweight CLI tool written in Go for sending bulk emails via SMTP from CSV or Google Sheets (coming soon). Built for speed, reliability, and minimalism — no bloated web UIs, just powerful automation.
 
@@ -11,12 +10,42 @@
 
 ## 🚀 Features
 
-- ✅ Concurrent email sending with rate limiting
-- ✅ SMTP support (Zoho, Gmail, custom)
-- ✅ CSV-based recipient import (Google Sheets coming soon)
-- ✅ Dynamic templating via Go’s native `text/template`
-- ✅ Retries, timeouts, and delivery logs
-- ✅ Lightweight config via `config.json`
-- 🛠️ Built with high throughput and low latency in mind
+Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV files via SMTP — no web UI, just powerful automation.
+
+---
+
+### 📬 Email Capabilities
+- **Bulk email sending** from any CSV file
+- **Dynamic templating** using Go’s native `text/template`
+    - Supports placeholders like `{{.name}}`, `{{.company}}`, etc.
+- **Custom subject lines** via CLI flag or config
+
+---
+
+### ⚙️ Configuration & Control
+- **SMTP support** for Gmail, Zoho, Outlook, and custom servers
+- **Lightweight config** via a simple `config.json`
+- **Dry-run mode** (`--dry-run`) to preview rendered emails without sending
+- **Missing field warnings** for incomplete CSV rows
+
+---
+
+### 🛠️ Developer Experience
+- **Built with Go** — fast, static binary with zero dependencies
+- **Cross-platform support** — runs on Linux, macOS, and Windows
+- **Live CLI logs** for each email: success ✅ or failure ❌
+- **Production-ready directory structure** with modular packages
+
+---
+
+### 🔜 Coming Soon
+- 📎 Attachments support
+- 🔄 Google Sheets integration
+- 🔁 Retry logic with exponential backoff
+- 🚦 Concurrency & rate-limiting
+- 📊 Delivery summary metrics (sent, failed, skipped)
+
+
+
 
 
