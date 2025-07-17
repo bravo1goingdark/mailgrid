@@ -1,3 +1,5 @@
 email,name,timestamp,company
 ak0704176@gmail.com,Ashutosh,15/07/2025 11:29:41,mailgrid
-shivamkumar87148@gmail.com,Shivendu,14/07/2025 11:29:41,mailgrid
+alice@example.com,Alice,15/07/2025 11:29:41,Acme Corp
+"bob@example.com,",",,",,Widgets Inc
+invalid@,Charlie,14/07/2025 11:29:41,Gadgetry

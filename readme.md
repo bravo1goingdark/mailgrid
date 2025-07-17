@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/your-org/mailgrid/tree/main/docs">
+  <a href="https://github.com/bravo1goingdark/mailgrid/tree/main/docs/docs.md">
     <img src="https://img.shields.io/badge/📘 Documentation-blue?style=for-the-badge" alt="Docs Badge"/>
   </a>
   <a href="https://github.com/bravo1goingdark/blipmq">
