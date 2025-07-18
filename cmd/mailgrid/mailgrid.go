@@ -5,11 +5,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/spf13/pflag"
 	preview "mailgrid/cmd/preview"
 	"mailgrid/config"
 	"mailgrid/email"
 	"mailgrid/parser"
+
+	"github.com/spf13/pflag"
 )
 
 func main() {
@@ -29,7 +30,7 @@ func main() {
 	pflag.StringVarP(&templatePath, "template", "t", "example/welcome.html", "Path to email HTML template")
 	pflag.StringVarP(&subject, "subject", "s", "Test Email from Mailgrid", "Subject line of the email")
 	pflag.BoolVar(&dryRun, "dry-run", false, "Render emails to console without sending")
-	pflag.BoolVar(&showPreview, "preview", false, "Start a local server to preview the rendered email in browser")
+	pflag.BoolVarP(&showPreview, "preview", "P", false, "Start a local server to preview the rendered email in browser")
 	pflag.IntVar(&previewPort, "preview-port", 8080, "Port for preview server (default 8080)")
 
 	pflag.Parse()
