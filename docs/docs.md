@@ -19,13 +19,15 @@ mailgrid send \
 
 ### 📁 Available Flags
 
-| Flag         | Shorthand | Default Value               | Description                                                                |
-| ------------ | --------- | --------------------------- | -------------------------------------------------------------------------- |
-| `--env`      | —         | `example/config.json`       | Path to the SMTP config JSON file (required for sending).                  |
-| `--csv`      | —         | `example/test_contacts.csv` | Path to the recipient CSV file. Must include headers like `email`, `name`. |
-| `--template` | `-t`      | `example/welcome.html`      | Path to the HTML email template with Go-style placeholders.                |
-| `--subject`  | `-s`      | `Test Email from Mailgrid`  | The subject line of the email. Can be overridden per run.                  |
-| `--dry-run`  | —         | `false`                     | If set, renders the emails to console without sending them via SMTP.       |
+| Flag            | Shorthand | Default Value               | Description                                                                |
+| --------------- | --------- | --------------------------- | -------------------------------------------------------------------------- |
+| `--env`         | —         | `example/config.json`       | Path to the SMTP config JSON file (required for sending).                  |
+| `--csv`         | —         | `example/test_contacts.csv` | Path to the recipient CSV file. Must include headers like `email`, `name`. |
+| `--template`    | `-t`      | `example/welcome.html`      | Path to the HTML email template with Go-style placeholders.                |
+| `--subject`     | `-s`      | `Test Email from Mailgrid`  | The subject line of the email. Can be overridden per run.                 |
+| `--dry-run`     | —         | `false`                     | If set, renders the emails to console without sending them via SMTP.       |
+| `--preview`     | —         | `false`                     | Start a local server to preview the rendered email in browser.             |
+| `--preview-port`| —         | `8080`                      | Port for the preview server when using --preview flag.                     |
 
 ---
 
@@ -80,7 +82,31 @@ Useful for previewing the email output and debugging templates.
 
 ---
 
-### ✅ Example: Preview Mode
+### 📬 Email Preview Server
+
+You can preview your rendered email templates in a web browser before sending:
+
+```bash
+mailgrid --preview --csv example/test_contacts.csv --template example/welcome.html
+```
+
+This will:
+1. Load the first recipient from your CSV file
+2. Render the template with their data
+3. Start a local preview server
+4. Open the rendered email in your default web browser
+
+The preview server runs on port 8080 by default. You can customize this using the `--preview-port` flag:
+
+```bash
+mailgrid --preview --preview-port 3000 --csv contacts.csv --template welcome.html
+```
+
+The preview server can be stopped by pressing Ctrl+C in your terminal.
+
+---
+
+### ✅ Example: Dry Run Mode
 
 ```bash
 mailgrid send \
