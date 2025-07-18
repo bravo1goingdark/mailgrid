@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
-	"github.com/spf13/pflag"
+	preview "mailgrid/cmd/preview"
 	"mailgrid/config"
 	"mailgrid/email"
 	"mailgrid/parser"
+
+	"github.com/spf13/pflag"
 )
 
 func main() {
@@ -17,6 +20,8 @@ func main() {
 		templatePath string
 		subject      string
 		dryRun       bool
+		showPreview  bool
+		previewPort  int
 	)
 
 	// flag definitions
@@ -25,19 +30,41 @@ func main() {
 	pflag.StringVarP(&templatePath, "template", "t", "example/welcome.html", "Path to email HTML template")
 	pflag.StringVarP(&subject, "subject", "s", "Test Email from Mailgrid", "Subject line of the email")
 	pflag.BoolVar(&dryRun, "dry-run", false, "Render emails to console without sending")
+	pflag.BoolVarP(&showPreview, "preview", "p", false, "Start a local server to preview the rendered email in browser")
+	pflag.IntVar(&previewPort, "port", 8080, "Port for preview server (default 8080)")
 
 	pflag.Parse()
 
 	// Load config from JSON
 	cfg, err := config.LoadConfig(envPath)
 	if err != nil {
-		log.Fatalf("❌ Failed to load config: %v", err)
+		fmt.Printf("❌ Failed to load config: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Parse recipients from CSV
 	recipients, err := parser.ParseCSV(csvPath)
 	if err != nil {
-		log.Fatalf("❌ Failed to parse CSV: %v", err)
+		fmt.Printf("❌ Failed to parse CSV: %v\n", err)
+		os.Exit(1)
+	}
+
+	if showPreview {
+		if len(recipients) == 0 {
+			fmt.Println("No recipients found in CSV for preview.")
+			os.Exit(1)
+		}
+		first := recipients[0]
+		rendered, err := email.RenderTemplate(first, templatePath)
+		if err != nil {
+			fmt.Printf("Failed to render template for preview: %v\n", err)
+			os.Exit(1)
+		}
+		if err := preview.StartServer(rendered, previewPort); err != nil {
+			fmt.Printf("❌ Preview server error: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	// Summary counters
