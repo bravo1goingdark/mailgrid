@@ -27,7 +27,7 @@ mailgrid send \
 | `--subject`     | `-s`      | `Test Email from Mailgrid`  | The subject line of the email. Can be overridden per run.                 |
 | `--dry-run`     | —         | `false`                     | If set, renders the emails to console without sending them via SMTP.       |
 | `--preview`     | `-p`       | `false`                     | Start a local server to preview the rendered email in browser.             |
-| `--preview-port`| `-port`   | `8080`                      | Port for the preview server when using --preview flag.                     |
+| `--preview-port`| `--port`   | `8080`                      | Port for the preview server when using --preview flag.                     |
 
 ---
 
@@ -84,26 +84,21 @@ Useful for previewing the email output and debugging templates.
 
 ### 📬 Email Preview Server
 
-You can preview your rendered email templates in a web browser before sending:
-
 ```bash
-mailgrid -p --csv example/test_contacts.csv --template example/welcome.html
-# or
+# Preview using default example CSV and HTML template
+mailgrid --preview
+
+# Shorthand flag with defaults
+mailgrid -p
+
+# Provide custom CSV and HTML template
 mailgrid --preview --csv example/test_contacts.csv --template example/welcome.html
-```
 
-This will:
-1. Load the first recipient from your CSV file
-2. Render the template with their data
-3. Start a local preview server
-4. Open the rendered email in your default web browser
+# Shorthand with custom port
+mailgrid -p --port 7070 --csv data/contacts.csv --template templates/offer.html
 
-The preview server runs on port 8080 by default. You can customize this using the `--preview-port` flag:
 
-```bash
-mailgrid --preview -port 3000 --csv contacts.csv --template welcome.html
-# or
-mailgrid -p --preview-port 3000 --csv contacts.csv --template welcome.html
+
 ```
 
 The preview server can be stopped by pressing Ctrl+C in your terminal.
