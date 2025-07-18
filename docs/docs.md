@@ -26,7 +26,7 @@ mailgrid send \
 | `--template`    | `-t`      | `example/welcome.html`      | Path to the HTML email template with Go-style placeholders.                |
 | `--subject`     | `-s`      | `Test Email from Mailgrid`  | The subject line of the email. Can be overridden per run.                 |
 | `--dry-run`     | —         | `false`                     | If set, renders the emails to console without sending them via SMTP.       |
-| `--preview`     | —         | `false`                     | Start a local server to preview the rendered email in browser.             |
+| `--preview`     | `-P`       | `false`                     | Start a local server to preview the rendered email in browser.             |
 | `--preview-port`| —         | `8080`                      | Port for the preview server when using --preview flag.                     |
 
 ---
@@ -87,6 +87,8 @@ Useful for previewing the email output and debugging templates.
 You can preview your rendered email templates in a web browser before sending:
 
 ```bash
+mailgrid -P --csv example/test_contacts.csv --template example/welcome.html
+# or
 mailgrid --preview --csv example/test_contacts.csv --template example/welcome.html
 ```
 
