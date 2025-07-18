@@ -30,8 +30,8 @@ func main() {
 	pflag.StringVarP(&templatePath, "template", "t", "example/welcome.html", "Path to email HTML template")
 	pflag.StringVarP(&subject, "subject", "s", "Test Email from Mailgrid", "Subject line of the email")
 	pflag.BoolVar(&dryRun, "dry-run", false, "Render emails to console without sending")
-	pflag.BoolVarP(&showPreview, "preview", "P", false, "Start a local server to preview the rendered email in browser")
-	pflag.IntVar(&previewPort, "preview-port", 8080, "Port for preview server (default 8080)")
+	pflag.BoolVarP(&showPreview, "preview", "p", false, "Start a local server to preview the rendered email in browser")
+	pflag.IntVar(&previewPort, "port", 8080, "Port for preview server (default 8080)")
 
 	pflag.Parse()
 
