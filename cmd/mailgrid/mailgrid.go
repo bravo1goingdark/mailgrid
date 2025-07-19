@@ -9,6 +9,7 @@ import (
 	"mailgrid/config"
 	"mailgrid/email"
 	"mailgrid/parser"
+	"mailgrid/utils"
 
 	"github.com/spf13/pflag"
 )
@@ -22,6 +23,8 @@ func main() {
 		dryRun       bool
 		showPreview  bool
 		previewPort  int
+		resume       bool
+		resetOffset  bool
 	)
 
 	// flag definitions
@@ -32,6 +35,8 @@ func main() {
 	pflag.BoolVar(&dryRun, "dry-run", false, "Render emails to console without sending")
 	pflag.BoolVarP(&showPreview, "preview", "p", false, "Start a local server to preview the rendered email in browser")
 	pflag.IntVar(&previewPort, "port", 8080, "Port for preview server (default 8080)")
+	pflag.BoolVar(&resume, "resume", false, "Resume from last saved offset")
+	pflag.BoolVar(&resetOffset, "reset-offset", false, "Reset offset and send from beginning")
 
 	pflag.Parse()
 
@@ -67,13 +72,35 @@ func main() {
 		return
 	}
 
+	// Reset offset if flag is passed
+	if resetOffset {
+		if err := utils.ResetOffset(); err != nil && !os.IsNotExist(err) {
+			log.Fatalf("❌ Failed to reset offset: %v", err)
+		}
+		log.Println("🔁 Offset reset. Starting from the beginning.")
+	}
+
+	// Load offset if resume flag is passed
+	startIndex := 0
+	if resume {
+		offset, err := utils.LoadOffset()
+		if err == nil {
+			startIndex = offset
+			log.Printf("🔁 Resuming from offset: %d\n", startIndex)
+		} else {
+			log.Println("⚠️ No saved offset found. Starting from the beginning.")
+		}
+	}
+
 	// Summary counters
 	sentCount := 0
 	failCount := 0
 	skippedCount := 0
 
 	// Iterate through recipients and process emails
-	for i, r := range recipients {
+	for i := startIndex; i < len(recipients); i++ {
+		r := recipients[i]
+
 		// Render the email template with dynamic fields
 		rendered, err := email.RenderTemplate(r, templatePath)
 		if err != nil {
@@ -99,6 +126,7 @@ func main() {
 		if dryRun {
 			fmt.Printf("📩 Email #%d for %s (dry-run):\n%s\n\n", i+1, r.Email, rendered)
 			sentCount++
+			_ = utils.SaveOffset(i + 1) // save the offset during dry-run
 			continue
 		}
 
@@ -110,6 +138,7 @@ func main() {
 		} else {
 			log.Printf("✅ Sent email to %s", r.Email)
 			sentCount++
+			_ = utils.SaveOffset(i + 1) // Save offset after successful send
 		}
 	}
 
