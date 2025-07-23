@@ -4,7 +4,6 @@ import (
 	"log"
 	"mailgrid/config"
 	"mailgrid/parser"
-	"net/smtp"
 	"sync"
 )
 
@@ -18,7 +17,6 @@ type Task struct {
 
 type worker struct {
 	ID        int
-	SMTPConn  *smtp.Client
 	TaskQueue <-chan Task
 	RetryChan chan<- Task
 	Config    config.SMTPConfig
@@ -27,15 +25,15 @@ type worker struct {
 	BatchSize int
 }
 
-// StartDispatcher spawns workers and processes email tasks with retry and batch-mode dispatch.
+// StartDispatcher spawns workers and processes email tasks with retries and batch-mode dispatch.
 func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int) {
-	taskChan := make(chan Task, 100)
-	retryChan := make(chan Task, 100)
+	taskChan := make(chan Task, 1000)
+	retryChan := make(chan Task, 500)
 
 	var wg sync.WaitGroup
 	var retryWg sync.WaitGroup
 
-	// Start worker goroutines
+	// Spawn workers
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go startWorker(worker{
@@ -49,31 +47,30 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 		})
 	}
 
-	// Feed initial tasks
+	// Dispatch initial tasks
 	go func() {
 		for _, task := range tasks {
 			taskChan <- task
 		}
-		close(taskChan) // No more tasks to feed
+		close(taskChan)
 	}()
 
-	// Retry handler
+	// Handle retries
 	go func() {
 		for task := range retryChan {
 			if task.Retries > 0 {
 				retryWg.Add(1)
 				go func(t Task) {
 					defer retryWg.Done()
-					t.Retries--
 					taskChan <- t
 				}(task)
 			} else {
-				log.Printf("🚫 Permanent failure: %s", task.Recipient.Email)
+				log.Printf("Permanent failure: %s", task.Recipient.Email)
 			}
 		}
 	}()
 
-	wg.Wait()        // Wait for all workers to finish
-	close(retryChan) // Close retry channel
-	retryWg.Wait()   // Wait for all retry submissions
+	wg.Wait()
+	close(retryChan)
+	retryWg.Wait()
 }
