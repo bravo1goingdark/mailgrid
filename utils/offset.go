@@ -3,25 +3,30 @@ package utils
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
-const OffsetFile = ".mailgrid.offset"
+const offsetFile = ".mailgrid.offset"
 
-// SaveOffset writes the given index to the offset file
-func SaveOffset(index int) error {
-	return os.WriteFile(OffsetFile, []byte(strconv.Itoa(index)), 0644)
-}
-
-// LoadOffset reads the last saved index from the file
-func LoadOffset() (int, error) {
-	data, err := os.ReadFile(OffsetFile)
+// LoadOffset returns the saved offset (or 0 if not found or invalid).
+func LoadOffset() int {
+	data, err := os.ReadFile(offsetFile)
 	if err != nil {
-		return 0, err
+		return 0
 	}
-	return strconv.Atoi(string(data))
+	offset, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0
+	}
+	return offset
 }
 
-// ResetOffset deletes the offset file
-func ResetOffset() error {
-	return os.Remove(OffsetFile)
+// SaveOffset writes the given offset to the file.
+func SaveOffset(offset int) {
+	os.WriteFile(offsetFile, []byte(strconv.Itoa(offset)), 0644)
+}
+
+// ResetOffset deletes the offset file.
+func ResetOffset() {
+	os.Remove(offsetFile)
 }

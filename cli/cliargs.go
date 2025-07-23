@@ -15,6 +15,8 @@ type CLIArgs struct {
 	Concurrency  int    // Number of parallel SMTP workers
 	RetryLimit   int    // Max retry attempts for failed sending
 	BatchSize    int    // Number of emails sent per SMTP batch
+	Resume       bool   // Resume sending from saved offset
+	ResetOffset  bool   // Ignore offset and start fresh
 }
 
 // ParseFlags reads command-line flags using spf13/pflag and returns a filled CLIArgs struct.
@@ -31,6 +33,8 @@ func ParseFlags() CLIArgs {
 	pflag.IntVarP(&args.Concurrency, "concurrency", "c", 1, "Number of concurrent SMTP workers")
 	pflag.IntVarP(&args.RetryLimit, "retries", "r", 1, "Retry attempts per failed email")
 	pflag.IntVar(&args.BatchSize, "batch-size", 1, "Number of emails per SMTP batch")
+	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from saved offset")
+	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Ignore offset and start from beginning")
 	pflag.Parse()
 
 	return args

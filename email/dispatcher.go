@@ -25,10 +25,10 @@ type worker struct {
 	BatchSize int
 }
 
-// StartDispatcher spawns workers and processes email tasks with retries and batch-mode dispatch.
-func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int) {
-	taskChan := make(chan Task, 1000)
-	retryChan := make(chan Task, 500)
+// StartDispatcher spawns workers and processes email tasks with retry and batch-mode dispatch.
+func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, offset int) int {
+	taskChan := make(chan Task, 100)
+	retryChan := make(chan Task, 100)
 
 	var wg sync.WaitGroup
 	var retryWg sync.WaitGroup
@@ -49,8 +49,8 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 
 	// Dispatch initial tasks
 	go func() {
-		for _, task := range tasks {
-			taskChan <- task
+		for i := offset; i < len(tasks); i++ {
+			taskChan <- tasks[i]
 		}
 		close(taskChan)
 	}()
@@ -70,7 +70,8 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 		}
 	}()
 
-	wg.Wait()
-	close(retryChan)
-	retryWg.Wait()
+	wg.Wait()                         // Wait for all workers to finish
+	close(retryChan)                  // Close retry channel
+	retryWg.Wait()                    // Wait for all retry submissions
+	return len(tasks) - len(taskChan) // Return number of successfully sent emails
 }

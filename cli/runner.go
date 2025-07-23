@@ -5,6 +5,7 @@ import (
 	"mailgrid/config"
 	"mailgrid/email"
 	"mailgrid/parser"
+	"mailgrid/utils"
 	"mailgrid/utils/preview"
 	"time"
 )
@@ -25,6 +26,19 @@ func Run(args CLIArgs) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse CSV: %w", err)
 	}
+	// Handle offset logic
+	if args.ResetOffset { // <-- If reset is requested
+		utils.ResetOffset() // <-- Delete any saved offset
+	}
+	startFrom := 0
+	if args.Resume { // <-- If resume is requested
+		startFrom = utils.LoadOffset() // <-- Load saved offset
+	}
+	// Edge case: make sure offset doesn't exceed available recipients
+	if startFrom > len(recipients) {
+		return fmt.Errorf("resume offset exceeds number of recipients")
+	}
+	recipients = recipients[startFrom:] // <-- Trim recipient list to offset
 
 	// If preview mode is enabled, serve one rendered email via localhost
 	if args.ShowPreview {
@@ -53,7 +67,10 @@ func Run(args CLIArgs) error {
 	// Otherwise, send emails using dispatcher
 	start := time.Now()
 	email.SetRetryLimit(args.RetryLimit)
-	email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize)
+
+	// Send emails and track how many succeeded
+	setCount := email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, startFrom)
+	utils.SaveOffset(startFrom + setCount) // Save new offset after sending
 
 	fmt.Printf("\u2705 Completed in %s using %d workers\n", time.Since(start), args.Concurrency)
 	return nil
