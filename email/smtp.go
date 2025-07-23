@@ -4,27 +4,44 @@ import (
 	"crypto/tls"
 	"fmt"
 	"mailgrid/config"
+	"net"
 	"net/smtp"
+	"time"
 )
 
 // ConnectSMTP establishes a persistent, authenticated SMTP client with TLS.
 func ConnectSMTP(cfg config.SMTPConfig) (*smtp.Client, error) {
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	conn, err := smtp.Dial(addr)
+
+	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("dial error: %w", err)
+		return nil, fmt.Errorf("SMTP dial error: %w", err)
 	}
-	if ok, _ := conn.Extension("STARTTLS"); ok {
+
+	client, err := smtp.NewClient(conn, cfg.Host)
+	if err != nil {
+		return nil, fmt.Errorf("SMTP client init error: %w", err)
+	}
+
+	if ok, _ := client.Extension("STARTTLS"); ok {
 		tlsconfig := &tls.Config{ServerName: cfg.Host}
-		if err = conn.StartTLS(tlsconfig); err != nil {
-			_ = conn.Close()
-			return nil, fmt.Errorf("starttls error: %w", err)
+		if err = client.StartTLS(tlsconfig); err != nil {
+			err := client.Close()
+			if err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("STARTTLS error: %w", err)
 		}
 	}
+
 	auth := smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
-	if err = conn.Auth(auth); err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("auth error: %w", err)
+	if err = client.Auth(auth); err != nil {
+		err := client.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("SMTP auth error: %w", err)
 	}
-	return conn, nil
+
+	return client, nil
 }
