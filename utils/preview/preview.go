@@ -1,8 +1,8 @@
-// Package preview provides a local HTTP server for previewing rendered emails.
 package preview
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -39,8 +39,8 @@ func StartServer(rendered string, port int) error {
 		}
 	}()
 
-	fmt.Printf("🌐 Preview server running at http://localhost:%d (Ctrl+C to stop)\n", port)
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+	fmt.Printf("Preview server running at http://localhost:%d (Ctrl+C to stop)\n", port)
+	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("server error: %w", err)
 	}
 	return nil
