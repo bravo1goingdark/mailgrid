@@ -148,15 +148,19 @@ Set the number of parallel SMTP workers to use when sending emails.
 * Each worker maintains a **persistent SMTP connection**.
 * Improves speed by sending multiple emails at once.
 * 🛑 **Recommended: Keep ≤ 5** unless you're confident about your SMTP provider's rate limits.
+* 📤 **Outputs:**
+    - `success.csv`: all emails sent successfully
+    - `failed.csv`: emails that failed after all retries
 
-Example:
+**Example:**
 
 ```bash
 mailgrid send \
   --csv contacts.csv \
   --template welcome.html \
   --subject "Hi {{ .name }}" \
-  --concurrency 5 
+  --concurrency 5
+
 ```
 
 or using shorthand:
