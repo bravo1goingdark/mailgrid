@@ -3,11 +3,13 @@ package email
 import (
 	"log"
 	"mailgrid/logger"
+	"math/rand"
 	"net/smtp"
 	"time"
 )
 
 var retryLimit = 0
+var maxBackoff = 10 * time.Second // maximum wait before retry
 
 // SetRetryLimit sets the max retry attempts per failed email, with exponential backoff.
 func SetRetryLimit(limit int) {
@@ -34,7 +36,6 @@ func startWorker(w worker) {
 	for {
 		task, ok := <-w.TaskQueue
 		if !ok {
-			// Final flush if remaining tasks in batch
 			if len(batch) > 0 {
 				processBatch(w, client, batch)
 			}
@@ -50,23 +51,31 @@ func startWorker(w worker) {
 	}
 }
 
+// processBatch handles the sending of a batch of emails with retry logic and async backoff.
 func processBatch(w worker, client *smtp.Client, batch []Task) {
 	for _, task := range batch {
 		err := SendWithClient(client, task)
 		if err != nil {
 			log.Printf("[Worker %d] Failed to send to %s: %v", w.ID, task.Recipient.Email, err)
+
 			if task.Retries < retryLimit {
 				task.Retries++
+
 				backoff := time.Duration(1<<task.Retries) * time.Second
-				log.Printf("[Worker %d] Retrying %s in %v (attempt %d)", w.ID, task.Recipient.Email, backoff, task.Retries)
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+				jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
+				delay := backoff + jitter
 
-				time.Sleep(backoff)
+				log.Printf("[Worker %d] Retrying %s in %v (attempt %d)", w.ID, task.Recipient.Email, delay, task.Retries)
 
+				// Schedule retry asynchronously without blocking the worker
 				w.RetryWg.Add(1)
-				go func(t Task) {
+				time.AfterFunc(delay, func() {
 					defer w.RetryWg.Done()
-					w.RetryChan <- t
-				}(task)
+					w.RetryChan <- task
+				})
 			} else {
 				logger.LogFailure(task.Recipient.Email, task.Subject)
 			}
