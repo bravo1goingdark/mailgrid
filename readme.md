@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/readme-banner.svg" alt="Mailgrid Logo" width="100%" height="100%"/>
+  <img src="./assets/readme-banner-mailgrid.svg" alt="Mailgrid Logo" width="100%" height="100%"/>
 </p>
 
 <p align="center">
