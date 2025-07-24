@@ -27,8 +27,8 @@ type worker struct {
 
 // StartDispatcher spawns workers and processes email tasks with retry and batch-mode dispatch.
 func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, offset int) int {
-	taskChan := make(chan Task, 100)
-	retryChan := make(chan Task, 100)
+	taskChan := make(chan Task, 1000)
+	retryChan := make(chan Task, 500)
 
 	var wg sync.WaitGroup
 	var retryWg sync.WaitGroup
