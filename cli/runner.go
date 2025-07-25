@@ -35,7 +35,7 @@ func Run(args CLIArgs) error {
 		}
 		defer stream.Close()
 
-		recipients, err = parser.ParseCSV(stream)
+		recipients, err = parser.ParseCSVFromReader(stream)
 		if err != nil {
 			return fmt.Errorf("failed to parse Google Sheet as CSV: %w", err)
 		}

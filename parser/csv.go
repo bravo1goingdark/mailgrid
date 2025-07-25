@@ -9,28 +9,15 @@ import (
 	"strings"
 )
 
-// ParseCSV reads a CSV file and returns a list of Recipients.
+// ParseCSVFromReader reads a CSV from any io.Reader and returns a list of Recipients.
 // It expects one column to be named 'email' and uses other columns as dynamic data.
-func ParseCSV(path string) ([]Recipient, error) {
-	// Open the CSV file
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	// close the file when done (even if an error occurs later)
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			log.Fatalf("Failed to close config file: %v", err)
-		}
-	}(file)
-
+func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 	// create a new CSV reader instance
-	reader := csv.NewReader(file)
-	reader.TrimLeadingSpace = true // clean up any accidental spaces
+	csvReader := csv.NewReader(reader)
+	csvReader.TrimLeadingSpace = true // clean up any accidental spaces
 
 	// read the first row as header (column names)
-	headers, err := reader.Read()
+	headers, err := csvReader.Read()
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +42,7 @@ func ParseCSV(path string) ([]Recipient, error) {
 
 	// Read the remaining rows (one recipient per row)
 	for {
-		record, err := reader.Read()
+		record, err := csvReader.Read()
 		if err == io.EOF {
 			break // end of file reached
 		}
@@ -88,4 +75,24 @@ func ParseCSV(path string) ([]Recipient, error) {
 
 	// Return the full list of recipients
 	return recipients, nil
+}
+
+// ParseCSV reads a CSV file from a given path and returns a list of Recipients.
+// This is a wrapper around ParseCSVFromReader for convenience.
+func ParseCSV(path string) ([]Recipient, error) {
+	// Open the CSV file
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	// close the file when done (even if an error occurs later)
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			log.Fatalf("Failed to close config file: %v", err)
+		}
+	}(file)
+
+	// Delegate to reader-based parser
+	return ParseCSVFromReader(file)
 }
