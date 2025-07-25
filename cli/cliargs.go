@@ -22,10 +22,10 @@ type CLIArgs struct {
 func ParseFlags() CLIArgs {
 	var args CLIArgs
 
-	pflag.StringVar(&args.EnvPath, "env", "example/config.json", "Path to SMTP config JSON")
-	pflag.StringVar(&args.CSVPath, "csv", "example/test_contacts.csv", "Path to recipient CSV file")
+	pflag.StringVar(&args.EnvPath, "env", "", "Path to SMTP config JSON")
+	pflag.StringVar(&args.CSVPath, "csv", "", "Path to recipient CSV file")
 	pflag.StringVar(&args.SheetURL, "sheet-url", "", "Public Google Sheet URL (replaces --csv)")
-	pflag.StringVarP(&args.TemplatePath, "template", "t", "example/welcome.html", "Path to email HTML template")
+	pflag.StringVarP(&args.TemplatePath, "template", "t", "", "Path to email HTML template")
 	pflag.StringVarP(&args.Subject, "subject", "s", "Test Email from Mailgrid", "Email subject (templated with {{ .field }})")
 	pflag.BoolVar(&args.DryRun, "dry-run", false, "Render emails to console without sending")
 	pflag.BoolVarP(&args.ShowPreview, "preview", "p", false, "Start a local preview server to view rendered email")

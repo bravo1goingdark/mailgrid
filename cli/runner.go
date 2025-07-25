@@ -19,9 +19,11 @@ func Run(args CLIArgs) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	// Validate mutual exclusivity of CSV and SheetURL
-	if args.SheetURL != "" && args.CSVPath != "example/fake_batch_1.csv" {
-		return fmt.Errorf("must provide either CSV or SheetURL, not both")
+	if args.CSVPath == "" && args.SheetURL == "" {
+		return fmt.Errorf("❌ You must provide either --csv or --sheet-url")
+	}
+	if args.CSVPath != "" && args.SheetURL != "" {
+		return fmt.Errorf("❌ Provide only one of --csv or --sheet-url, not both")
 	}
 
 	// Parse Recipients

@@ -15,23 +15,25 @@ mailgrid send \
   --subject "Welcome!" \
   --concurrency 5 \
   --retry-limit 3
-  
+
 ```
 
 ### 📁 Available Flags
 
-| Flag             | Shorthand | Default Value               | Description                                                                 |
-|------------------|-----------|-----------------------------|-----------------------------------------------------------------------------|
-| `--env`          | —         | `example/config.json`       | Path to the SMTP config JSON file (required for sending).                   |
-| `--csv`          | —         | `example/test_contacts.csv` | Path to the recipient CSV file. Must include headers like `email`, `name`.  |
-| `--template`     | `-t`      | `example/welcome.html`      | Path to the HTML email template with Go-style placeholders.                 |
-| `--subject`      | `-s`      | `Test Email from Mailgrid`  | The subject line of the email. Can be overridden per run.                   |
-| `--dry-run`      | —         | `false`                     | If set, renders the emails to console without sending them via SMTP.        |
-| `--preview`      | `-p`      | `false`                     | Start a local server to preview the rendered email in browser.              |
-| `--preview-port` | `--port`  | `8080`                      | Port for the preview server when using `--preview` flag.                    |
-| `--concurrency`  | `-c`      | `1`                         | Number of parallel worker goroutines that send emails concurrently.         |
-| `--retries`      | `-r`      | `2`                         | Maximum retry attempts per email on transient errors (exponential backoff). |
-| `--batch-size`   | _         | `1`                         | Number of emails per SMTP batch                                             |
+| Flag             | Shorthand | Default Value              | Description                                                                 |
+| ---------------- | --------- | -------------------------- | --------------------------------------------------------------------------- |
+| `--env`          | —         | `"`                        | Path to the SMTP config JSON file (required for sending).                   |
+| `--csv`          | —         | `"`                        | Path to the recipient CSV file. Must include headers like `email`, `name`.  |
+| `--sheet-url`    | —         | `""`                       | Google Sheet CSV URL as an alternative to local `--csv` file.               |
+| `--template`     | `-t`      | `example/welcome.html`     | Path to the HTML email template with Go-style placeholders.                 |
+| `--subject`      | `-s`      | `Test Email from Mailgrid` | The subject line of the email. Can be overridden per run.                   |
+| `--dry-run`      | —         | `false`                    | If set, renders the emails to console without sending them via SMTP.        |
+| `--preview`      | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.              |
+| `--preview-port` | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                    |
+| `--concurrency`  | `-c`      | `1`                        | Number of parallel worker goroutines that send emails concurrently.         |
+| `--retries`      | `-r`      | `2`                        | Maximum retry attempts per email on transient errors (exponential backoff). |
+| `--batch-size`   | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).      |
+|  |
 
 ### 📌 Flag Descriptions
 
@@ -55,10 +57,34 @@ Path to a required SMTP config file in JSON format:
 
 Path to the `.csv` file containing recipients.
 
-* **Required column:** `email` (case-insensitive).
-* Optional columns (e.g. `name`, `company`) can be referenced from the template.
+- **Required column:** `email` (case-insensitive).
+- Optional columns (e.g. `name`, `company`) can be referenced from the template.
 
 Each row becomes one email.
+
+---
+
+---
+
+#### `--sheet-url`
+
+Fetch recipients from a **public Google Sheet** instead of a local CSV.
+
+- **Required column:** `email` (case-insensitive).
+- Optional columns (e.g. `name`, `company`) can be used in the email template.
+- Each row becomes one email.
+- ⚠️ Currently works **only for public Google Sheets** (set to "Anyone with the link can view").
+
+**Example:**
+
+```bash
+mailgrid --env example/config.json \
+  --sheet-url "https://docs.google.com/spreadsheets/d/1EUh5VWlSNtrlEIJ6SjJAQ9kYAcf4XrlsIIwXtYjImKc/edit?gid=1980978683#gid=1980978683" \
+  -t example/welcome.html \
+  -s "Welcome {{.name}}" \
+  -c 5 \
+  --batch-size 5
+```
 
 ---
 
@@ -68,7 +94,7 @@ Path to an HTML (or plain-text) email template rendered with Go’s `text/templa
 
 **Interpolation**
 
-* Use `{{ .ColumnName }}` to inject values from each CSV row—e.g. `{{ .email }}`, `{{ .name }}`, `{{ .company }}`.
+- Use `{{ .ColumnName }}` to inject values from each CSV row—e.g. `{{ .email }}`, `{{ .name }}`, `{{ .company }}`.
 
 Example:
 
@@ -83,9 +109,9 @@ Example:
 
 Define the **subject line** for each outgoing email.
 
-* Accepts **plain text** or Go `text/template` placeholders—e.g. `Welcome, {{ .name }}!`.
-* Overrides the default subject (`Test Email from Mailgrid`) if one isn’t already set.
-* Placeholders are resolved with the same CSV columns available to your template.
+- Accepts **plain text** or Go `text/template` placeholders—e.g. `Welcome, {{ .name }}!`.
+- Overrides the default subject (`Test Email from Mailgrid`) if one isn’t already set.
+- Placeholders are resolved with the same CSV columns available to your template.
 
 Example:
 
@@ -102,9 +128,9 @@ mailgrid send \
 
 If enabled, Mailgrid **renders the emails but does not send them via SMTP**.
 
-* Print the fully rendered output for each recipient to the console.
-* Helpful for **debugging templates**, verifying CSV mapping, and checking final email content before a live sending.
-* Can be combined with `--concurrency` to speed up rendering.
+- Print the fully rendered output for each recipient to the console.
+- Helpful for **debugging templates**, verifying CSV mapping, and checking final email content before a live sending.
+- Can be combined with `--concurrency` to speed up rendering.
 
 Example:
 
@@ -145,12 +171,12 @@ The preview server can be stopped by pressing Ctrl+C in your terminal.
 
 Set the number of parallel SMTP workers to use when sending emails.
 
-* Each worker maintains a **persistent SMTP connection**.
-* Improves speed by sending multiple emails at once.
-* 🛑 **Recommended: Keep ≤ 5** unless you're confident about your SMTP provider's rate limits.
-* 📤 **Outputs:**
-    - `success.csv`: all emails sent successfully
-    - `failed.csv`: emails that failed after all retries
+- Each worker maintains a **persistent SMTP connection**.
+- Improves speed by sending multiple emails at once.
+- 🛑 **Recommended: Keep ≤ 5** unless you're confident about your SMTP provider's rate limits.
+- 📤 **Outputs:**
+  - `success.csv`: all emails sent successfully
+  - `failed.csv`: emails that failed after all retries
 
 **Example:**
 
@@ -174,24 +200,26 @@ mailgrid send \
 ```
 
 ---
+
 #### `--retries` / `-r`
 
 Set how many times a failed email will be retried before being marked as a failure.
 
-* Retries are spaced using **exponential backoff**:  
-Delay = `2^n seconds` between each retry attempt.
-* A small **jitter (random delay)** is added to each retry to avoid **thundering herd** problems when multiple failures occur at once.
-* `total delay = 2^n + rand(0,1)`
+- Retries are spaced using **exponential backoff**:  
+  Delay = `2^n seconds` between each retry attempt.
+- A small **jitter (random delay)** is added to each retry to avoid **thundering herd** problems when multiple failures occur at once.
+- `total delay = 2^n + rand(0,1)`
 
-#### * Retries help recover from:
+#### \* Retries help recover from:
+
 - 🔌 Temporary network drops
 - 🧱 SMTP 4xx soft errors (e.g. greylisting)
 - 🕒 Provider-imposed rate limits or slow responses
 
 ### ⚠️ Best Practices
 
--  Use `--retries 2` or `3` for most production scenarios
-- Use alongside `--concurrency` and `--dry-run` for safe testing and debugging- 
+- Use `--retries 2` or `3` for most production scenarios
+- Use alongside `--concurrency` and `--dry-run` for safe testing and debugging-
 - 🚫 Avoid exceeding `3` retries unless you're handling high-stakes or critical messages
 
 Example:
@@ -234,6 +262,7 @@ Avoid large batch sizes when targeting **consumer inboxes** like:
 - 📬 Outlook/Hotmail
 
 These providers:
+
 - Enforce **aggressive rate limits**
 - Detect batched emails as potential **spam bursts**
 - May delay, throttle, or **block SMTP sessions** that deliver too many messages in one shot
@@ -266,5 +295,5 @@ mailgrid send \
   --concurrency 4 \
   --retries 3 \
   --batch-size 5
-  
+
 ```
