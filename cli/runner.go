@@ -19,11 +19,37 @@ func Run(args CLIArgs) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	// Validate mutual exclusivity of CSV and SheetURL
+	if args.SheetURL != "" && args.CSVPath != "example/fake_batch_1.csv" {
+		return fmt.Errorf("must provide either CSV or SheetURL, not both")
+	}
 
-	// Parse CSV recipients into []Recipient
-	recipients, err := parser.ParseCSV(args.CSVPath)
-	if err != nil {
-		return fmt.Errorf("failed to parse CSV: %w", err)
+	// Parse Recipients
+	var recipients []parser.Recipient
+
+	if args.SheetURL != "" {
+		// Fetch and stream public Google Sheet
+		stream, err := parser.GetSheetCSVStream(args.SheetURL)
+		if err != nil {
+			return fmt.Errorf("failed to fetch Google Sheet: %w", err)
+		}
+		defer stream.Close()
+
+		recipients, err = parser.ParseCSV(stream)
+		if err != nil {
+			return fmt.Errorf("failed to parse Google Sheet as CSV: %w", err)
+		}
+
+		// Log extracted ID and GID for transparency
+		id, gid, _ := parser.ExtractSheetInfo(args.SheetURL)
+		fmt.Printf("📄 Loaded Google Sheet: Spreadsheet ID = %s, GID = %s\n", id, gid)
+
+	} else {
+		// Default: Parse local CSV
+		recipients, err = parser.ParseCSV(args.CSVPath)
+		if err != nil {
+			return fmt.Errorf("failed to parse CSV: %w", err)
+		}
 	}
 
 	// If preview mode is enabled, serve one rendered email via localhost
