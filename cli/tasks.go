@@ -11,9 +11,9 @@ import (
 	"mailgrid/utils/preview"
 )
 
-// prepareEmailTasks renders the subject and body templates for each recipient
+// PrepareEmailTasks renders the subject and body templates for each recipient
 // and returns a list of email.Task objects ready for sending.
-func prepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl string) ([]email.Task, error) {
+func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl string) ([]email.Task, error) {
 	tmpl, err := template.New("subject").Parse(subjectTpl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid subject template: %w", err)
@@ -22,7 +22,7 @@ func prepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 	var tasks []email.Task
 	for _, r := range recipients {
 		// Skip rows with missing fields
-		if hasMissingFields(r) {
+		if HasMissingFields(r) {
 			log.Printf("⚠️ Skipping %s: missing CSV fields", r.Email)
 			continue
 		}
@@ -51,8 +51,8 @@ func prepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 	return tasks, nil
 }
 
-// hasMissingFields returns true if any field in recipient data is empty.
-func hasMissingFields(r parser.Recipient) bool {
+// HasMissingFields returns true if any field in recipient data is empty.
+func HasMissingFields(r parser.Recipient) bool {
 	for _, val := range r.Data {
 		if val == "" {
 			return true

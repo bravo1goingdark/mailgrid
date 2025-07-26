@@ -5,6 +5,7 @@ import (
 	"mailgrid/config"
 	"mailgrid/email"
 	"mailgrid/parser"
+	"mailgrid/utils"
 	"mailgrid/utils/preview"
 	"time"
 )
@@ -14,7 +15,7 @@ import (
 // 2. Parse CSV
 // 3. Render and preview/send emails
 func Run(args CLIArgs) error {
-	// Load SMTP configuration from file
+	// Load SMTP configuration from a file
 	cfg, err := config.LoadConfig(args.EnvPath)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -43,7 +44,7 @@ func Run(args CLIArgs) error {
 		}
 
 		// Log extracted ID and GID for transparency
-		id, gid, _ := parser.ExtractSheetInfo(args.SheetURL)
+		id, gid, _ := utils.ExtractSheetInfo(args.SheetURL)
 		fmt.Printf("📄 Loaded Google Sheet: Spreadsheet ID = %s, GID = %s\n", id, gid)
 
 	} else {
@@ -67,7 +68,7 @@ func Run(args CLIArgs) error {
 	}
 
 	// Render subject & body for each recipient and build email.Task list
-	tasks, err := prepareEmailTasks(recipients, args.TemplatePath, args.Subject)
+	tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, args.Subject)
 	if err != nil {
 		return err
 	}
