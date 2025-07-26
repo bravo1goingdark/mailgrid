@@ -1,19 +1,20 @@
-package tests
+package cli_test
 
 import (
 	"os"
 	"testing"
 
+	"mailgrid/cli"
 	"mailgrid/parser"
 )
 
 func TestHasMissingFields(t *testing.T) {
 	r1 := parser.Recipient{Email: "a@b.com", Data: map[string]string{"name": "Alice"}}
-	if hasMissingFields(r1) {
+	if cli.HasMissingFields(r1) {
 		t.Errorf("expected no missing fields")
 	}
 	r2 := parser.Recipient{Email: "b@b.com", Data: map[string]string{"name": ""}}
-	if !hasMissingFields(r2) {
+	if !cli.HasMissingFields(r2) {
 		t.Errorf("expected missing fields")
 	}
 }
@@ -27,14 +28,17 @@ func TestPrepareEmailTasks(t *testing.T) {
 	if _, err := tmp.WriteString(tmpl); err != nil {
 		t.Fatal(err)
 	}
-	tmp.Close()
+	err = tmp.Close()
+	if err != nil {
+		return
+	}
 
 	recipients := []parser.Recipient{
 		{Email: "a@b.com", Data: map[string]string{"name": "Alice"}},
 		{Email: "b@b.com", Data: map[string]string{"name": ""}}, // should be skipped
 	}
 
-	tasks, err := prepareEmailTasks(recipients, tmp.Name(), "Hello {{ .Data.name }}")
+	tasks, err := cli.PrepareEmailTasks(recipients, tmp.Name(), "Hello {{.name }}")
 	if err != nil {
 		t.Fatalf("prepareEmailTasks error: %v", err)
 	}
