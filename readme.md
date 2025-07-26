@@ -11,7 +11,7 @@
   </a>
 </p>
 
-**Mailgrid** is a high-performance, ultra-lightweight CLI tool written in Go for sending bulk emails via SMTP from CSV or Google Sheets (coming soon). Built for speed, reliability, and minimalism — no bloated web UIs, just powerful automation.
+**Mailgrid** is a high-performance, ultra-lightweight CLI tool written in Go for sending bulk emails via SMTP from CSV or Google Sheets. Built for speed, reliability, and minimalism — no bloated web UIs, just powerful automation.
 
 
 
@@ -51,8 +51,10 @@ Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV fi
 - 📎 Attachments support
 - 🔄 Google Sheets integration
 - 🔁 Retry logic with exponential backoff
-- 🚦 Concurrency & rate-limiting
+- 🚦 rate-limiting
 - 📊 Delivery summary metrics (sent, failed, skipped)
+
+> 📄 Licensed under BSD-3-Clause — see [LICENSE](./LICENSE)
 
 
 
