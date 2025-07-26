@@ -3,13 +3,14 @@ package parser
 import (
 	"fmt"
 	"io"
+	"mailgrid/utils"
 	"net/http"
 )
 
 // GetSheetCSVStream fetches a Google Sheet as a CSV stream.
 // It extracts the sheet ID and GID from the provided URL and constructs the export URL.
 func GetSheetCSVStream(sheetURL string) (io.ReadCloser, error) {
-	id, gid, err := ExtractSheetInfo(sheetURL)
+	id, gid, err := utils.ExtractSheetInfo(sheetURL)
 	if err != nil {
 		return nil, err
 	}
