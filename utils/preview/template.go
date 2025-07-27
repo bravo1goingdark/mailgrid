@@ -6,28 +6,50 @@ import (
 	"html/template"
 	"mailgrid/parser"
 	"os"
+	"sync"
 )
 
-// RenderTemplate loads an HTML template file and executes it with recipient data.
-func RenderTemplate(recipient parser.Recipient, templatePath string) (string, error) {
-	// Check if file exists
-	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("template file not found: %s", templatePath)
+var templateCache sync.Map // Cache parsed templates for reuse
+
+// LoadTemplate parses and caches an HTML template file by its path.
+//
+// If the template has been parsed before, it returns the cached version.
+// Otherwise, it loads and parses the template and stores it in memory.
+func LoadTemplate(path string) (*template.Template, error) {
+	if tmpl, ok := templateCache.Load(path); ok {
+		return tmpl.(*template.Template), nil
 	}
 
-	// Load and parse the HTML template
-	tmpl, err := template.ParseFiles(templatePath)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("template file not found: %s", path)
+	}
+
+	tmpl, err := template.ParseFiles(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
+		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
 
-	// Combine top-level Email and dynamic Data
+	templateCache.Store(path, tmpl)
+	return tmpl, nil
+}
+
+// RenderTemplate renders an HTML template with the given recipient's data.
+//
+// It uses caching internally for performance. Recipient values can be accessed in the template via:
+//   - {{ .Email }} for the top-level email
+//   - {{ .Data.name }}, {{ .Data.age }}, etc. for CSV fields
+func RenderTemplate(recipient parser.Recipient, templatePath string) (string, error) {
+	tmpl, err := LoadTemplate(templatePath)
+	if err != nil {
+		return "", err
+	}
+
+	// Template context: top-level Email and nested Data map
 	data := map[string]any{
 		"Email": recipient.Email,
 		"Data":  recipient.Data,
 	}
 
-	// Render to buffer
 	var out bytes.Buffer
 	if err := tmpl.Execute(&out, data); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
