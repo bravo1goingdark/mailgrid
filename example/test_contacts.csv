@@ -1,4 +1,4 @@
-Email,name,timestamp,company
-ak0704176@gmail.com,Ashutosh,15/07/2025 11:29:41,mailgrid
-kumarashutosh@flash.co,Ashutosh,15/07/2025 11:29:41,Acme Corp
-bob@gmail.com,Charlie,14/07/2025 11:29:41,Gadgetry
+Email,name,timestamp,company,score
+ak0704176@gmail.com,Ashutosh,15/07/2025 11:29:41,mailgrid,5
+kumarashutosh@flash.co,Ashutosh,15/07/2025 11:29:41,Acme Corp,10
+bob@gmail.com,Charlie,14/07/2025 11:29:41,Gadgetry,20
