@@ -1,4 +1,4 @@
-package utils
+package valid
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// validateFields ensures all fields used in the expression exist in the CSV data
-func validateFields(expr expression.Expression, recipients []parser.Recipient) error {
+// ValidateFields ensures all fields used in the expression exist in the CSV data
+func ValidateFields(expr expression.Expression, recipients []parser.Recipient) error {
 	if len(recipients) == 0 {
 		return fmt.Errorf("no recipients to validate fields")
 	}
