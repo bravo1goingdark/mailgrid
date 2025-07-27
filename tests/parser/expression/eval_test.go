@@ -1,32 +1,121 @@
-package expression
+// tests/parser/expression/eval_test.go
+package expression_test
 
 import (
-	"mailgrid/parser"
 	"testing"
+
+	"mailgrid/parser/expression"
 )
 
-func TestParseAndFilter(t *testing.T) {
-	expr, err := parser.Parse("name == Alice AND score > 5")
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
+func TestCondition_Evaluate(t *testing.T) {
+	data := map[string]string{
+		"name":     "Ashutosh",
+		"company":  "OpenAI",
+		"salary":   "50000",
+		"location": "India",
 	}
-	r1 := parser.Recipient{Email: "a@b.com", Data: map[string]string{"name": "Alice", "score": "6"}}
-	r2 := parser.Recipient{Email: "b@b.com", Data: map[string]string{"name": "Bob", "score": "7"}}
-	out := parser.Filter([]parser.Recipient{r1, r2}, expr)
-	if len(out) != 1 || out[0].Email != "a@b.com" {
-		t.Fatalf("unexpected filter result: %+v", out)
-	}
-}
 
-func TestParseOrContains(t *testing.T) {
-	expr, err := parser.Parse("email contains example.com OR name == Bob")
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
+	tests := []struct {
+		name     string
+		expr     expression.Expression
+		expected bool
+	}{
+		{
+			name:     "Equal comparison",
+			expr:     expression.Condition{Field: "name", Op: "=", Value: "Ashutosh"},
+			expected: true,
+		},
+		{
+			name:     "Not Equal comparison",
+			expr:     expression.Condition{Field: "company", Op: "!=", Value: "Google"},
+			expected: true,
+		},
+		{
+			name:     "Contains comparison",
+			expr:     expression.Condition{Field: "company", Op: "contains", Value: "open"},
+			expected: true,
+		},
+		{
+			name:     "StartsWith comparison",
+			expr:     expression.Condition{Field: "location", Op: "startsWith", Value: "Ind"},
+			expected: true,
+		},
+		{
+			name:     "EndsWith comparison",
+			expr:     expression.Condition{Field: "location", Op: "endsWith", Value: "dia"},
+			expected: true,
+		},
+		{
+			name:     "Numeric greater than",
+			expr:     expression.Condition{Field: "salary", Op: ">", Value: "40000"},
+			expected: true,
+		},
+		{
+			name:     "Numeric less than",
+			expr:     expression.Condition{Field: "salary", Op: "<", Value: "60000"},
+			expected: true,
+		},
+		{
+			name: "AND condition",
+			expr: expression.And{
+				Left:  expression.Condition{Field: "company", Op: "=", Value: "OpenAI"},
+				Right: expression.Condition{Field: "location", Op: "=", Value: "India"},
+			},
+			expected: true,
+		},
+		{
+			name: "OR condition",
+			expr: expression.Or{
+				Left:  expression.Condition{Field: "name", Op: "=", Value: "Elon"},
+				Right: expression.Condition{Field: "company", Op: "=", Value: "OpenAI"},
+			},
+			expected: true,
+		},
+		{
+			name: "NOT condition",
+			expr: expression.Not{
+				Inner: expression.Condition{Field: "location", Op: "=", Value: "USA"},
+			},
+			expected: true,
+		},
+		{
+			name:     "Missing field",
+			expr:     expression.Condition{Field: "department", Op: "=", Value: "Engineering"},
+			expected: false,
+		},
+		{
+			name:     "Invalid numeric comparison",
+			expr:     expression.Condition{Field: "name", Op: ">", Value: "1000"},
+			expected: false,
+		},
+		{
+			name:     "Case insensitive contains",
+			expr:     expression.Condition{Field: "company", Op: "contains", Value: "OPEN"},
+			expected: true,
+		},
+		{
+			name:     "Numeric equality",
+			expr:     expression.Condition{Field: "salary", Op: "=", Value: "50000"},
+			expected: true,
+		},
+		{
+			name:     "StartsWith fails",
+			expr:     expression.Condition{Field: "location", Op: "startsWith", Value: "USA"},
+			expected: false,
+		},
+		{
+			name:     "Alphanumeric mismatch",
+			expr:     expression.Condition{Field: "salary", Op: "contains", Value: "USD"},
+			expected: false,
+		},
 	}
-	r1 := parser.Recipient{Email: "a@example.com", Data: map[string]string{"name": "Ann"}}
-	r2 := parser.Recipient{Email: "b@test.com", Data: map[string]string{"name": "Bob"}}
-	out := parser.Filter([]parser.Recipient{r1, r2}, expr)
-	if len(out) != 2 {
-		t.Fatalf("expected 2 results, got %d", len(out))
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.expr.Evaluate(data)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
 	}
 }
