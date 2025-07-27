@@ -16,6 +16,7 @@ type CLIArgs struct {
 	RetryLimit   int    // Max retry attempts for failed sending
 	BatchSize    int    // Number of emails sent per SMTP batch
 	SheetURL     string // Optional Google Sheet URL for CSV import
+	Filter       string // Logical filter expression for recipients
 }
 
 // ParseFlags reads command-line flags using spf13/pflag and returns a filled CLIArgs struct.
@@ -33,6 +34,7 @@ func ParseFlags() CLIArgs {
 	pflag.IntVarP(&args.Concurrency, "concurrency", "c", 1, "Number of concurrent SMTP workers")
 	pflag.IntVarP(&args.RetryLimit, "retries", "r", 1, "Retry attempts per failed email")
 	pflag.IntVar(&args.BatchSize, "batch-size", 1, "Number of emails per SMTP batch")
+	pflag.StringVar(&args.Filter, "filter", "", "Logical filter for recipients")
 	pflag.Parse()
 
 	return args

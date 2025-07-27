@@ -1,4 +1,4 @@
-package parser
+package expression
 
 import (
 	"mailgrid/parser"
