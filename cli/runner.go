@@ -5,15 +5,18 @@ import (
 	"mailgrid/config"
 	"mailgrid/email"
 	"mailgrid/parser"
+	"mailgrid/parser/expression"
 	"mailgrid/utils"
 	"mailgrid/utils/preview"
+	"mailgrid/utils/valid"
 	"time"
 )
 
 // Run is the main orchestration function. It controls the full Mailgrid lifecycle:
 // 1. Load config
-// 2. Parse CSV
-// 3. Render and preview/send emails
+// 2. Parse CSV or Google Sheet
+// 3. Apply optional filter
+// 4. Preview or send emails
 func Run(args CLIArgs) error {
 	// Load SMTP configuration from a file
 	cfg, err := config.LoadConfig(args.EnvPath)
@@ -31,7 +34,6 @@ func Run(args CLIArgs) error {
 	var recipients []parser.Recipient
 
 	if args.SheetURL != "" {
-		// Fetch and stream public Google Sheet
 		stream, err := parser.GetSheetCSVStream(args.SheetURL)
 		if err != nil {
 			return fmt.Errorf("failed to fetch Google Sheet: %w", err)
@@ -43,15 +45,35 @@ func Run(args CLIArgs) error {
 			return fmt.Errorf("failed to parse Google Sheet as CSV: %w", err)
 		}
 
-		// Log extracted ID and GID for transparency
 		id, gid, _ := utils.ExtractSheetInfo(args.SheetURL)
 		fmt.Printf("📄 Loaded Google Sheet: Spreadsheet ID = %s, GID = %s\n", id, gid)
 
 	} else {
-		// Default: Parse local CSV
 		recipients, err = parser.ParseCSV(args.CSVPath)
 		if err != nil {
 			return fmt.Errorf("failed to parse CSV: %w", err)
+		}
+	}
+
+	// Optional logical filtering
+	if args.Filter != "" {
+		if len(recipients) == 0 {
+			return fmt.Errorf("no recipients found in CSV for filtering")
+		}
+
+		expr, err := expression.Parse(args.Filter)
+		if err != nil {
+			return fmt.Errorf("invalid filter: %w", err)
+		}
+
+		if err := valid.ValidateFields(expr, recipients); err != nil {
+			return fmt.Errorf("invalid filter field: %w", err)
+		}
+
+		recipients = parser.Filter(recipients, expr)
+
+		if len(recipients) == 0 {
+			return fmt.Errorf("no recipients matched the filter: %q", args.Filter)
 		}
 	}
 
