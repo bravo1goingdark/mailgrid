@@ -9,10 +9,11 @@ import (
 
 // Task represents an email send job with recipient data.
 type Task struct {
-	Recipient parser.Recipient
-	Subject   string
-	Body      string
-	Retries   int
+	Recipient   parser.Recipient
+	Subject     string
+	Body        string
+	Retries     int
+	Attachments []string
 }
 
 type worker struct {
