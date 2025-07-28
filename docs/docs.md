@@ -20,22 +20,24 @@ mailgrid send \
 
 ### 📁 Available Flags
 
-| Flag             | Shorthand | Default Value              | Description                                                                 |
-| ---------------- | --------- | -------------------------- | --------------------------------------------------------------------------- |
-| `--env`          | —         | `""`                       | Path to the SMTP config JSON file (required for sending).                   |
-| `--csv`          | —         | `""`                       | Path to the recipient CSV file. Must include headers like `email`, `name`.  |
-| `--sheet-url`    | —         | `""`                       | Google Sheet CSV URL as an alternative to local `--csv` file.               |
-| `--template`     | `-t`      | `example/welcome.html`     | Path to the HTML email template with Go-style placeholders.                 |
-| `--subject`      | `-s`      | `Test Email from Mailgrid` | The subject line of the email. Can be overridden per run.                   |
-| `--dry-run`      | —         | `false`                    | If set, renders the emails to console without sending them via SMTP.        |
-| `--preview`      | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.              |
-| `--preview-port` | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                    |
-| `--concurrency`  | `-c`      | `1`                        | Number of parallel worker goroutines that send emails concurrently.         |
-| `--retries`      | `-r`      | `2`                        | Maximum retry attempts per email on transient errors (exponential backoff). |
-| `--batch-size`   | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).      |
-| `--filter`       | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`). |
+| Flag             | Shorthand | Default Value              | Description                                                                                |
+|------------------|-----------|----------------------------|--------------------------------------------------------------------------------------------|
+| `--env`          | —         | `""`                       | Path to the SMTP config JSON file (required for sending).                                  |
+| `--csv`          | —         | `""`                       | Path to the recipient CSV file. Must include headers like `email`, `name`.                 |
+| `--sheet-url`    | —         | `""`                       | Google Sheet CSV URL as an alternative to local `--csv` file.                              |
+| `--template`     | `-t`      | `example/welcome.html`     | Path to the HTML email template with Go-style placeholders.                                |
+| `--subject`      | `-s`      | `Test Email from Mailgrid` | The subject line of the email. Can be overridden per run.                                  |
+| `--dry-run`      | —         | `false`                    | If set, renders the emails to console without sending them via SMTP.                       |
+| `--preview`      | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.                             |
+| `--preview-port` | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                                   |
+| `--concurrency`  | `-c`      | `1`                        | Number of parallel worker goroutines that send emails concurrently.                        |
+| `--retries`      | `-r`      | `2`                        | Maximum retry attempts per email on transient errors (exponential backoff).                |
+| `--batch-size`   | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).                     |
+| `--filter`       | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`).             |
+| `--attach`       | -         | `[]`                       | File attachments to include with every email. Repeat flag for multiple files. (MAX = 10MB) |                                                                               |
 
 ---
+
 ### 📌 Flag Descriptions
 
 #### `--env`
@@ -176,8 +178,8 @@ Set the number of parallel SMTP workers to use when sending emails.
 - Improves speed by sending multiple emails at once.
 - 🛑 **Recommended: Keep ≤ 5** unless you're confident about your SMTP provider's rate limits.
 - 📤 **Outputs:**
-  - `success.csv`: all emails sent successfully
-  - `failed.csv`: emails that failed after all retries
+    - `success.csv`: all emails sent successfully
+    - `failed.csv`: emails that failed after all retries
 
 **Example:**
 
@@ -208,7 +210,8 @@ Set how many times a failed email will be retried before being marked as a failu
 
 - Retries are spaced using **exponential backoff**:  
   Delay = `2^n seconds` between each retry attempt.
-- A small **jitter (random delay)** is added to each retry to avoid **thundering herd** problems when multiple failures occur at once.
+- A small **jitter (random delay)** is added to each retry to avoid **thundering herd** problems when multiple failures
+  occur at once.
 - `total delay = 2^n + rand(0,1)`
 
 #### \* Retries help recover from:
@@ -249,7 +252,8 @@ mailgrid send \
 
 Controls how many emails are grouped and sent together in one flush by each worker.
 
-A higher batch size reduces SMTP overhead and improves throughput, especially for bulk sends to **enterprise or transactional mail providers**.  
+A higher batch size reduces SMTP overhead and improves throughput, especially for bulk sends to **enterprise or
+transactional mail providers**.  
 However, it comes with trade-offs depending on the target inbox provider.
 
 ---
@@ -268,7 +272,6 @@ These providers:
 - Detect batched emails as potential **spam bursts**
 - May delay, throttle, or **block SMTP sessions** that deliver too many messages in one shot
 
-
 ### ⚠️ Best Practices
 
 - For Gmail/Yahoo/Outlook: use `--batch-size 1` <- **default**
@@ -283,10 +286,11 @@ Each batch is flushed per worker.
 So with `--concurrency 4` and `--batch-size 5`, up to **20 emails** can be processed and sent in parallel.
 
 ---
-### `--filter` 
+
+### `--filter`
 
 - You can filter rows before sending emails using the `--filter` flag.
-- Want advanced filters like `contains`, `!=`, or grouped conditions?  
+- Want advanced filters like `contains`, `!=`, or grouped conditions?
     - 👉 See [Filter Documentation](filter.md) for full syntax and supported operators.
 - For instance, to only email users who are **Pro tier** and **older than 25**:
 
@@ -298,6 +302,22 @@ mailgrid send \
   --subject "Welcome!" \
   --filter 'tier = "pro" and age > 25' \
   --concurrency 5
+```
+
+---
+#### `--attach`
+
+- Include one or more file attachments with every email you send. Provide the flag multiple times for multiple files, e.g. `--attach brochure.pdf --attach terms.pdf`.
+- Max of 10 MB is allowed collectively.
+
+Example:
+
+```bash
+mailgrid send \
+  --csv contacts.csv \
+  --template invoice.html \
+  --attach invoice.pdf \
+  --attach receipt.pdf
 ```
 
 ---
@@ -313,6 +333,7 @@ mailgrid send \
   --concurrency 4 \
   --retries 3 \
   --batch-size 5 \
-  --filter 'name = ashutosh && email contains @gmail.com'
+  --filter 'name = ashutosh && email contains @gmail.com' \
+  --attach brochure.pdf
 
 ```
