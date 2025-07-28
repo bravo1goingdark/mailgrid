@@ -48,9 +48,6 @@ Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV fi
 ---
 
 ### 🔜 Coming Soon
-- 📎 Attachments support
-- 🔄 Google Sheets integration
-- 🔁 Retry logic with exponential backoff
 - 🚦 rate-limiting
 - 📊 Delivery summary metrics (sent, failed, skipped)
 

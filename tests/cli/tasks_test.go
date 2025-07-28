@@ -38,7 +38,20 @@ func TestPrepareEmailTasks(t *testing.T) {
 		{Email: "b@b.com", Data: map[string]string{"name": ""}}, // should be skipped
 	}
 
-	tasks, err := cli.PrepareEmailTasks(recipients, tmp.Name(), "Hello {{.name }}")
+	a, err := os.CreateTemp(t.TempDir(), "a*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.WriteString("file")
+	if err != nil {
+		return
+	}
+	err = a.Close()
+	if err != nil {
+		return
+	}
+
+	tasks, err := cli.PrepareEmailTasks(recipients, tmp.Name(), "Hello {{.name }}", []string{a.Name()})
 	if err != nil {
 		t.Fatalf("prepareEmailTasks error: %v", err)
 	}
@@ -47,5 +60,30 @@ func TestPrepareEmailTasks(t *testing.T) {
 	}
 	if tasks[0].Subject != "Hello Alice" {
 		t.Errorf("unexpected subject: %s", tasks[0].Subject)
+	}
+	if len(tasks[0].Attachments) != 1 || tasks[0].Attachments[0] != a.Name() {
+		t.Errorf("attachments not set correctly")
+	}
+}
+
+func TestPrepareEmailTasks_AttachOnly(t *testing.T) {
+	recipients := []parser.Recipient{{Email: "a@b.com", Data: map[string]string{"name": "A"}}}
+
+	a, err := os.CreateTemp(t.TempDir(), "a*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.WriteString("file")
+	a.Close()
+
+	tasks, err := cli.PrepareEmailTasks(recipients, "", "Hi", []string{a.Name()})
+	if err != nil {
+		t.Fatalf("prepareEmailTasks error: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].Body != "" {
+		t.Errorf("expected empty body")
 	}
 }

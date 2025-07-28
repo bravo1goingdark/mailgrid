@@ -13,7 +13,7 @@ import (
 
 // PrepareEmailTasks renders the subject and body templates for each recipient
 // and returns a list of email.Task objects ready for sending.
-func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl string) ([]email.Task, error) {
+func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl string, attachments []string) ([]email.Task, error) {
 	tmpl, err := template.New("subject").Parse(subjectTpl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid subject template: %w", err)
@@ -27,11 +27,14 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 			continue
 		}
 
-		// Render HTML body for recipient
-		body, err := preview.RenderTemplate(r, templatePath)
-		if err != nil {
-			log.Printf("⚠️ Skipping %s: template rendering failed (%v)", r.Email, err)
-			continue
+		var body string
+		if templatePath != "" {
+			var err error
+			body, err = preview.RenderTemplate(r, templatePath)
+			if err != nil {
+				log.Printf("⚠️ Skipping %s: template rendering failed (%v)", r.Email, err)
+				continue
+			}
 		}
 
 		// Render personalized subject line
@@ -42,10 +45,11 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 		}
 
 		tasks = append(tasks, email.Task{
-			Recipient: r,
-			Subject:   sb.String(),
-			Body:      body,
-			Retries:   0,
+			Recipient:   r,
+			Subject:     sb.String(),
+			Body:        body,
+			Attachments: attachments,
+			Retries:     0,
 		})
 	}
 	return tasks, nil
@@ -64,7 +68,15 @@ func HasMissingFields(r parser.Recipient) bool {
 // printDryRun logs rendered email content to the console instead of sending.
 func printDryRun(tasks []email.Task) {
 	for i, t := range tasks {
-		fmt.Printf(" Email #%d → %s\nSubject: %s\n\n%s\n\n", i+1, t.Recipient.Email, t.Subject, t.Body)
+		fmt.Printf(" Email #%d → %s\nSubject: %s\n", i+1, t.Recipient.Email, t.Subject)
+		if len(t.Attachments) > 0 {
+			fmt.Printf("Attachments: %v\n", t.Attachments)
+		}
+		if t.Body != "" {
+			fmt.Printf("\n%s\n\n", t.Body)
+		} else {
+			fmt.Printf("\n(no body)\n\n")
+		}
 	}
 	fmt.Printf(" Dry-run complete: %d emails rendered\n", len(tasks))
 }
