@@ -9,8 +9,11 @@ import (
 	"mailgrid/utils"
 	"mailgrid/utils/preview"
 	"mailgrid/utils/valid"
+	"os"
 	"time"
 )
+
+const maxAttachSize = 10 << 20 // 10 MB
 
 // Run is the main orchestration function. It controls the full Mailgrid lifecycle:
 // 1. Load config
@@ -28,6 +31,20 @@ func Run(args CLIArgs) error {
 	}
 	if args.CSVPath != "" && args.SheetURL != "" {
 		return fmt.Errorf("❌ Provide only one of --csv or --sheet-url, not both")
+	}
+
+	for _, f := range args.Attachments {
+		info, err := os.Stat(f)
+		if err != nil {
+			return fmt.Errorf("attachment not found: %s", f)
+		}
+		if info.Size() > maxAttachSize {
+			return fmt.Errorf("attachment too large (>%d bytes): %s", maxAttachSize, f)
+		}
+	}
+
+	if args.TemplatePath == "" && len(args.Attachments) == 0 {
+		return fmt.Errorf("provide --template, --attach, or both")
 	}
 
 	// Parse Recipients
@@ -79,6 +96,9 @@ func Run(args CLIArgs) error {
 
 	// If preview mode is enabled, serve one rendered email via localhost
 	if args.ShowPreview {
+		if args.TemplatePath == "" {
+			return fmt.Errorf("cannot preview without --template")
+		}
 		if len(recipients) == 0 {
 			return fmt.Errorf("no recipients found in CSV for preview")
 		}
@@ -90,7 +110,7 @@ func Run(args CLIArgs) error {
 	}
 
 	// Render subject & body for each recipient and build email.Task list
-	tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, args.Subject)
+	tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, args.Subject, args.Attachments)
 	if err != nil {
 		return err
 	}
