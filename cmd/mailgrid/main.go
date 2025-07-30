@@ -2,8 +2,8 @@
 package main
 
 import (
+	"github.com/bravo1goingdark/mailgrid/cli"
 	"log"
-	"mailgrid/cli"
 )
 
 // main is the CLI entry point for mailgrid.

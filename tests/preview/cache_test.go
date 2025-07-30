@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"mailgrid/utils/preview"
+	"github.com/bravo1goingdark/mailgrid/utils/preview"
 )
 
 func TestLoadTemplateCaching(t *testing.T) {

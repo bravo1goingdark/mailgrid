@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 	"io"
-	"mailgrid/utils"
+	"github.com/bravo1goingdark/mailgrid/utils"
 	"net/http"
 )
 

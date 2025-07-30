@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"mailgrid/config"
+	"github.com/bravo1goingdark/mailgrid/config"
 	"mime"
 	"net/smtp"
 	"os"

@@ -2,13 +2,14 @@ package cli
 
 import (
 	"fmt"
-	"mailgrid/config"
-	"mailgrid/email"
-	"mailgrid/parser"
-	"mailgrid/parser/expression"
-	"mailgrid/utils"
-	"mailgrid/utils/preview"
-	"mailgrid/utils/valid"
+	"github.com/bravo1goingdark/mailgrid/config"
+	"github.com/bravo1goingdark/mailgrid/email"
+	"github.com/bravo1goingdark/mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/parser/expression"
+	"github.com/bravo1goingdark/mailgrid/utils"
+	"github.com/bravo1goingdark/mailgrid/utils/preview"
+	"github.com/bravo1goingdark/mailgrid/utils/valid"
+	"io"
 	"os"
 	"time"
 )
@@ -55,7 +56,12 @@ func Run(args CLIArgs) error {
 		if err != nil {
 			return fmt.Errorf("failed to fetch Google Sheet: %w", err)
 		}
-		defer stream.Close()
+		defer func(stream io.ReadCloser) {
+			err := stream.Close()
+			if err != nil {
+				return
+			}
+		}(stream)
 
 		recipients, err = parser.ParseCSVFromReader(stream)
 		if err != nil {

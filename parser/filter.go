@@ -9,7 +9,7 @@ package parser
 import (
 	"strings"
 
-	"mailgrid/parser/expression"
+	"github.com/bravo1goingdark/mailgrid/parser/expression"
 )
 
 // Filter applies the provided logical EXPRESSION to a slice of recipients.

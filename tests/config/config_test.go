@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"mailgrid/config"
+	"github.com/bravo1goingdark/mailgrid/config"
 )
 
 func TestLoadConfig(t *testing.T) {

@@ -45,6 +45,6 @@ logs/
 
 # Backup files
 *~
-
+features.md
 # Test cache
 /tmp/

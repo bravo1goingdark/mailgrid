@@ -3,7 +3,7 @@ package email
 import (
 	"crypto/tls"
 	"fmt"
-	"mailgrid/config"
+	"github.com/bravo1goingdark/mailgrid/config"
 	"net"
 	"net/smtp"
 	"time"

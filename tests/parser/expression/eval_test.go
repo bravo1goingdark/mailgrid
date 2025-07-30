@@ -4,7 +4,7 @@ package expression_test
 import (
 	"testing"
 
-	"mailgrid/parser/expression"
+	"github.com/bravo1goingdark/mailgrid/parser/expression"
 )
 
 func TestCondition_Evaluate(t *testing.T) {

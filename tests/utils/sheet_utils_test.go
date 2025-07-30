@@ -3,7 +3,7 @@ package utils
 import (
 	"testing"
 
-	"mailgrid/utils"
+	"github.com/bravo1goingdark/mailgrid/utils"
 )
 
 func TestExtractSheetInfo(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"log"
 	"text/template"
 
-	"mailgrid/email"
-	"mailgrid/parser"
-	"mailgrid/utils/preview"
+	"github.com/bravo1goingdark/mailgrid/email"
+	"github.com/bravo1goingdark/mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/utils/preview"
 )
 
 // PrepareEmailTasks renders the subject and body templates for each recipient

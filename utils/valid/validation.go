@@ -2,8 +2,8 @@ package valid
 
 import (
 	"fmt"
-	"mailgrid/parser"
-	"mailgrid/parser/expression"
+	"github.com/bravo1goingdark/mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/parser/expression"
 	"strings"
 )
 

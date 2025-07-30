@@ -2,8 +2,8 @@ package email
 
 import (
 	"log"
-	"mailgrid/config"
-	"mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/config"
+	"github.com/bravo1goingdark/mailgrid/parser"
 	"sync"
 )
 

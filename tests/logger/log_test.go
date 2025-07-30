@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"mailgrid/logger"
+	"github.com/bravo1goingdark/mailgrid/logger"
 )
 
 func TestLogSuccessAndFailure(t *testing.T) {

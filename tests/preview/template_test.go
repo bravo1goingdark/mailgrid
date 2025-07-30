@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"mailgrid/parser"
-	"mailgrid/utils/preview"
+	"github.com/bravo1goingdark/mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/utils/preview"
 )
 
 func TestRenderTemplate(t *testing.T) {

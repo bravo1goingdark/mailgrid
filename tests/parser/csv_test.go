@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/parser"
 )
 
 func TestParseCSVFromReader(t *testing.T) {

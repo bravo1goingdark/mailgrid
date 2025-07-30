@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/parser"
 	"os"
 	"sync"
 )

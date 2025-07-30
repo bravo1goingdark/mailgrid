@@ -1,4 +1,4 @@
-module mailgrid
+module github.com/bravo1goingdark/mailgrid
 
 go 1.18
 

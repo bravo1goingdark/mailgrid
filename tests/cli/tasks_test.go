@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"mailgrid/cli"
-	"mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/cli"
+	"github.com/bravo1goingdark/mailgrid/parser"
 )
 
 func TestHasMissingFields(t *testing.T) {
