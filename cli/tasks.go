@@ -36,6 +36,13 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 				continue
 			}
 		}
+		// Log CC and BCC addresses
+		if len(ccList) > 0 {
+			log.Printf("📧 Adding CC: %v to email for %s", ccList, r.Email)
+		}
+		if len(bccList) > 0 {
+			log.Printf("📧 Adding BCC: %v to email for %s", bccList, r.Email)
+		}
 
 		// Render personalized subject line
 		var sb bytes.Buffer
@@ -71,6 +78,13 @@ func HasMissingFields(r parser.Recipient) bool {
 func printDryRun(tasks []email.Task) {
 	for i, t := range tasks {
 		fmt.Printf(" Email #%d → %s\nSubject: %s\n", i+1, t.Recipient.Email, t.Subject)
+
+		if len(t.CC) > 0 {
+			fmt.Printf("CC: %v\n", t.CC)
+		}
+		if len(t.BCC) > 0 {
+			fmt.Printf("BCC: %v\n", t.BCC)
+		}
 		if len(t.Attachments) > 0 {
 			fmt.Printf("Attachments: %v\n", t.Attachments)
 		}
