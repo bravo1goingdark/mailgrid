@@ -87,3 +87,34 @@ func TestPrepareEmailTasks_AttachOnly(t *testing.T) {
 		t.Errorf("expected empty body")
 	}
 }
+
+func TestPrepareEmailTasks_CC_BCC(t *testing.T) {
+	recipients := []parser.Recipient{
+		{Email: "jacob@example.com", Data: map[string]string{"name": "Jacob"}},
+	}
+
+	tasks, err := cli.PrepareEmailTasks(
+		recipients,
+		"",
+		"Test Subject",
+		[]string{},
+		[]string{"cc1@example.com"},
+		[]string{"bcc1@example.com"},
+	)
+	if err != nil {
+		t.Fatalf("prepareEmailTasks error: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+
+	task := tasks[0]
+
+	if len(task.CC) != 1 || task.CC[0] != "cc1@example.com" {
+		t.Errorf("expected cc to be [cc1@example.com], got %v", task.CC)
+	}
+
+	if len(task.BCC) != 1 || task.BCC[0] != "bcc1@example.com" {
+		t.Errorf("expected bcc to be [bcc1@example.com], got %v", task.BCC)
+	}
+}
