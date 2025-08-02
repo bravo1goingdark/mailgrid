@@ -19,23 +19,25 @@
 
 ## 🚀 Features
 
-Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV files via SMTP — no web UI, just powerful automation.
+Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV files or Google Sheets via SMTP — no web UI, just powerful automation.
 
 ---
 
 ### 📬 Email Capabilities
-- **Bulk email sending** from any CSV file
-- **Dynamic templating** using Go’s native `text/template`
-    - Supports placeholders like `{{.name}}`, `{{.company}}`, etc.
-- **Custom subject lines** via CLI flag or config
+- **Bulk email sending** from CSV files **or public Google Sheets**
+- **Dynamic templating** for subject lines and HTML body using Go’s `text/template`
+- **File attachments** (up to 10 MB each)
+- **CC/BCC support** via inline lists or files
 
 ---
 
 ### ⚙️ Configuration & Control
-- **SMTP support** for Gmail, Zoho, Outlook, and custom servers
-- **Lightweight config** via a simple `config.json`
-- **Dry-run mode** (`--dry-run`) to preview rendered emails without sending
-- **Missing field warnings** for incomplete CSV rows
+- **SMTP support** with simple `config.json`
+- **Concurrency, batching, and automatic retries** for high throughput
+- **Preview server** (`--preview`) to view rendered emails in the browser
+- **Dry-run mode** (`--dry-run`) to render without sending
+- **Logical recipient filtering** using `--filter`
+- **Success and failure logs** written to CSV
 
 ---
 
@@ -43,7 +45,7 @@ Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV fi
 - **Built with Go** — fast, static binary with zero dependencies
 - **Cross-platform support** — runs on Linux, macOS, and Windows
 - **Live CLI logs** for each email: success ✅ or failure ❌
-- **Production-ready directory structure** with modular packages
+- **Missing field warnings** for incomplete CSV rows
 
 ---
 

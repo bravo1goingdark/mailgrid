@@ -1,8 +1,8 @@
 package email
 
 import (
-	"log"
 	"github.com/bravo1goingdark/mailgrid/logger"
+	"log"
 	"math/rand"
 	"net/smtp"
 	"time"
