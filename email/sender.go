@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/bravo1goingdark/mailgrid/config"
 	"io"
 	"log"
-	"github.com/bravo1goingdark/mailgrid/config"
 	"mime"
 	"net/smtp"
 	"os"
@@ -27,6 +27,20 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) error
 	// SMTP envelope sender (must match SMTP auth user)
 	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("MAIL FROM error: %w", err)
+	}
+
+	// RCPT to for CC
+	for _, cc := range task.CC {
+		if err := client.Rcpt(cc); err != nil {
+			log.Printf("⚠️ Failed to add CC: %s (%v)", cc, err)
+		}
+	}
+
+	// RCPT to for BCC
+	for _, bcc := range task.BCC {
+		if err := client.Rcpt(bcc); err != nil {
+			log.Printf("⚠️ Failed to add BCC: %s (%v)", bcc, err)
+		}
 	}
 
 	// Recipient
@@ -50,6 +64,7 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) error
 		"From":         fmt.Sprintf("Mailgrid <%s>", from),
 		"To":           task.Recipient.Email,
 		"Subject":      task.Subject,
+		"CC":           strings.Join(task.CC, ", "),
 		"MIME-Version": "1.0",
 	}
 	if len(task.Attachments) > 0 {

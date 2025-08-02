@@ -51,7 +51,7 @@ func TestPrepareEmailTasks(t *testing.T) {
 		return
 	}
 
-	tasks, err := cli.PrepareEmailTasks(recipients, tmp.Name(), "Hello {{.name }}", []string{a.Name()})
+	tasks, err := cli.PrepareEmailTasks(recipients, tmp.Name(), "Hello {{.name }}", []string{a.Name()}, []string{}, []string{})
 	if err != nil {
 		t.Fatalf("prepareEmailTasks error: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestPrepareEmailTasks_AttachOnly(t *testing.T) {
 	a.WriteString("file")
 	a.Close()
 
-	tasks, err := cli.PrepareEmailTasks(recipients, "", "Hi", []string{a.Name()})
+	tasks, err := cli.PrepareEmailTasks(recipients, "", "Hi", []string{a.Name()}, []string{}, []string{})
 	if err != nil {
 		t.Fatalf("prepareEmailTasks error: %v", err)
 	}

@@ -18,6 +18,9 @@ type CLIArgs struct {
 	SheetURL     string   // Optional Google Sheet URL for CSV import
 	Filter       string   // Logical filter expression for recipients
 	Attachments  []string // File paths to attach to every email
+	Cc           string   // Comma-separated emails or file path for CC
+	Bcc          string   // Comma-separated emails or file path for BCC
+
 }
 
 // ParseFlags reads command-line flags using spf13/pflag and returns a filled CLIArgs struct.
@@ -28,6 +31,8 @@ func ParseFlags() CLIArgs {
 	pflag.StringVar(&args.CSVPath, "csv", "", "Path to recipient CSV file")
 	pflag.StringVar(&args.SheetURL, "sheet-url", "", "Public Google Sheet URL (replaces --csv)")
 	pflag.StringVarP(&args.TemplatePath, "template", "t", "", "Path to email HTML template")
+	pflag.StringVar(&args.Cc, "cc", "", "Comma-separated emails or file path for CC")
+	pflag.StringVar(&args.Bcc, "bcc", "", "Comma-separated emails or file path for BCC")
 	pflag.StringVarP(&args.Subject, "subject", "s", "Test Email from Mailgrid", "Email subject (templated with {{ .field }})")
 	pflag.BoolVar(&args.DryRun, "dry-run", false, "Render emails to console without sending")
 	pflag.BoolVarP(&args.ShowPreview, "preview", "p", false, "Start a local preview server to view rendered email")
