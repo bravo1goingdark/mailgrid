@@ -13,7 +13,7 @@ import (
 
 // PrepareEmailTasks renders the subject and body templates for each recipient
 // and returns a list of email.Task objects ready for sending.
-func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl string, attachments []string) ([]email.Task, error) {
+func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl string, attachments []string, ccList []string, bccList []string) ([]email.Task, error) {
 	tmpl, err := template.New("subject").Parse(subjectTpl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid subject template: %w", err)
@@ -49,6 +49,8 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 			Subject:     sb.String(),
 			Body:        body,
 			Attachments: attachments,
+			CC:          ccList,
+			BCC:         bccList,
 			Retries:     0,
 		})
 	}

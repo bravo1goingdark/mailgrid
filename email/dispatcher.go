@@ -1,9 +1,9 @@
 package email
 
 import (
-	"log"
 	"github.com/bravo1goingdark/mailgrid/config"
 	"github.com/bravo1goingdark/mailgrid/parser"
+	"log"
 	"sync"
 )
 
@@ -14,6 +14,8 @@ type Task struct {
 	Body        string
 	Retries     int
 	Attachments []string
+	CC          []string
+	BCC         []string
 }
 
 type worker struct {

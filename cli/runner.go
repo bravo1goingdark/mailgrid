@@ -2,6 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/bravo1goingdark/mailgrid/config"
 	"github.com/bravo1goingdark/mailgrid/email"
 	"github.com/bravo1goingdark/mailgrid/parser"
@@ -9,12 +14,40 @@ import (
 	"github.com/bravo1goingdark/mailgrid/utils"
 	"github.com/bravo1goingdark/mailgrid/utils/preview"
 	"github.com/bravo1goingdark/mailgrid/utils/valid"
-	"io"
-	"os"
-	"time"
 )
 
 const maxAttachSize = 10 << 20 // 10 MB
+
+// Utilityto parse --cc / --bcc from inline or file input
+func parseAddressInput(input string) ([]string, error) {
+	if input == "" {
+		return nil, nil
+	}
+	if strings.Contains(input, "@") {
+		// Inline mode
+		parts := strings.Split(input, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		return parts, nil
+	}
+
+	// File mode
+	content, err := os.ReadFile(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read address file: %w", err)
+	}
+
+	var emails []string
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			emails = append(emails, line)
+		}
+	}
+	return emails, nil
+}
 
 // Run is the main orchestration function. It controls the full Mailgrid lifecycle:
 // 1. Load config
@@ -46,6 +79,16 @@ func Run(args CLIArgs) error {
 
 	if args.TemplatePath == "" && len(args.Attachments) == 0 {
 		return fmt.Errorf("provide --template, --attach, or both")
+	}
+
+	// Parse CC and BCC addresses from inline or file input
+	ccList, err := parseAddressInput(args.Cc)
+	if err != nil {
+		return fmt.Errorf("failed to parse CC: %w", err)
+	}
+	bccList, err := parseAddressInput(args.Bcc)
+	if err != nil {
+		return fmt.Errorf("failed to parse BCC: %w", err)
 	}
 
 	// Parse Recipients
@@ -116,7 +159,7 @@ func Run(args CLIArgs) error {
 	}
 
 	// Render subject & body for each recipient and build email.Task list
-	tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, args.Subject, args.Attachments)
+	tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, args.Subject, args.Attachments, ccList, bccList)
 	if err != nil {
 		return err
 	}
