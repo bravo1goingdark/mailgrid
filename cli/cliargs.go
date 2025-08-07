@@ -20,6 +20,8 @@ type CLIArgs struct {
 	Attachments  []string // File paths to attach to every email
 	Cc           string   // Comma-separated emails or file path for CC
 	Bcc          string   // Comma-separated emails or file path for BCC
+	To           string   // Email address for one-off sending
+	Text         string   // Inline plain-text body or path to text file
 
 }
 
@@ -42,6 +44,9 @@ func ParseFlags() CLIArgs {
 	pflag.IntVar(&args.BatchSize, "batch-size", 1, "Number of emails per SMTP batch")
 	pflag.StringVar(&args.Filter, "filter", "", "Logical filter for recipients")
 	pflag.StringSliceVar(&args.Attachments, "attach", []string{}, "File attachments (repeat flag to add multiple)")
+	pflag.StringVar(&args.To, "to", "", "Email address for single-recipient sending (mutually exclusive with --csv or --sheet-url)")
+	pflag.StringVar(&args.Text, "text", "", "Inline plain-text body or path to a .txt file (mutually exclusive with --template)")
+
 	pflag.Parse()
 
 	return args

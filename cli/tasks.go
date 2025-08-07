@@ -6,8 +6,10 @@ import (
 	"log"
 	"text/template"
 
+	"github.com/bravo1goingdark/mailgrid/config"
 	"github.com/bravo1goingdark/mailgrid/email"
 	"github.com/bravo1goingdark/mailgrid/parser"
+	"github.com/bravo1goingdark/mailgrid/utils"
 	"github.com/bravo1goingdark/mailgrid/utils/preview"
 )
 
@@ -81,4 +83,49 @@ func printDryRun(tasks []email.Task) {
 		}
 	}
 	fmt.Printf(" Dry-run complete: %d emails rendered\n", len(tasks))
+}
+
+// SendSingleEmail handles sending a one-off email using --to and --text flags.
+func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
+	if args.To == "" {
+		return fmt.Errorf("--to flag is required for single email sending")
+	}
+
+	var body string
+	var err error
+
+	if args.Text == "" {
+		return fmt.Errorf("--text flag is required for single email sending")
+	}
+
+	body, err = utils.ReadTextInput(args.Text)
+	if err != nil {
+		return fmt.Errorf("failed to read body: %w", err)
+	}
+
+	// Construct minimal recipient
+	recipient := parser.Recipient{
+		Email: args.To,
+		Data:  map[string]string{"email": args.To}, // Minimal substitution map
+	}
+
+	task := email.Task{
+		Recipient:   recipient,
+		Subject:     args.Subject,
+		Body:        body,
+		Attachments: args.Attachments,
+		CC:          []string{},
+		BCC:         []string{},
+		Retries:     0,
+	}
+
+	// If dry-run, print only
+	if args.DryRun {
+		printDryRun([]email.Task{task})
+		return nil
+	}
+
+	email.SetRetryLimit(args.RetryLimit)
+	email.StartDispatcher([]email.Task{task}, cfg, 1, 1)
+	return nil
 }
