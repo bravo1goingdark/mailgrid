@@ -2,10 +2,11 @@
   "smtp": {
     "host": "smtp.gmail.com",
     "port": 587,
-    "username": "kumarashutosh34169@gmail.com",
-    "password": "xvwk talp fxpy pcea",
-    "from": "kumarashutosh34169@gmail.com"
+    "username": "your_mail",
+    "password": "your_app_password",
+    "from": "your_mail"
   },
   "rate_limit": 10,
   "timeout_ms": 5000
 }
+
