@@ -5,6 +5,9 @@ import (
 	"regexp"
 )
 
+// precompiled regular expression for matching Google Sheets URLs.
+var sheetURLRegex = regexp.MustCompile(`spreadsheets/d/([a-zA-Z0-9-_]+)(?:/[^#]*)?(?:#gid=(\d+))?`)
+
 // ExtractSheetInfo extracts the Google Sheets document ID and GID (sheet/tab ID)
 // from a given URL.
 //
@@ -20,8 +23,7 @@ import (
 //   - gid: The sheet/tab GID (string). Defaults to "0" if not found
 //   - error: If the URL format is invalid
 func ExtractSheetInfo(url string) (string, string, error) {
-	re := regexp.MustCompile(`spreadsheets/d/([a-zA-Z0-9-_]+)(?:/[^#]*)?(?:#gid=(\d+))?`)
-	matches := re.FindStringSubmatch(url)
+	matches := sheetURLRegex.FindStringSubmatch(url)
 
 	if len(matches) < 2 {
 		return "", "", errors.New("invalid Google Sheets URL format")

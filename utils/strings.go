@@ -8,7 +8,9 @@ func SplitAndTrim(s string) []string {
 		return []string{}
 	}
 	parts := strings.Split(s, ",")
-	var result []string
+	// Preallocate the result slice to avoid repeated allocations when
+	// trimming a large list of comma-separated values.
+	result := make([]string, 0, len(parts))
 	for _, part := range parts {
 		email := strings.TrimSpace(part)
 		if email != "" {
