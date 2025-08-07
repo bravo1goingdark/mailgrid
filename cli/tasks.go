@@ -85,47 +85,66 @@ func printDryRun(tasks []email.Task) {
 	fmt.Printf(" Dry-run complete: %d emails rendered\n", len(tasks))
 }
 
-// SendSingleEmail handles sending a one-off email using --to and --text flags.
+// SendSingleEmail handles one-off email sending using --to along with either --template or --text (mutually exclusive).
 func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 	if args.To == "" {
 		return fmt.Errorf("--to flag is required for single email sending")
 	}
+	if (args.TemplatePath == "" && args.Text == "") || (args.TemplatePath != "" && args.Text != "") {
+		return fmt.Errorf("either --template or --text must be provided, but not both")
+	}
 
+	// Build a single recipient with minimal substitution map
+	recipient := parser.Recipient{
+		Email: args.To,
+		Data: map[string]string{
+			"email": args.To, // Can be expanded with more CLI-provided fields in future
+		},
+	}
+
+	var templatePath string
 	var body string
 	var err error
 
-	if args.Text == "" {
-		return fmt.Errorf("--text flag is required for single email sending")
+	if args.TemplatePath != "" {
+		templatePath = args.TemplatePath
+	} else {
+		body, err = utils.ReadTextInput(args.Text)
+		if err != nil {
+			return fmt.Errorf("failed to read body: %w", err)
+		}
 	}
 
-	body, err = utils.ReadTextInput(args.Text)
+	ccList := utils.SplitAndTrim(args.Cc);
+	bccList := utils.SplitAndTrim(args.Bcc);
+
+	// Use existing logic to render subject and body
+	tasks, err := PrepareEmailTasks(
+		[]parser.Recipient{recipient},
+		templatePath,
+		args.Subject,
+		args.Attachments,
+		ccList,
+		bccList,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to read body: %w", err)
+		return fmt.Errorf("failed to prepare task: %w", err)
+	}
+	if len(tasks) == 0 {
+		return fmt.Errorf("no task generated (maybe due to template/rendering failure)")
 	}
 
-	// Construct minimal recipient
-	recipient := parser.Recipient{
-		Email: args.To,
-		Data:  map[string]string{"email": args.To}, // Minimal substitution map
+	// If --text is used, override body (PrepareEmailTasks would leave it empty)
+	if args.TemplatePath == "" {
+		tasks[0].Body = body
 	}
 
-	task := email.Task{
-		Recipient:   recipient,
-		Subject:     args.Subject,
-		Body:        body,
-		Attachments: args.Attachments,
-		CC:          []string{},
-		BCC:         []string{},
-		Retries:     0,
-	}
-
-	// If dry-run, print only
 	if args.DryRun {
-		printDryRun([]email.Task{task})
+		printDryRun(tasks)
 		return nil
 	}
 
 	email.SetRetryLimit(args.RetryLimit)
-	email.StartDispatcher([]email.Task{task}, cfg, 1, 1)
+	email.StartDispatcher(tasks, cfg, 1, 1)
 	return nil
 }
