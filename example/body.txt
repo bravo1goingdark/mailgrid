@@ -1,0 +1,1 @@
+Mailgrid is an ultra-lightweight, high-throughput email automation CLI written in Go. It reads recipients from a CSV or Google Sheet and delivers emails via SMTP (Zoho, Gmail, etc.) with concurrency, rate-limiting, and optional scheduling — all without bloated dependencies.

@@ -28,6 +28,13 @@ func Run(args CLIArgs) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	if args.To != "" {
+		if args.CSVPath != "" || args.SheetURL != "" {
+			return fmt.Errorf("❌ --to is mutually exclusive with --csv and --sheet-url")
+		}
+
+		return SendSingleEmail(args, cfg.SMTP)
+	}
 	if args.CSVPath == "" && args.SheetURL == "" {
 		return fmt.Errorf("❌ You must provide either --csv or --sheet-url")
 	}
