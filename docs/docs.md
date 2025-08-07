@@ -27,8 +27,10 @@ mailgrid send \
 | `--sheet-url`    | —         | `""`                       | Google Sheet CSV URL as an alternative to local `--csv` file.                              |
 | `--template`     | `-t`      | `example/welcome.html`     | Path to the HTML email template with Go-style placeholders.                                |
 | `--subject`      | `-s`      | `Test Email from Mailgrid` | The subject line of the email. Can be overridden per run.                                  |
-| `--cc`           | —         | `""`                       | Comma-separated list or file (`@file.txt`) of CC email addresses (visible recipients).      |
-| `--bcc`          | —         | `""`                       | Comma-separated list or file (`@file.txt`) of BCC addresses (hidden from recipients).       |
+| `--cc`           | —         | `""`                       | Comma-separated list or file (`@file.txt`) of CC email addresses (visible recipients).     |
+| `--bcc`          | —         | `""`                       | Comma-separated list or file (`@file.txt`) of BCC addresses (hidden from recipients).      |
+| `--to`           | -         | `""`                       | The email address of the single recipient. Cannot be used with --csv.                      |
+| `--text`         | -         | `""`                       | Inline plain-text body or path to a .txt file. Cannot be used with --template.             |
 | `--dry-run`      | —         | `false`                    | If set, renders the emails to console without sending them via SMTP.                       |
 | `--preview`      | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.                             |
 | `--preview-port` | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                                   |
@@ -160,6 +162,32 @@ mailgrid send \
   --csv contacts.csv \
   --template newsletter.html
 ```
+---
+### `--to`
+
+Used to send an email to a single recipient without a CSV or Google Sheet.
+This flag is mutually exclusive with --csv and --sheet-url.
+
+Example:
+```bash
+--to test@example.com
+```
+Useful for sending quick one-off messages without uploading recipient lists.
+
+---
+### `--text`
+Provides a plain-text body for the email, either inline or via a .txt file path.
+This flag is mutually exclusive with --template.
+
+Example:
+```bash
+# Inline text
+--text "This is a test email body"
+
+# OR from a file
+--text ./body.txt
+```
+Ideal for simple messages or debugging without using HTML templates.
 
 ---
 
