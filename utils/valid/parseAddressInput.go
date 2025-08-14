@@ -14,10 +14,14 @@ func ParseAddressInput(input string) ([]string, error) {
 	if strings.Contains(input, "@") {
 		// Inline mode
 		parts := strings.Split(input, ",")
-		for i := range parts {
-			parts[i] = strings.TrimSpace(parts[i])
+		emails := make([]string, 0, len(parts))
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				emails = append(emails, p)
+			}
 		}
-		return parts, nil
+		return emails, nil
 	}
 
 	// File mode
