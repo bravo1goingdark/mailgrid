@@ -12,7 +12,9 @@ import (
 func StartServer(html string, port int, shutdownChan <-chan struct{}) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, html)
+		if _, err := fmt.Fprint(w, html); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 
 	srv := &http.Server{

@@ -44,7 +44,9 @@ func TestParseCSV(t *testing.T) {
 	if _, err := tmp.WriteString(csvData); err != nil {
 		t.Fatal(err)
 	}
-	tmp.Close()
+	if err := tmp.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	recipients, err := parser.ParseCSV(tmp.Name())
 	if err != nil {

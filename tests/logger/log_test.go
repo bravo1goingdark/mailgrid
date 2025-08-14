@@ -14,7 +14,11 @@ func TestLogSuccessAndFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(old)
+	defer func() {
+		if err := os.Chdir(old); err != nil {
+			t.Fatalf("restore working dir: %v", err)
+		}
+	}()
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}

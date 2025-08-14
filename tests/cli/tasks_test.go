@@ -42,13 +42,11 @@ func TestPrepareEmailTasks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = a.WriteString("file")
-	if err != nil {
-		return
+	if _, err = a.WriteString("file"); err != nil {
+		t.Fatal(err)
 	}
-	err = a.Close()
-	if err != nil {
-		return
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
 	}
 
 	tasks, err := cli.PrepareEmailTasks(recipients, tmp.Name(), "Hello {{.name }}", []string{a.Name()}, []string{}, []string{})
@@ -73,8 +71,12 @@ func TestPrepareEmailTasks_AttachOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.WriteString("file")
-	a.Close()
+	if _, err := a.WriteString("file"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	tasks, err := cli.PrepareEmailTasks(recipients, "", "Hi", []string{a.Name()}, []string{}, []string{})
 	if err != nil {
