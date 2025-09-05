@@ -3,7 +3,7 @@ package cli
 import "github.com/spf13/pflag"
 
 // CLIArgs holds all configurable options passed via the command line.
-// This struct is used throughout the Mailgrid CLI flow.
+// It is populated once in ParseFlags() and then passed around the app.
 type CLIArgs struct {
 	EnvPath      string   // Path to an SMTP config JSON file
 	CSVPath      string   // Path to recipient CSV file
@@ -21,11 +21,18 @@ type CLIArgs struct {
 	Cc           string   // Comma-separated emails or file path for CC
 	Bcc          string   // Comma-separated emails or file path for BCC
 	To           string   // Email address for one-off sending
-	Text         string   // Inline plain-text body or path to text file
+	Text         string   // Inline plain-text body or path to a text file
 
+	// Scheduling options
+	ScheduleAt  string // RFC3339 timestamp for one-time job
+	CronExpr    string // Cron expression for recurring job
+	Interval    string // Go duration (e.g. "10s", "5m", "24h")
+	CancelJobID string // Cancel a scheduled job by ID
+	ListJobs    bool   // List scheduled jobs
 }
 
-// ParseFlags reads command-line flags using spf13/pflag and returns a filled CLIArgs struct.
+// ParseFlags reads command-line flags into CLIArgs using spf13/pflag.
+// Returns a fully populated CLIArgs struct.
 func ParseFlags() CLIArgs {
 	var args CLIArgs
 
@@ -47,7 +54,12 @@ func ParseFlags() CLIArgs {
 	pflag.StringVar(&args.To, "to", "", "Email address for single-recipient sending (mutually exclusive with --csv or --sheet-url)")
 	pflag.StringVar(&args.Text, "text", "", "Inline plain-text body or path to a .txt file (mutually exclusive with --template)")
 
-	pflag.Parse()
+	pflag.StringVar(&args.ScheduleAt, "at", "", "Schedule send time (RFC3339 format: 2025-09-10T10:30:00)")
+	pflag.StringVar(&args.CronExpr, "cron", "", "Cron expression for recurring sends (e.g. '0 9 * * MON')")
+	pflag.StringVar(&args.Interval, "every", "", "Interval for repeated sends (Go duration: '10s', '5m', '24h')")
+	pflag.StringVar(&args.CancelJobID, "cancel", "", "Cancel a scheduled job by its ID")
+	pflag.BoolVar(&args.ListJobs, "list", false, "List all scheduled jobs")
 
+	pflag.Parse()
 	return args
 }
