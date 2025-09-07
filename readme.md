@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://goreportcard.com/report/github.com/bravo1goingdark/mailgrid">
-    <img src="https://img.shields.io/badge/Go%20Report-C-brightgreen?style=for-the-badge&logo=go" alt="Go Report Card"/>
+    <img src="https://img.shields.io/badge/Go%20Report-C-yellow?style=for-the-badge&logo=go" alt="Go Report Card"/>
   </a>
   <a href="https://github.com/bravo1goingdark/mailgrid/tree/main/docs/docs.md">
     <img src="https://img.shields.io/badge/📘 Documentation-blue?style=for-the-badge" alt="Docs Badge"/>
@@ -103,6 +103,7 @@ See the full flag reference and examples in [docs/docs.md](./docs/docs.md).
 - 📊 Delivery summary metrics (sent, failed, skipped)
 
 > 📄 Licensed under BSD-3-Clause — see [LICENSE](./LICENSE)
+
 
 
 
