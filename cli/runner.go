@@ -1,15 +1,21 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/bravo1goingdark/mailgrid/config"
+	"github.com/bravo1goingdark/mailgrid/database"
 	"github.com/bravo1goingdark/mailgrid/email"
+	"github.com/bravo1goingdark/mailgrid/internal/types"
+	"github.com/bravo1goingdark/mailgrid/logger"
 	"github.com/bravo1goingdark/mailgrid/parser"
 	"github.com/bravo1goingdark/mailgrid/parser/expression"
+	"github.com/bravo1goingdark/mailgrid/scheduler"
 	"github.com/bravo1goingdark/mailgrid/utils"
 	"github.com/bravo1goingdark/mailgrid/utils/preview"
 	"github.com/bravo1goingdark/mailgrid/utils/valid"
@@ -23,6 +29,109 @@ const maxAttachSize = 10 << 20 // 10 MB
 // 3. Apply optional filter
 // 4. Preview or send emails
 func Run(args CLIArgs) error {
+	// Run scheduler dispatcher in foreground
+	if args.SchedulerRun {
+		db, err := database.NewDB(args.SchedulerDB)
+		if err != nil {
+			return fmt.Errorf("open scheduler db: %w", err)
+		}
+		log := logger.New("cli-scheduler-run")
+		s := scheduler.NewScheduler(db, log)
+		es := scheduler.NewEmailScheduler(s)
+		r := NewRunner(es)
+		es.ReattachHandlers(r.EmailJobHandler)
+		fmt.Printf("⏱️  Scheduler running with DB %s. Press Ctrl+C to stop.\n", args.SchedulerDB)
+
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		<-ctx.Done()
+		fmt.Println("\nShutting down scheduler...")
+		s.Stop()
+		_ = db.Close()
+		fmt.Println("Scheduler stopped.")
+		return nil
+	}
+
+	// Jobs admin: list/cancel
+	if args.ListJobs || args.CancelJobID != "" {
+		db, err := database.NewDB(args.SchedulerDB)
+		if err != nil {
+			return fmt.Errorf("open scheduler db: %w", err)
+		}
+		log := logger.New("cli-jobs")
+		s := scheduler.NewScheduler(db, log)
+		defer func() {
+			s.Stop()
+			_ = db.Close()
+		}()
+
+		if args.CancelJobID != "" {
+			ok := s.CancelJob(args.CancelJobID)
+			if !ok {
+				return fmt.Errorf("no such job: %s", args.CancelJobID)
+			}
+			fmt.Printf("🛑 Cancelled job %s\n", args.CancelJobID)
+		}
+		if args.ListJobs {
+			jobs, err := s.ListJobs()
+			if err != nil {
+				return err
+			}
+			if len(jobs) == 0 {
+				fmt.Println("(no jobs)")
+				return nil
+			}
+			for _, j := range jobs {
+				next := "-"
+				if !j.NextRunAt.IsZero() {
+					next = j.NextRunAt.Format(time.RFC3339)
+				}
+				fmt.Printf("%s\t%s\trunAt=%s\tnext=%s\tattempts=%d/%d\n", j.ID, j.Status, j.RunAt.Format(time.RFC3339), next, j.Attempts, j.MaxAttempts)
+			}
+		}
+		return nil
+	}
+
+	// If scheduling flags are set, schedule a job and return
+	if args.ScheduleAt != "" || args.Interval != "" || args.Cron != "" {
+		if args.To == "" && args.CSVPath == "" && args.SheetURL == "" {
+			return fmt.Errorf("❌ scheduling requires --to or --csv or --sheet-url")
+		}
+		db, err := database.NewDB(args.SchedulerDB)
+		if err != nil {
+			return fmt.Errorf("open scheduler db: %w", err)
+		}
+		log := logger.New("cli-scheduler")
+		s := scheduler.NewScheduler(db, log)
+		es := scheduler.NewEmailScheduler(s)
+		runner := NewRunner(es)
+		payload := types.CLIArgs{
+			EnvPath:     args.EnvPath,
+			To:          args.To,
+			Subject:     args.Subject,
+			Text:        args.Text,
+			Template:    args.TemplatePath,
+			CSVPath:     args.CSVPath,
+			SheetURL:    args.SheetURL,
+			Attachments: args.Attachments,
+			Cc:          args.Cc,
+			Bcc:         args.Bcc,
+			Concurrency: args.Concurrency,
+			RetryLimit:  args.RetryLimit,
+			BatchSize:   args.BatchSize,
+			Filter:      args.Filter,
+			ScheduleAt:    args.ScheduleAt,
+			Interval:      args.Interval,
+			Cron:          args.Cron,
+			JobRetries:    args.JobRetries,
+			JobBackoffDur: args.JobBackoff,
+		}
+		if err := runner.Run(context.Background(), payload); err != nil {
+			return err
+		}
+		fmt.Printf("📅 Scheduled job for %s (interval=%q cron=%q) in %s\n", args.ScheduleAt, args.Interval, args.Cron, args.SchedulerDB)
+		return nil
+	}
 	// Load SMTP configuration from a file
 	cfg, err := config.LoadConfig(args.EnvPath)
 	if err != nil {

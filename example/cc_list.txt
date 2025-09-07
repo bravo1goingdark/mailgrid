@@ -1,0 +1,3 @@
+team@example.com
+manager@example.com
+

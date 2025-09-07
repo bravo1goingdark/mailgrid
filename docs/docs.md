@@ -20,25 +20,34 @@ mailgrid send \
 
 ### 📁 Available Flags
 
-| Flag             | Shorthand | Default Value              | Description                                                                                |
-|------------------|-----------|----------------------------|--------------------------------------------------------------------------------------------|
-| `--env`          | —         | `""`                       | Path to the SMTP config JSON file (required for sending).                                  |
-| `--csv`          | —         | `""`                       | Path to the recipient CSV file. Must include headers like `email`, `name`.                 |
-| `--sheet-url`    | —         | `""`                       | Google Sheet CSV URL as an alternative to local `--csv` file.                              |
-| `--template`     | `-t`      | `example/welcome.html`     | Path to the HTML email template with Go-style placeholders.                                |
-| `--subject`      | `-s`      | `Test Email from Mailgrid` | The subject line of the email. Can be overridden per run.                                  |
-| `--cc`           | —         | `""`                       | Comma-separated list or file (`@file.txt`) of CC email addresses (visible recipients).     |
-| `--bcc`          | —         | `""`                       | Comma-separated list or file (`@file.txt`) of BCC addresses (hidden from recipients).      |
-| `--to`           | -         | `""`                       | The email address of the single recipient. Cannot be used with --csv.                      |
-| `--text`         | -         | `""`                       | Inline plain-text body or path to a .txt file. Cannot be used with --template.             |
-| `--dry-run`      | —         | `false`                    | If set, renders the emails to console without sending them via SMTP.                       |
-| `--preview`      | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.                             |
-| `--preview-port` | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                                   |
-| `--concurrency`  | `-c`      | `1`                        | Number of parallel worker goroutines that send emails concurrently.                        |
-| `--retries`      | `-r`      | `2`                        | Maximum retry attempts per email on transient errors (exponential backoff).                |
-| `--batch-size`   | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).                     |
-| `--filter`       | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`).             |
-| `--attach`       | -         | `[]`                       | File attachments to include with every email. Repeat flag for multiple files. (MAX = 10MB) |                                                                               |
+| Flag               | Shorthand | Default Value              | Description                                                                                 |
+|--------------------|-----------|----------------------------|---------------------------------------------------------------------------------------------|
+| `--env`            | —         | `""`                       | Path to the SMTP config JSON file (required for sending).                                   |
+| `--csv`            | —         | `""`                       | Path to the recipient CSV file. Must include headers like `email`, `name`.                  |
+| `--sheet-url`      | —         | `""`                       | Google Sheet CSV URL as an alternative to local `--csv` file.                               |
+| `--template`       | `-t`      | `example/welcome.html`     | Path to the HTML email template with Go-style placeholders.                                 |
+| `--subject`        | `-s`      | `Test Email from Mailgrid` | The subject line of the email. Can be overridden per run.                                   |
+| `--cc`             | —         | `""`                       | Comma-separated list or file (`@file.txt`) of CC email addresses (visible recipients).      |
+| `--bcc`            | —         | `""`                       | Comma-separated list or file (`@file.txt`) of BCC addresses (hidden from recipients).       |
+| `--to`             | -         | `""`                       | The email address of the single recipient. Cannot be used with --csv.                       |
+| `--text`           | -         | `""`                       | Inline plain-text body or path to a .txt file. Cannot be used with --template.              |
+| `--dry-run`        | —         | `false`                    | If set, renders the emails to console without sending them via SMTP.                        |
+| `--preview`        | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.                              |
+| `--preview-port`   | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                                    |
+| `--concurrency`    | `-c`      | `1`                        | Number of parallel worker goroutines that send emails concurrently.                         |
+| `--retries`        | `-r`      | `2`                        | Maximum retry attempts per email on transient errors (exponential backoff).                 |
+| `--batch-size`     | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).                      |
+| `--filter`         | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`).              |
+| `--attach`         | -         | `[]`                       | File attachments to include with every email. Repeat flag for multiple files. (MAX = 10MB)  |
+| `--schedule-at`    | `--at`    | `""`                       | Schedule send at an RFC3339 time (e.g. `2025-09-08T09:00:00Z`).                             |
+| `--interval`       | `--every` | `""`                       | Recurring schedule using Go duration (e.g. `1h`, `30m`).                                    |
+| `--cron`           | `--cron-expr` | `""`                    | Recurring schedule using 5-field cron (minute hour dom month dow).                          |
+| `--job-retries`    | `--job-tries` | `3`                     | Scheduler-level max attempts on handler failure (separate from SMTP `--retries`).           |
+| `--job-backoff`    | `--backoff` | `2s`                      | Base backoff duration for scheduler retries (exponential with jitter, capped at 5m).        |
+| `--jobs-list`      | `--list`  | `false`                    | List scheduled jobs in the scheduler database.                                              |
+| `--jobs-cancel`    | `--cancel`| `""`                       | Cancel job by ID.                                                                           |
+| `--scheduler-run`  | `--run-scheduler` | `false`              | Run the scheduler dispatcher in the foreground (press Ctrl+C to stop).                      |
+| `--scheduler-db`   | `--db`    | `mailgrid.db`              | Path to BoltDB for schedules. Default is `mailgrid.db` in current working directory.        |
 
 ---
 
@@ -400,4 +409,72 @@ mailgrid send \
   --filter 'name = ashutosh && email contains @gmail.com' \
   --attach brochure.pdf
 
+```
+
+---
+
+## ⏱️ Scheduling and Job Management
+
+You can schedule one-off or recurring sends. Schedules are persisted in a local BoltDB file (default: `mailgrid.db` in your current working directory). Use listing/cancel commands to manage jobs, and optionally run the dispatcher in the foreground.
+
+Aliases: --at (schedule-at), --every (interval), --cron-expr (cron), --job-tries (job-retries), --backoff (job-backoff), --list (jobs-list), --cancel (jobs-cancel), --run-scheduler (scheduler-run), --db (scheduler-db)
+
+- One-off scheduled CSV send (RFC3339 time):
+
+```bash
+mailgrid \
+  --env example/config.json \
+  --csv example/test_contacts.csv \
+  --template example/welcome.html \
+  --subject "Welcome {{.name}}" \
+  --schedule-at 2025-09-08T09:00:00Z
+```
+
+- Recurring by interval:
+
+```bash
+mailgrid \
+  --env example/config.json \
+  --csv example/test_contacts.csv \
+  --template example/welcome.html \
+  --subject "Welcome {{.name}}" \
+  --interval 1h
+```
+
+- Recurring by cron (every day at 09:00):
+
+```bash
+mailgrid \
+  --env example/config.json \
+  --csv example/test_contacts.csv \
+  --template example/welcome.html \
+  --subject "Welcome {{.name}}" \
+  --cron "0 9 * * *"
+```
+
+- Scheduler database path (optional):
+
+```bash
+# Uses mailgrid.db by default; override when needed
+--scheduler-db custom-schedules.db
+```
+
+- Scheduler-level retry/backoff (separate from SMTP `--retries`):
+
+```bash
+--job-retries 3 --job-backoff 2s
+```
+
+- List and cancel jobs:
+
+```bash
+mailgrid --jobs-list
+mailgrid --jobs-cancel <job_id>
+```
+
+- Run scheduler dispatcher in the foreground (reattaches handlers and processes due jobs):
+
+```bash
+mailgrid --scheduler-run
+# Press Ctrl+C to stop
 ```

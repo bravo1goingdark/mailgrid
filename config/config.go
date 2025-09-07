@@ -2,7 +2,7 @@ package config
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 )
 
@@ -20,21 +20,20 @@ type AppConfig struct {
 	TimeoutMs int        `json:"timeout_ms"` // smtp timeout
 }
 
+// LoadConfig reads JSON config from disk and returns a parsed AppConfig.
+// It never terminates the process; callers should handle returned errors.
 func LoadConfig(path string) (*AppConfig, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("Failed to open config file: %v", err)
+		return nil, fmt.Errorf("open config %q: %w", path, err)
 	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			log.Fatalf("Failed to close config file: %v", err)
-		}
-	}(file)
+	defer func() {
+		_ = file.Close()
+	}()
 
 	var cfg AppConfig
 	if err := json.NewDecoder(file).Decode(&cfg); err != nil {
-		log.Fatalf("Failed to decode config JSON: %v", err)
+		return nil, fmt.Errorf("decode config JSON: %w", err)
 	}
 	return &cfg, nil
 }
