@@ -1,21 +1,20 @@
 ## 🏁 CLI Flags
 
 Mailgrid now supports high-throughput dispatch and automatic retry handling.  
-Below is the complete, production-ready flag reference with **`--concurrency`** and **`--retry-limit`** added.
+Below is the complete, production-ready flag reference with **`--concurrency`** and **`--retries`** added.
 
 ---
 
 ### ⚙️ Basic Usage — Production Sends
 
 ```bash
-mailgrid send \
+mailgrid \
   --env cfg/prod.json \
   --csv contacts.csv \
   --template welcome.html \
   --subject "Welcome!" \
   --concurrency 5 \
-  --retry-limit 3
-
+  --retries 3
 ```
 
 ### 📁 Available Flags
@@ -39,15 +38,15 @@ mailgrid send \
 | `--batch-size`     | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).                      |
 | `--filter`         | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`).              |
 | `--attach`         | -         | `[]`                       | File attachments to include with every email. Repeat flag for multiple files. (MAX = 10MB)  |
-| `--schedule-at`    | `--at`    | `""`                       | Schedule send at an RFC3339 time (e.g. `2025-09-08T09:00:00Z`).                             |
-| `--interval`       | `--every` | `""`                       | Recurring schedule using Go duration (e.g. `1h`, `30m`).                                    |
-| `--cron`           | `--cron-expr` | `""`                    | Recurring schedule using 5-field cron (minute hour dom month dow).                          |
-| `--job-retries`    | `--job-tries` | `3`                     | Scheduler-level max attempts on handler failure (separate from SMTP `--retries`).           |
-| `--job-backoff`    | `--backoff` | `2s`                      | Base backoff duration for scheduler retries (exponential with jitter, capped at 5m).        |
-| `--jobs-list`      | `--list`  | `false`                    | List scheduled jobs in the scheduler database.                                              |
-| `--jobs-cancel`    | `--cancel`| `""`                       | Cancel job by ID.                                                                           |
-| `--scheduler-run`  | `--run-scheduler` | `false`              | Run the scheduler dispatcher in the foreground (press Ctrl+C to stop).                      |
-| `--scheduler-db`   | `--db`    | `mailgrid.db`              | Path to BoltDB for schedules. Default is `mailgrid.db` in current working directory.        |
+| `--schedule-at`    | `-A`      | `""`                       | Schedule send at an RFC3339 time (e.g. `2025-09-08T09:00:00Z`).                             |
+| `--interval`       | `-i`      | `""`                       | Recurring schedule using Go duration (e.g. `1h`, `30m`).                                    |
+| `--cron`           | `-C`      | `""`                       | Recurring schedule using 5-field cron (minute hour dom month dow).                          |
+| `--job-retries`    | `-J`      | `3`                        | Scheduler-level max attempts on handler failure (separate from SMTP `--retries`).           |
+| `--job-backoff`    | `-B`      | `2s`                       | Base backoff duration for scheduler retries (exponential with jitter, capped at 5m).        |
+| `--jobs-list`      | `-L`      | `false`                    | List scheduled jobs in the scheduler database.                                              |
+| `--jobs-cancel`    | `-X`      | `""`                       | Cancel job by ID.                                                                           |
+| `--scheduler-run`  | `-R`      | `false`                    | Run the scheduler dispatcher in the foreground (press Ctrl+C to stop).                      |
+| `--scheduler-db`   | `-D`      | `mailgrid.db`              | Path to BoltDB for schedules. Default is `mailgrid.db` in current working directory.        |
 
 ---
 
@@ -132,7 +131,7 @@ Define the **subject line** for each outgoing email.
 Example:
 
 ```bash
-mailgrid send \
+mailgrid \
   --subject "Monthly update for {{ .company }}" \
   --csv contacts.csv \
   --template newsletter.html
@@ -149,7 +148,7 @@ Define one or more CC (carbon copy) recipients for the outgoing email.
 Example:
 
 ```bash
-mailgrid send \
+mailgrid \
   --cc "team@example.com,manager@example.com" \
   --csv contacts.csv \
   --template newsletter.html
@@ -166,7 +165,7 @@ Define one or more BCC (blind carbon copy) recipients for each email.
 Example:
 
 ```bash
-mailgrid send \
+mailgrid \
   --bcc "admin@example.com" \
   --csv contacts.csv \
   --template newsletter.html
@@ -211,7 +210,7 @@ If enabled, Mailgrid **renders the emails but does not send them via SMTP**.
 Example:
 
 ```bash
-mailgrid send \
+mailgrid \
   --csv contacts.csv \
   --template welcome.html \
   --subject "Hi {{ .name }}" \
@@ -257,18 +256,17 @@ Set the number of parallel SMTP workers to use when sending emails.
 **Example:**
 
 ```bash
-mailgrid send \
+mailgrid \
   --csv contacts.csv \
   --template welcome.html \
   --subject "Hi {{ .name }}" \
   --concurrency 5
-
 ```
 
 or using shorthand:
 
 ```bash
-mailgrid send \
+mailgrid \
   --csv contacts.csv \
   --template welcome.html \
   --subject "Hi {{ .name }}" \
@@ -302,7 +300,7 @@ Set how many times a failed email will be retried before being marked as a failu
 Example:
 
 ```bash
-mailgrid send \
+mailgrid \
   --csv contacts.csv \
   --template welcome.html \
   --subject "Hi {{ .name }}" \
@@ -312,7 +310,7 @@ mailgrid send \
 or using shorthand:
 
 ```bash
-mailgrid send \
+mailgrid \
   --csv contacts.csv \
   --template welcome.html \
   --subject "Hi {{ .name }}" \
@@ -368,7 +366,7 @@ So with `--concurrency 4` and `--batch-size 5`, up to **20 emails** can be proce
 - For instance, to only email users who are **Pro tier** and **older than 25**:
 
 ```bash
-mailgrid send \
+mailgrid \
   --env config.json \
   --csv contacts.csv \
   --template welcome.html \
@@ -386,7 +384,7 @@ mailgrid send \
 Example:
 
 ```bash
-mailgrid send \
+mailgrid \
   --csv contacts.csv \
   --template invoice.html \
   --attach invoice.pdf \
@@ -398,7 +396,7 @@ mailgrid send \
 ### 🧪 Example
 
 ```bash
-mailgrid send \
+mailgrid \
   --csv contacts.csv \
   --template invite.html \
   --subject "You're Invited!" \
@@ -408,7 +406,6 @@ mailgrid send \
   --batch-size 5 \
   --filter 'name = ashutosh && email contains @gmail.com' \
   --attach brochure.pdf
-
 ```
 
 ---
@@ -417,7 +414,28 @@ mailgrid send \
 
 You can schedule one-off or recurring sends. Schedules are persisted in a local BoltDB file (default: `mailgrid.db` in your current working directory). Use listing/cancel commands to manage jobs, and optionally run the dispatcher in the foreground.
 
-Aliases: --at (schedule-at), --every (interval), --cron-expr (cron), --job-tries (job-retries), --backoff (job-backoff), --list (jobs-list), --cancel (jobs-cancel), --run-scheduler (scheduler-run), --db (scheduler-db)
+Short forms: -A (schedule-at), -i (interval), -C (cron), -J (job-retries), -B (job-backoff), -L (jobs-list), -X (jobs-cancel), -R (scheduler-run), -D (scheduler-db)
+
+### Short-form examples
+
+- One-off at specific time:
+```bash
+mailgrid -A 2025-09-08T09:00:00Z --env example/config.json --csv example/test_contacts.csv -t example/welcome.html -s "Welcome {{.name}}"
+```
+- Every 2 minutes:
+```bash
+mailgrid -i 2m --env example/config.json --csv example/test_contacts.csv -t example/welcome.html -s "Welcome {{.name}}"
+```
+- Cron daily 09:00:
+```bash
+mailgrid -C "0 9 * * *" --env example/config.json --csv example/test_contacts.csv -t example/welcome.html -s "Morning {{.name}}"
+```
+- List / cancel / run scheduler / custom DB:
+```bash
+mailgrid -L
+mailgrid -X <job_id>
+mailgrid -R -D mailgrid.db
+```
 
 - One-off scheduled CSV send (RFC3339 time):
 

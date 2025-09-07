@@ -49,12 +49,55 @@ Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV fi
 
 ---
 
+### ⏱️ Scheduling (new)
+Mailgrid now supports one-off and recurring schedules with a persistent job store and job management commands.
+
+- One-off at a specific time (RFC3339):
+  ```bash
+  mailgrid \
+    --env example/config.json \
+    --csv example/test_contacts.csv \
+    -t example/welcome.html \
+    -s "Welcome {{.name}}" \
+    -A 2025-09-08T09:00:00Z
+  ```
+- Recurring every 2 minutes:
+  ```bash
+  mailgrid \
+    --env example/config.json \
+    --csv example/test_contacts.csv \
+    -t example/welcome.html \
+    -s "Welcome {{.name}}" \
+    -i 2m
+  ```
+- Cron schedule (daily at 09:00):
+  ```bash
+  mailgrid \
+    --env example/config.json \
+    --csv example/test_contacts.csv \
+    -t example/welcome.html \
+    -s "Morning {{.name}}" \
+    -C "0 9 * * *"
+  ```
+- Job management:
+  ```bash
+  # List jobs
+  mailgrid -L
+  # Cancel a job
+  mailgrid -X <job_id>
+  # Run dispatcher in foreground; Ctrl+C to stop
+  mailgrid -R -D mailgrid.db
+  ```
+
+See the full flag reference and examples in [docs/docs.md](./docs/docs.md).
+
+---
+
 ### 🔜 Coming Soon
 - 🚦 rate-limiting
 - 📊 Delivery summary metrics (sent, failed, skipped)
 
 > 📄 Licensed under BSD-3-Clause — see [LICENSE](./LICENSE)
-
 
 
 
