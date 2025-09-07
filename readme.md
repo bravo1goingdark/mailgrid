@@ -3,6 +3,9 @@
 </p>
 
 <p align="center">
+  <a href="https://goreportcard.com/report/github.com/bravo1goingdark/mailgrid">
+    <img src="https://img.shields.io/badge/Go%20Report-C-brightgreen?style=for-the-badge&logo=go" alt="Go Report Card"/>
+  </a>
   <a href="https://github.com/bravo1goingdark/mailgrid/tree/main/docs/docs.md">
     <img src="https://img.shields.io/badge/📘 Documentation-blue?style=for-the-badge" alt="Docs Badge"/>
   </a>
@@ -10,6 +13,8 @@
     <img src="https://img.shields.io/badge/Built%20by-BlipMQ-8E44AD?style=for-the-badge&logo=github" alt="Built By BlipMQ"/>
   </a>
 </p>
+
+
 
 **Mailgrid** is a high-performance, ultra-lightweight CLI tool written in Go for sending bulk emails via SMTP from CSV or Google Sheets. Built for speed, reliability, and minimalism — no bloated web UIs, just powerful automation.
 
@@ -98,6 +103,7 @@ See the full flag reference and examples in [docs/docs.md](./docs/docs.md).
 - 📊 Delivery summary metrics (sent, failed, skipped)
 
 > 📄 Licensed under BSD-3-Clause — see [LICENSE](./LICENSE)
+
 
 
 
