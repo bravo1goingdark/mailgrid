@@ -21,8 +21,23 @@ type CLIArgs struct {
 	Cc           string   // Comma-separated emails or file path for CC
 	Bcc          string   // Comma-separated emails or file path for BCC
 	To           string   // Email address for one-off sending
-	Text         string   // Inline plain-text body or path to text file
+	Text         string   // Inline plain-text body or path to a text file
 
+	// Scheduling options (if any of these are set, we schedule instead of immediate sending)
+	ScheduleAt string // RFC3339 timestamp
+	Interval   string // Go duration, e.g. "1h", "30m"
+	Cron       string // Cron expression (5-field)
+
+	// Scheduler job-level retry/backoff (separate it from SMTP retries)
+	JobRetries int
+	JobBackoff string // duration
+
+	// Job management
+	ListJobs     bool
+	CancelJobID  string
+	SchedulerRun bool // Run dispatcher in foreground
+
+	SchedulerDB string // Path to BoltDB file for persisted schedules
 }
 
 // ParseFlags reads command-line flags using spf13/pflag and returns a filled CLIArgs struct.
@@ -46,6 +61,17 @@ func ParseFlags() CLIArgs {
 	pflag.StringSliceVar(&args.Attachments, "attach", []string{}, "File attachments (repeat flag to add multiple)")
 	pflag.StringVar(&args.To, "to", "", "Email address for single-recipient sending (mutually exclusive with --csv or --sheet-url)")
 	pflag.StringVar(&args.Text, "text", "", "Inline plain-text body or path to a .txt file (mutually exclusive with --template)")
+
+	// Scheduling flags (single-letter shorthands)
+	pflag.StringVarP(&args.ScheduleAt, "schedule-at", "A", "", "Schedule time in RFC3339 (e.g., 2025-09-08T09:00:00Z)")
+	pflag.StringVarP(&args.Interval, "interval", "i", "", "Repeat interval as Go duration (e.g., 1h, 30m)")
+	pflag.StringVarP(&args.Cron, "cron", "C", "", "Cron expression (5-field) for recurring schedules")
+	pflag.IntVarP(&args.JobRetries, "job-retries", "J", 3, "Scheduler-level retry attempts on handler failure")
+	pflag.StringVarP(&args.JobBackoff, "job-backoff", "B", "2s", "Base backoff for scheduler retries (Go duration)")
+	pflag.BoolVarP(&args.ListJobs, "jobs-list", "L", false, "List scheduled jobs")
+	pflag.StringVarP(&args.CancelJobID, "jobs-cancel", "X", "", "Cancel job by ID")
+	pflag.BoolVarP(&args.SchedulerRun, "scheduler-run", "R", false, "Run the scheduler dispatcher in the foreground")
+	pflag.StringVarP(&args.SchedulerDB, "scheduler-db", "D", "mailgrid.db", "Path to BoltDB file for schedules")
 
 	pflag.Parse()
 

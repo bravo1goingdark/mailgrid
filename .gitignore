@@ -42,9 +42,15 @@ coverage.*
 # Logs
 logs/
 *.log
+WARP.md
 
 # Backup files
 *~
 features.md
 # Test cache
 /tmp/
+
+# Local runtime artifacts
+mailgrid.db
+success.csv
+failed.csv
