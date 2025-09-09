@@ -40,8 +40,12 @@ jobs:
     - name: Install dependencies
       run: |
         go mod download
-        go install golang.org/x/vuln/cmd/govulncheck@latest
         go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+    - name: Install govulncheck (Go >= 1.22 only)
+      if: contains('1.22 1.23 1.24', matrix.go-version)
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@latest
     
     - name: Format check
       run: |
@@ -58,7 +62,8 @@ jobs:
         go test -v -race -coverprofile=coverage.out ./...
         go tool cover -func=coverage.out
     
-    - name: Security check
+    - name: Security check (only on modern Go)
+      if: contains('1.22 1.23 1.24', matrix.go-version)
       run: govulncheck ./...
     
     - name: Upload coverage to Codecov
@@ -94,7 +99,7 @@ jobs:
         ls -la dist/
     
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: binaries
         path: dist/
@@ -172,7 +177,7 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
     
     - name: Download build artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: binaries
         path: dist/
@@ -263,7 +268,7 @@ jobs:
         echo "\`\`\`" >> deps_report.md
     
     - name: Upload dependency report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dependency-report
         path: deps_report.md
