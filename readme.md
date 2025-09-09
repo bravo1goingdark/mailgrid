@@ -12,6 +12,9 @@
   <a href="https://hub.docker.com/r/bravo1goingdark/mailgrid">
     <img src="https://img.shields.io/docker/v/bravo1goingdark/mailgrid?style=for-the-badge&logo=docker&label=Docker" alt="Docker Version"/>
   </a>
+  <a href="https://goreportcard.com/report/github.com/bravo1goingdark/mailgrid">
+    <img src="https://img.shields.io/badge/Go%20Report-C-yellow?style=for-the-badge&logo=go" alt="Go Report Card"/>
+  </a>
 </p>
 
 <p align="center">
@@ -732,6 +735,8 @@ services:
 - ✅ **Comprehensive documentation** with deployment guides
 
 > 📄 Licensed under BSD-3-Clause — see [LICENSE](./LICENSE)
+
+
 
 
 
