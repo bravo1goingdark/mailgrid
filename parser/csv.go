@@ -87,9 +87,8 @@ func ParseCSV(path string) ([]Recipient, error) {
 	}
 	// close the file when done (even if an error occurs later)
 	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			log.Fatalf("Failed to close config file: %v", err)
+		if err := file.Close(); err != nil {
+			log.Printf("Warning: Failed to close CSV file: %v", err)
 		}
 	}(file)
 

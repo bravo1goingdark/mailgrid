@@ -1,3 +1,106 @@
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+mailgrid
+mailgrid.exe
+
+# Build directories
+/build/
+/dist/
+/release/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage.xml
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+mailgrid.log
+
+# Configuration files (keep examples)
+config.json
+*.config.json
+!example/*.json
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+mailgrid.db
+scheduler.db
+
+# CSV output files (but keep examples)
+success.csv
+failed.csv
+results.csv
+output.csv
+!example/*.csv
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# OS generated files
+.DS_Store?
+ehthumbs.db
+Icon?
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Local development
+.air.toml
+.live.toml
+
+# Archives
+*.tar.gz
+*.zip
+*.tar.bz2
+*.7z
+
+# Metrics and monitoring
+prometheus/
+grafana/
+
+# Docker volumes
+data/
+volumes/
+
+# Performance profiling
+*.prof
+*.pprof
+
+# Benchmarks
+benchmark.txt
+bench.out
+
 # Binaries
 /mailgrid
 *.exe
