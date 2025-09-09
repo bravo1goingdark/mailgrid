@@ -40,6 +40,15 @@ jobs:
     - name: Install dependencies
       run: |
         go mod download
+
+    - name: Install golangci-lint (Go 1.20/1.21)
+      if: contains('1.20 1.21', matrix.go-version)
+      run: |
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
+
+    - name: Install golangci-lint (Go >= 1.22)
+      if: contains('1.22 1.23 1.24', matrix.go-version)
+      run: |
         go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
     - name: Install govulncheck (Go >= 1.22 only)
