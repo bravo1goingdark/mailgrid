@@ -3,8 +3,8 @@ package preview
 import (
 	"bytes"
 	"fmt"
-	"github.com/bravo1goingdark/mailgrid/parser"
 	"html/template"
+	"github.com/bravo1goingdark/mailgrid/parser"
 	"os"
 	"sync"
 )

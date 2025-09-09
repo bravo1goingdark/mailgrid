@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bravo1goingdark/mailgrid/cli"
 	"github.com/spf13/pflag"
+	"github.com/bravo1goingdark/mailgrid/cli"
 )
 
 func TestParseFlags_AllOptions(t *testing.T) {

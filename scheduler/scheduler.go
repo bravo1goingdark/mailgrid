@@ -277,3 +277,4 @@ func (s *Scheduler) Stop() {
 	close(s.quit)
 	s.wg.Wait()
 }
+

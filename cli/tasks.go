@@ -115,8 +115,8 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 		}
 	}
 
-	ccList := utils.SplitAndTrim(args.Cc)
-	bccList := utils.SplitAndTrim(args.Bcc)
+	ccList := utils.SplitAndTrim(args.Cc);
+	bccList := utils.SplitAndTrim(args.Bcc);
 
 	// Use existing logic to render subject and body
 	tasks, err := PrepareEmailTasks(

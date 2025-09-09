@@ -77,3 +77,4 @@ func (r *Runner) Run(_ context.Context, a types.CLIArgs) error {
 	}
 	return r.es.AddEmailJob(a, runAt, a.Cron, a.Interval, r.EmailJobHandler)
 }
+

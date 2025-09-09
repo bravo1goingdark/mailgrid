@@ -10,7 +10,6 @@ require (
 	github.com/spf13/pflag v1.0.7
 	github.com/stretchr/testify v1.10.0
 	go.etcd.io/bbolt v1.3.8
-	golang.org/x/time v0.8.0
 )
 
 require (
