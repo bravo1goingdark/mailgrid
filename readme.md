@@ -54,53 +54,85 @@ Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV fi
 
 ---
 
-### ⏱️ Scheduling (new)
-Mailgrid now supports one-off and recurring schedules with a persistent job store and job management commands.
+### ⏱️ Advanced Scheduling & Automation
+Mailgrid features a high-performance, production-ready scheduler with auto-start capabilities, monitoring, and intelligent lifecycle management.
 
-- One-off at a specific time (RFC3339):
-  ```bash
-  mailgrid \
-    --env example/config.json \
-    --csv example/test_contacts.csv \
-    -t example/welcome.html \
-    -s "Welcome {{.name}}" \
-    -A 2025-09-08T09:00:00Z
-  ```
-- Recurring every 2 minutes:
-  ```bash
-  mailgrid \
-    --env example/config.json \
-    --csv example/test_contacts.csv \
-    -t example/welcome.html \
-    -s "Welcome {{.name}}" \
-    -i 2m
-  ```
-- Cron schedule (daily at 09:00):
-  ```bash
-  mailgrid \
-    --env example/config.json \
-    --csv example/test_contacts.csv \
-    -t example/welcome.html \
-    -s "Morning {{.name}}" \
-    -C "0 9 * * *"
-  ```
-- Job management:
-  ```bash
-  # List jobs
-  mailgrid -L
-  # Cancel a job
-  mailgrid -X <job_id>
-  # Run dispatcher in foreground; Ctrl+C to stop
-  mailgrid -R -D mailgrid.db
-  ```
+#### 🚀 Auto-Start Scheduler
+- **Automatic activation**: Scheduler starts automatically when jobs are scheduled
+- **Auto-shutdown**: Intelligent shutdown after configurable idle periods (default: 5 minutes)
+- **Background operation**: Jobs execute seamlessly without manual intervention
+- **Persistent storage**: BoltDB-backed job persistence with distributed locking
+- **Metrics & monitoring**: Built-in HTTP endpoints for performance tracking
+
+#### 📅 Flexible Scheduling Options
+
+**One-time scheduling:**
+```bash
+mailgrid \
+  --env config.json \
+  --to "user@example.com" \
+  --subject "Reminder" \
+  --text "Don't forget the meeting!" \
+  --schedule-at "2025-01-01T10:00:00Z"
+```
+
+**Recurring schedules:**
+```bash
+# Every 30 minutes
+mailgrid \
+  --env config.json \
+  --csv subscribers.csv \
+  --template newsletter.html \
+  --subject "Updates - {{.name}}" \
+  --interval "30m"
+
+# Daily at 9 AM (cron)
+mailgrid \
+  --env config.json \
+  --to "admin@company.com" \
+  --subject "Daily Report" \
+  --text "Here's today's summary..." \
+  --cron "0 9 * * *"
+```
+
+#### 🎛️ Job Management
+```bash
+# List all scheduled jobs with status
+mailgrid --jobs-list --env config.json
+
+# Cancel a specific job
+mailgrid --jobs-cancel "job-id-123" --env config.json
+
+# Run scheduler as a daemon service
+mailgrid --scheduler-run --env config.json
+```
+
+#### 📊 Monitoring & Metrics
+When active, the scheduler provides real-time metrics:
+- **Metrics endpoint**: `http://localhost:8090/metrics`
+- **Health check**: `http://localhost:8090/health`
+- **Performance data**: Delivery times, success rates, connection status
+- **Error tracking**: Detailed error classification and counts
 
 See the full flag reference and examples in [docs/docs.md](./docs/docs.md).
 
 ---
 
-### 🔜 Coming Soon
-- 🚦 rate-limiting
-- 📊 Delivery summary metrics (sent, failed, skipped)
+### 🏗️ Performance Features
+- **Connection pooling**: Optimized SMTP connection management
+- **Batch processing**: Intelligent email batching with adaptive sizing
+- **Template caching**: Lightning-fast template rendering (1-hour cache)
+- **Circuit breaking**: Automatic failover during SMTP issues
+- **Concurrent execution**: Multi-threaded job processing
+- **Adaptive polling**: Dynamic interval adjustment based on workload
+- **Resilience management**: Retry logic with exponential backoff
+
+### 📈 Production Ready
+- **Zero-downtime operation**: Graceful shutdown with signal handling
+- **Resource efficiency**: Automatic cleanup and memory management
+- **Error recovery**: Intelligent retry mechanisms and circuit breaking
+- **Monitoring integration**: JSON metrics for external monitoring tools
+- **Database persistence**: Reliable job storage with crash recovery
 
 > 📄 Licensed under BSD-3-Clause — see [LICENSE](./LICENSE)
 

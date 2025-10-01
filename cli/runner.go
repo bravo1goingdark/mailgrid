@@ -2,17 +2,17 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/bravo1goingdark/mailgrid/config"
-	"github.com/bravo1goingdark/mailgrid/database"
 	"github.com/bravo1goingdark/mailgrid/email"
 	"github.com/bravo1goingdark/mailgrid/internal/types"
-	"github.com/bravo1goingdark/mailgrid/logger"
 	"github.com/bravo1goingdark/mailgrid/parser"
 	"github.com/bravo1goingdark/mailgrid/parser/expression"
 	"github.com/bravo1goingdark/mailgrid/scheduler"
@@ -31,63 +31,127 @@ const maxAttachSize = 10 << 20 // 10 MB
 func Run(args CLIArgs) error {
 	// Run scheduler dispatcher in foreground
 	if args.SchedulerRun {
-		db, err := database.NewDB(args.SchedulerDB)
+		// Load SMTP config for the scheduler
+		smtpConfig, err := config.LoadConfig(args.EnvPath)
 		if err != nil {
-			return fmt.Errorf("open scheduler db: %w", err)
+			return fmt.Errorf("failed to load SMTP config: %w", err)
 		}
-		log := logger.New("cli-scheduler-run")
-		s := scheduler.NewScheduler(db, log)
-		es := scheduler.NewEmailScheduler(s)
-		r := NewRunner(es)
-		es.ReattachHandlers(r.EmailJobHandler)
-		fmt.Printf("⏱️  Scheduler running with DB %s. Press Ctrl+C to stop.\n", args.SchedulerDB)
-
+		
+		// Configure optimized scheduler manager
+		managerConfig := scheduler.ManagerConfig{
+			DBPath:           args.SchedulerDB,
+			SMTPConfig:       smtpConfig.SMTP,
+			OptimizedConfig:  scheduler.DefaultOptimizedConfig(),
+			ShutdownDelay:    0, // Disable auto-shutdown in daemon mode
+			AutoShutdown:     false,
+		}
+		
+		// Create scheduler manager
+		manager := scheduler.NewSchedulerManager(managerConfig)
+		
+		// Create job handler
+		handler := func(job types.Job) error {
+			var a types.CLIArgs
+			if err := json.Unmarshal(job.Args, &a); err != nil {
+				return fmt.Errorf("decode job args: %w", err)
+			}
+			
+			// Execute the job based on type
+			if a.To != "" {
+				// Single email
+				cliArgs := CLIArgs{
+					EnvPath:      a.EnvPath,
+					To:           a.To,
+					Subject:      a.Subject,
+					TemplatePath: a.Template,
+					Text:         a.Text,
+					Attachments:  a.Attachments,
+					Cc:           a.Cc,
+					Bcc:          a.Bcc,
+					RetryLimit:   a.RetryLimit,
+				}
+				return SendSingleEmail(cliArgs, smtpConfig.SMTP)
+			} else {
+				// Bulk email
+				cliArgs := CLIArgs{
+					EnvPath:      a.EnvPath,
+					CSVPath:      a.CSVPath,
+					SheetURL:     a.SheetURL,
+					TemplatePath: a.Template,
+					Subject:      a.Subject,
+					Attachments:  a.Attachments,
+					Cc:           a.Cc,
+					Bcc:          a.Bcc,
+					Concurrency:  a.Concurrency,
+					RetryLimit:   a.RetryLimit,
+					BatchSize:    a.BatchSize,
+					Filter:       a.Filter,
+				}
+				return Run(cliArgs)
+			}
+		}
+		
+		// Attach default handler
+		if err := manager.AttachDefaultHandler(handler); err != nil {
+			return fmt.Errorf("failed to attach handler: %w", err)
+		}
+		
+		// Run as daemon
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		<-ctx.Done()
-		fmt.Println("\nShutting down scheduler...")
-		s.Stop()
-		_ = db.Close()
-		fmt.Println("Scheduler stopped.")
-		return nil
+		
+		return manager.RunDaemon(ctx)
 	}
 
 	// Jobs admin: list/cancel
 	if args.ListJobs || args.CancelJobID != "" {
-		db, err := database.NewDB(args.SchedulerDB)
-		if err != nil {
-			return fmt.Errorf("open scheduler db: %w", err)
+		// Configure manager for admin operations
+		managerConfig := scheduler.ManagerConfig{
+			DBPath:           args.SchedulerDB,
+			OptimizedConfig:  scheduler.DefaultOptimizedConfig(),
+			AutoShutdown:     false, // Don't auto-shutdown during admin operations
 		}
-		log := logger.New("cli-jobs")
-		s := scheduler.NewScheduler(db, log)
-		defer func() {
-			s.Stop()
-			_ = db.Close()
-		}()
+		
+		manager := scheduler.NewSchedulerManager(managerConfig)
+		defer manager.Stop()
 
 		if args.CancelJobID != "" {
-			ok := s.CancelJob(args.CancelJobID)
-			if !ok {
-				return fmt.Errorf("no such job: %s", args.CancelJobID)
+			if err := manager.CancelJob(args.CancelJobID); err != nil {
+				return fmt.Errorf("failed to cancel job: %w", err)
 			}
 			fmt.Printf("🛑 Cancelled job %s\n", args.CancelJobID)
 		}
+		
 		if args.ListJobs {
-			jobs, err := s.ListJobs()
+			jobs, err := manager.ListJobs()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to list jobs: %w", err)
 			}
+			
 			if len(jobs) == 0 {
-				fmt.Println("(no jobs)")
+				fmt.Println("📋 No jobs found")
 				return nil
 			}
+			
+			fmt.Printf("📋 Found %d job(s):\n\n", len(jobs))
+			fmt.Printf("%-20s %-10s %-20s %-20s %-10s\n", "JOB ID", "STATUS", "RUN AT", "NEXT RUN", "ATTEMPTS")
+			fmt.Printf("%s\n", strings.Repeat("-", 85))
+			
 			for _, j := range jobs {
 				next := "-"
 				if !j.NextRunAt.IsZero() {
-					next = j.NextRunAt.Format(time.RFC3339)
+					next = j.NextRunAt.Format("15:04:05 01/02")
 				}
-				fmt.Printf("%s\t%s\trunAt=%s\tnext=%s\tattempts=%d/%d\n", j.ID, j.Status, j.RunAt.Format(time.RFC3339), next, j.Attempts, j.MaxAttempts)
+				runAt := j.RunAt.Format("15:04:05 01/02")
+				jobID := j.ID
+				if len(jobID) > 18 {
+					jobID = jobID[:18] + "..."
+				}
+				fmt.Printf("%-20s %-10s %-20s %-20s %d/%d\n", 
+					jobID, j.Status, runAt, next, j.Attempts, j.MaxAttempts)
 			}
+			
+			fmt.Printf("\n💡 Use --cancel-job <JOB_ID> to cancel a specific job\n")
 		}
 		return nil
 	}
@@ -97,39 +161,124 @@ func Run(args CLIArgs) error {
 		if args.To == "" && args.CSVPath == "" && args.SheetURL == "" {
 			return fmt.Errorf("❌ scheduling requires --to or --csv or --sheet-url")
 		}
-		db, err := database.NewDB(args.SchedulerDB)
+		
+		// Load SMTP config for the scheduler manager
+		smtpConfig, err := config.LoadConfig(args.EnvPath)
 		if err != nil {
-			return fmt.Errorf("open scheduler db: %w", err)
+			return fmt.Errorf("failed to load SMTP config: %w", err)
 		}
-		log := logger.New("cli-scheduler")
-		s := scheduler.NewScheduler(db, log)
-		es := scheduler.NewEmailScheduler(s)
-		runner := NewRunner(es)
+		
+		// Configure the optimized scheduler manager
+		managerConfig := scheduler.ManagerConfig{
+			DBPath:           args.SchedulerDB,
+			SMTPConfig:       smtpConfig.SMTP,
+			OptimizedConfig:  scheduler.DefaultOptimizedConfig(),
+			ShutdownDelay:    5 * time.Minute,
+			AutoShutdown:     true,
+		}
+		
+		// Initialize global scheduler manager
+		scheduler.InitGlobalManager(managerConfig)
+		manager := scheduler.GetGlobalManager()
+		
+		// Create job handler
+		handler := func(job types.Job) error {
+			var a types.CLIArgs
+			if err := json.Unmarshal(job.Args, &a); err != nil {
+				return fmt.Errorf("decode job args: %w", err)
+			}
+			
+			// Execute the job based on type
+			if a.To != "" {
+				// Single email
+				cliArgs := CLIArgs{
+					EnvPath:      a.EnvPath,
+					To:           a.To,
+					Subject:      a.Subject,
+					TemplatePath: a.Template,
+					Text:         a.Text,
+					Attachments:  a.Attachments,
+					Cc:           a.Cc,
+					Bcc:          a.Bcc,
+					RetryLimit:   a.RetryLimit,
+				}
+				return SendSingleEmail(cliArgs, smtpConfig.SMTP)
+			} else {
+				// Bulk email
+				cliArgs := CLIArgs{
+					EnvPath:      a.EnvPath,
+					CSVPath:      a.CSVPath,
+					SheetURL:     a.SheetURL,
+					TemplatePath: a.Template,
+					Subject:      a.Subject,
+					Attachments:  a.Attachments,
+					Cc:           a.Cc,
+					Bcc:          a.Bcc,
+					Concurrency:  a.Concurrency,
+					RetryLimit:   a.RetryLimit,
+					BatchSize:    a.BatchSize,
+					Filter:       a.Filter,
+				}
+				return Run(cliArgs)
+			}
+		}
+		
+		// Parse schedule time
+		var runAt time.Time
+		if args.ScheduleAt != "" {
+			var err error
+			runAt, err = time.Parse(time.RFC3339, args.ScheduleAt)
+			if err != nil {
+				return fmt.Errorf("parse schedule_at: %w", err)
+			}
+		} else {
+			runAt = time.Now()
+		}
+		
+		// Create job payload
 		payload := types.CLIArgs{
-			EnvPath:     args.EnvPath,
-			To:          args.To,
-			Subject:     args.Subject,
-			Text:        args.Text,
-			Template:    args.TemplatePath,
-			CSVPath:     args.CSVPath,
-			SheetURL:    args.SheetURL,
-			Attachments: args.Attachments,
-			Cc:          args.Cc,
-			Bcc:         args.Bcc,
-			Concurrency: args.Concurrency,
-			RetryLimit:  args.RetryLimit,
-			BatchSize:   args.BatchSize,
-			Filter:      args.Filter,
+			EnvPath:       args.EnvPath,
+			To:            args.To,
+			Subject:       args.Subject,
+			Text:          args.Text,
+			Template:      args.TemplatePath,
+			CSVPath:       args.CSVPath,
+			SheetURL:      args.SheetURL,
+			Attachments:   args.Attachments,
+			Cc:            args.Cc,
+			Bcc:           args.Bcc,
+			Concurrency:   args.Concurrency,
+			RetryLimit:    args.RetryLimit,
+			BatchSize:     args.BatchSize,
+			Filter:        args.Filter,
 			ScheduleAt:    args.ScheduleAt,
 			Interval:      args.Interval,
 			Cron:          args.Cron,
 			JobRetries:    args.JobRetries,
 			JobBackoffDur: args.JobBackoff,
 		}
-		if err := runner.Run(context.Background(), payload); err != nil {
-			return err
+		
+		// Schedule the job (this will auto-start the scheduler)
+		if err := manager.ScheduleJob(payload, runAt, args.Cron, args.Interval, handler); err != nil {
+			return fmt.Errorf("failed to schedule job: %w", err)
 		}
-		fmt.Printf("📅 Scheduled job for %s (interval=%q cron=%q) in %s\n", args.ScheduleAt, args.Interval, args.Cron, args.SchedulerDB)
+		
+		scheduleInfo := ""
+		if args.ScheduleAt != "" {
+			scheduleInfo = fmt.Sprintf(" at %s", args.ScheduleAt)
+		}
+		if args.Interval != "" {
+			scheduleInfo += fmt.Sprintf(" every %s", args.Interval)
+		}
+		if args.Cron != "" {
+			scheduleInfo += fmt.Sprintf(" using cron %q", args.Cron)
+		}
+		
+		fmt.Printf("📅 Job scheduled successfully%s\n", scheduleInfo)
+		fmt.Printf("🗄️  Database: %s\n", args.SchedulerDB)
+		fmt.Printf("📊 Metrics: http://localhost:8090/metrics\n")
+		fmt.Printf("💡 The scheduler will start automatically and run in the background\n")
+		
 		return nil
 	}
 	// Load SMTP configuration from a file
