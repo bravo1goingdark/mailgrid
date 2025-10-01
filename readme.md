@@ -9,6 +9,9 @@
   <a href="https://github.com/bravo1goingdark/mailgrid/tree/main/docs/docs.md">
     <img src="https://img.shields.io/badge/📘 Documentation-blue?style=for-the-badge" alt="Docs Badge"/>
   </a>
+  <a href="https://github.com/bravo1goingdark/mailgrid/blob/main/INSTALLATION.md">
+    <img src="https://img.shields.io/badge/🚀 Installation-green?style=for-the-badge" alt="Installation Guide"/>
+  </a>
   <a href="https://github.com/bravo1goingdark/blipmq">
     <img src="https://img.shields.io/badge/Built%20by-BlipMQ-8E44AD?style=for-the-badge&logo=github" alt="Built By BlipMQ"/>
   </a>
