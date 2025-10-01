@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  mailgrid:
+    image: ghcr.io/bravo1goingdark/mailgrid:latest
+    container_name: mailgrid-scheduler
+    restart: unless-stopped
+    
+    # Environment variables
+    environment:
+      - TZ=UTC
+      - MAILGRID_CONFIG=/app/config.json
+      - MAILGRID_DB=/app/data/mailgrid.db
+    
+    # Port mapping for metrics
+    ports:
+      - "8090:8090"  # Metrics and health endpoints
+    
+    # Volume mounts for persistence and configuration
+    volumes:
+      - ./config.json:/app/config.json:ro           # SMTP configuration (read-only)
+      - ./data:/app/data                            # Database persistence
+      - ./templates:/app/templates:ro               # Email templates (optional)
+      - ./attachments:/app/attachments:ro           # Attachments directory (optional)
+    
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    
+    # Health check configuration
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/mailgrid", "--help"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    
+    # Read-only root filesystem for security
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=128m
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Monitoring with Prometheus (uncomment to enable)
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: mailgrid-prometheus
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.console.libraries=/etc/prometheus/console_libraries'
+  #     - '--web.console.templates=/etc/prometheus/consoles'
+
+  # Optional: Grafana dashboard (uncomment to enable)
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: mailgrid-grafana
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #     - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+  #     - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+
+# volumes:
+#   prometheus_data:
+#   grafana_data:

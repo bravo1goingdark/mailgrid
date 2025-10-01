@@ -1,0 +1,219 @@
+name: 🚀 Multi-Platform Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: 🔨 Build Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Windows builds
+          - goos: windows
+            goarch: amd64
+            name: mailgrid-windows-amd64.exe
+            compress: zip
+          - goos: windows
+            goarch: arm64
+            name: mailgrid-windows-arm64.exe
+            compress: zip
+          
+          # Linux builds  
+          - goos: linux
+            goarch: amd64
+            name: mailgrid-linux-amd64
+            compress: tar.gz
+          - goos: linux
+            goarch: arm64
+            name: mailgrid-linux-arm64
+            compress: tar.gz
+          - goos: linux
+            goarch: 386
+            name: mailgrid-linux-386
+            compress: tar.gz
+          
+          # macOS builds
+          - goos: darwin
+            goarch: amd64
+            name: mailgrid-macos-intel
+            compress: tar.gz
+          - goos: darwin
+            goarch: arm64
+            name: mailgrid-macos-apple-silicon
+            compress: tar.gz
+          
+          # FreeBSD builds
+          - goos: freebsd
+            goarch: amd64
+            name: mailgrid-freebsd-amd64
+            compress: tar.gz
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: 📊 Get version
+      id: version
+      run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: 🏗️ Build optimized binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        # Build with optimization flags for smallest binary size
+        go build \
+          -ldflags="-s -w -X main.version=${{ steps.version.outputs.version }} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          -trimpath \
+          -o ${{ matrix.name }} \
+          ./cmd/mailgrid
+        
+        # Display binary size
+        ls -lah ${{ matrix.name }}
+        
+        # Strip additional symbols if available
+        if command -v strip >/dev/null 2>&1 && [[ "${{ matrix.goos }}" == "linux" ]]; then
+          strip ${{ matrix.name }} || true
+        fi
+
+    - name: 🗜️ Compress binary
+      run: |
+        mkdir -p dist
+        if [[ "${{ matrix.compress }}" == "zip" ]]; then
+          zip -9 "dist/${{ matrix.name }}.zip" ${{ matrix.name }} README.md LICENSE RELEASE_NOTES_v1.0.0.md
+          echo "ASSET_PATH=dist/${{ matrix.name }}.zip" >> $GITHUB_ENV
+          echo "ASSET_NAME=${{ matrix.name }}.zip" >> $GITHUB_ENV
+        else
+          tar -czf "dist/${{ matrix.name }}.tar.gz" ${{ matrix.name }} README.md LICENSE RELEASE_NOTES_v1.0.0.md
+          echo "ASSET_PATH=dist/${{ matrix.name }}.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_NAME=${{ matrix.name }}.tar.gz" >> $GITHUB_ENV
+        fi
+
+    - name: 📤 Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.name }}
+        path: ${{ env.ASSET_PATH }}
+        retention-days: 1
+
+  docker:
+    name: 🐳 Build Docker Images
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: 🔧 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🔑 Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 📊 Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=ref,event=tag
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: 🏗️ Build and push Docker images
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  release:
+    name: 🎉 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build, docker]
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 📥 Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+
+    - name: 📋 Prepare release assets
+      run: |
+        mkdir -p release-assets
+        find ./artifacts -name "*.zip" -o -name "*.tar.gz" | xargs -I {} cp {} ./release-assets/
+        
+        # Generate checksums
+        cd release-assets
+        sha256sum * > checksums.txt
+        ls -lah
+
+    - name: 📊 Get version and release notes
+      id: version
+      run: |
+        echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        if [[ -f "RELEASE_NOTES_${{ steps.version.outputs.version }}.md" ]]; then
+          echo "release_notes=RELEASE_NOTES_${{ steps.version.outputs.version }}.md" >> $GITHUB_OUTPUT
+        else
+          echo "release_notes=RELEASE_NOTES_v1.0.0.md" >> $GITHUB_OUTPUT
+        fi
+
+    - name: 🎉 Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: "MailGrid ${{ steps.version.outputs.version }} - Production-Ready Email Orchestrator"
+        body_path: ${{ steps.version.outputs.release_notes }}
+        draft: false
+        prerelease: false
+        files: |
+          release-assets/*
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    name: 🍺 Update Homebrew Formula
+    runs-on: ubuntu-latest
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - name: 🍺 Update Homebrew Formula
+      uses: mislav/bump-homebrew-formula-action@v3
+      with:
+        formula-name: mailgrid
+        formula-path: Formula/mailgrid.rb
+        homebrew-tap: ${{ github.actor }}/homebrew-tap
+        base-branch: main
+        create-pullrequest: true
+        commit-message: |
+          mailgrid ${{ steps.version.outputs.version }}
+          
+          Automated update for MailGrid ${{ steps.version.outputs.version }}
+      env:
+        COMMITTER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
