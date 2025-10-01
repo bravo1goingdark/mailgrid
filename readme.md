@@ -134,10 +134,132 @@ See the full flag reference and examples in [docs/docs.md](./docs/docs.md).
 - **Monitoring integration**: JSON metrics for external monitoring tools
 - **Database persistence**: Reliable job storage with crash recovery
 
+---
+
+## 📦 Installation
+
+MailGrid provides multiple installation methods for all major platforms with optimized, lightweight binaries.
+
+### 🚀 Quick Install (Recommended)
+
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/install.ps1 | iex
+```
+
+**Linux & macOS:**
+```bash
+curl -sSL https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/install.sh | bash
+```
+
+**Docker:**
+```bash
+docker run --rm ghcr.io/bravo1goingdark/mailgrid:latest --help
+```
+
+### 📥 Direct Downloads
+
+Download pre-built binaries from [GitHub Releases](https://github.com/bravo1goingdark/mailgrid/releases/latest):
+
+| Platform | Architecture | Download | Size |
+|----------|--------------|----------|------|
+| **Windows** | x64 | [📥 mailgrid-windows-amd64.exe.zip](https://github.com/bravo1goingdark/mailgrid/releases/latest/download/mailgrid-windows-amd64.exe.zip) | ~3.7 MB |
+| **Windows** | ARM64 | [📥 mailgrid-windows-arm64.exe.zip](https://github.com/bravo1goingdark/mailgrid/releases/latest/download/mailgrid-windows-arm64.exe.zip) | ~3.3 MB |
+| **macOS** | Intel | [📥 mailgrid-macos-intel.tar.gz](https://github.com/bravo1goingdark/mailgrid/releases/latest/download/mailgrid-macos-intel.tar.gz) | ~4.2 MB |
+| **macOS** | Apple Silicon | [📥 mailgrid-macos-apple-silicon.tar.gz](https://github.com/bravo1goingdark/mailgrid/releases/latest/download/mailgrid-macos-apple-silicon.tar.gz) | ~4.0 MB |
+| **Linux** | x64 | [📥 mailgrid-linux-amd64.tar.gz](https://github.com/bravo1goingdark/mailgrid/releases/latest/download/mailgrid-linux-amd64.tar.gz) | ~4.1 MB |
+| **Linux** | ARM64 | [📥 mailgrid-linux-arm64.tar.gz](https://github.com/bravo1goingdark/mailgrid/releases/latest/download/mailgrid-linux-arm64.tar.gz) | ~3.9 MB |
+| **FreeBSD** | x64 | [📥 mailgrid-freebsd-amd64.tar.gz](https://github.com/bravo1goingdark/mailgrid/releases/latest/download/mailgrid-freebsd-amd64.tar.gz) | ~4.1 MB |
+
+### 📋 Manual Installation Steps
+
+**Windows:**
+1. Download the appropriate `.zip` file for your architecture
+2. Extract `mailgrid.exe` to a folder (e.g., `C:\tools\mailgrid\`)
+3. Add the folder to your system PATH
+4. Verify: `mailgrid --help`
+
+**Linux/macOS:**
+1. Download and extract the `.tar.gz` file:
+   ```bash
+   tar -xzf mailgrid-*.tar.gz
+   sudo mv mailgrid /usr/local/bin/
+   chmod +x /usr/local/bin/mailgrid
+   ```
+2. Verify: `mailgrid --help`
+
+### 🐳 Docker Usage
+
+**Quick test:**
+```bash
+docker run --rm -v $(pwd)/config.json:/app/config.json \
+  ghcr.io/bravo1goingdark/mailgrid:latest \
+  --env /app/config.json --to test@example.com --subject "Test" --text "Hello!"
+```
+
+**With Docker Compose:**
+```bash
+curl -sSL https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/docker-compose.yml -o docker-compose.yml
+docker-compose up -d
+```
+
+### ⚙️ Configuration Setup
+
+Create your SMTP configuration file (`config.json`):
+```json
+{
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "username": "your-email@gmail.com",
+    "password": "your-app-password",
+    "from": "your-email@gmail.com"
+  },
+  "rate_limit": 10,
+  "timeout_ms": 5000
+}
+```
+
+### ✅ Quick Test
+
+Verify your installation with a dry-run:
+```bash
+mailgrid --env config.json \
+         --to test@example.com \
+         --subject "MailGrid Test" \
+         --text "Hello from MailGrid v1.0.0!" \
+         --dry-run
+```
+
+> 📖 **For detailed installation instructions, troubleshooting, and advanced options, see [INSTALLATION.md](./INSTALLATION.md)**
+
+---
+
+## 🚦 Quick Start
+
+**Single email:**
+```bash
+mailgrid --env config.json --to user@example.com --subject "Hello" --text "Welcome!"
+```
+
+**Bulk emails from CSV:**
+```bash
+mailgrid --env config.json --csv recipients.csv --template email.html --subject "Hi {{.name}}!"
+```
+
+**Schedule recurring emails:**
+```bash
+mailgrid --env config.json --to user@example.com --subject "Weekly Report" --text "Here's your report..." --cron "0 9 * * 1"
+```
+
+**Preview before sending:**
+```bash
+mailgrid --env config.json --csv recipients.csv --template email.html --preview --port 8080
+```
+
+> 📚 **For comprehensive usage examples and CLI reference, see [docs/docs.md](./docs/docs.md)**
+
+---
+
 > 📄 Licensed under BSD-3-Clause — see [LICENSE](./LICENSE)
-
-
-
-
-
 
