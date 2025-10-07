@@ -24,6 +24,10 @@ type CLIArgs struct {
 	Text         string   // Inline plain-text body or path to a text file
 	WebhookURL   string   // HTTP URL to send completion notification
 
+	// Monitoring options
+	Monitor     bool // Enable real-time monitoring dashboard
+	MonitorPort int  // Port for monitoring dashboard
+
 	// Scheduling options (if any of these are set, we schedule instead of immediate sending)
 	ScheduleAt string // RFC3339 timestamp
 	Interval   string // Go duration, e.g. "1h", "30m"
@@ -63,6 +67,10 @@ func ParseFlags() CLIArgs {
 	pflag.StringVar(&args.To, "to", "", "Email address for single-recipient sending (mutually exclusive with --csv or --sheet-url)")
 	pflag.StringVar(&args.Text, "text", "", "Inline plain-text body or path to a .txt file (mutually exclusive with --template)")
 	pflag.StringVar(&args.WebhookURL, "webhook", "", "HTTP URL to send POST request with campaign results")
+
+	// Monitoring flags
+	pflag.BoolVar(&args.Monitor, "monitor", false, "Enable real-time monitoring dashboard")
+	pflag.IntVar(&args.MonitorPort, "monitor-port", 9091, "Port for monitoring dashboard")
 
 	// Scheduling flags (single-letter shorthands)
 	pflag.StringVarP(&args.ScheduleAt, "schedule-at", "A", "", "Schedule time in RFC3339 (e.g., 2025-09-08T09:00:00Z)")

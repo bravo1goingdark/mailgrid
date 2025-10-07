@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -20,6 +22,7 @@ import (
 	"github.com/bravo1goingdark/mailgrid/utils/preview"
 	"github.com/bravo1goingdark/mailgrid/utils/valid"
 	"github.com/bravo1goingdark/mailgrid/webhook"
+	"github.com/bravo1goingdark/mailgrid/monitor"
 )
 
 const maxAttachSize = 10 << 20 // 10 MB
@@ -413,11 +416,51 @@ func Run(args CLIArgs) error {
 	start := time.Now()
 	email.SetRetryLimit(args.RetryLimit)
 
-	// Generate unique job ID for webhook
+	// Generate unique job ID for webhook and monitoring
 	jobID := fmt.Sprintf("mailgrid-%d", start.Unix())
 
-	email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize)
+	// Initialize monitoring if enabled
+	var mon monitor.Monitor = monitor.NewNoOpMonitor()
+	var monitorServer *monitor.Server
+
+	if args.Monitor {
+		monitorServer = monitor.NewServer(args.MonitorPort)
+		mon = monitorServer
+
+		// Start monitoring server in background
+		go func() {
+			if err := monitorServer.Start(); err != nil && err != http.ErrServerClosed {
+				log.Printf("⚠️ Monitor server failed: %v", err)
+			}
+		}()
+
+		// Initialize campaign tracking
+		configSummary := monitor.ConfigSummary{
+			CSVFile:           args.CSVPath,
+			SheetURL:          args.SheetURL,
+			TemplateFile:      args.TemplatePath,
+			ConcurrentWorkers: args.Concurrency,
+			BatchSize:         args.BatchSize,
+			RetryLimit:        args.RetryLimit,
+			FilterExpression:  args.Filter,
+		}
+		mon.InitializeCampaign(jobID, configSummary, len(tasks))
+
+		fmt.Printf("🖥️  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
+	}
+
+	email.StartDispatcherWithMonitor(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon)
 	duration := time.Since(start)
+
+	// Cleanup monitoring server if it was started
+	if monitorServer != nil {
+		go func() {
+			time.Sleep(5 * time.Second) // Give users time to see final results
+			if err := monitorServer.Stop(); err != nil {
+				log.Printf("⚠️ Failed to stop monitor server: %v", err)
+			}
+		}()
+	}
 
 	fmt.Printf("\u2705 Completed in %s using %d workers\n", duration, args.Concurrency)
 

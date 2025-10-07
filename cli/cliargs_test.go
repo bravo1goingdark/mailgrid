@@ -37,6 +37,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				JobBackoff:   "2s",
 				SchedulerDB:  "mailgrid.db",
+				MonitorPort:  9091, // Default monitor port
 				Attachments:  []string{}, // Default empty slice, not nil
 			},
 		},
@@ -61,6 +62,7 @@ func TestParseFlags(t *testing.T) {
 				BatchSize:   1,
 				PreviewPort: 8080,
 				SchedulerDB: "mailgrid.db",
+				MonitorPort: 9091, // Default monitor port
 				Attachments: []string{}, // Default empty slice, not nil
 			},
 		},
@@ -85,6 +87,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				JobBackoff:   "2s",
 				SchedulerDB:  "mailgrid.db",
+				MonitorPort:  9091, // Default monitor port
 				Attachments:  []string{}, // Default empty slice, not nil
 			},
 		},
@@ -112,6 +115,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:  3,
 				JobBackoff:  "2s",
 				SchedulerDB: "mailgrid.db",
+				MonitorPort: 9091, // Default monitor port
 			},
 		},
 	}
@@ -157,6 +161,8 @@ func TestCLIArgs_DefaultValues(t *testing.T) {
 	assert.Equal(t, 3, result.JobRetries)
 	assert.Equal(t, "2s", result.JobBackoff)
 	assert.Equal(t, "mailgrid.db", result.SchedulerDB)
+	assert.Equal(t, false, result.Monitor)
+	assert.Equal(t, 9091, result.MonitorPort)
 }
 
 func TestCLIArgs_ShortFlags(t *testing.T) {

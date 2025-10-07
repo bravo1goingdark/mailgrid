@@ -39,6 +39,8 @@ mailgrid \
 | `--filter`         | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`).              |
 | `--attach`         | -         | `[]`                       | File attachments to include with every email. Repeat flag for multiple files. (MAX = 10MB)  |
 | `--webhook`        | —         | `""`                       | HTTP URL to send POST request with campaign results after completion.                        |
+| `--monitor`        | —         | `false`                    | Enable real-time monitoring dashboard to track email sending progress.                       |
+| `--monitor-port`   | —         | `9091`                     | Port for the real-time monitoring dashboard server.                                          |
 | `--schedule-at`    | `-A`      | `""`                       | Schedule send at an RFC3339 time (e.g. `2025-09-08T09:00:00Z`).                             |
 | `--interval`       | `-i`      | `""`                       | Recurring schedule using Go duration (e.g. `1h`, `30m`).                                    |
 | `--cron`           | `-C`      | `""`                       | Recurring schedule using 5-field cron (minute hour dom month dow).                          |
@@ -438,6 +440,63 @@ mailgrid --env config.json \
   --text "Thanks for signing up!" \
   --webhook "https://api.example.com/webhooks/mailgrid"
 ```
+
+---
+
+#### `--monitor` & `--monitor-port`
+
+Enable real-time monitoring dashboard to track email sending progress with live metrics and recipient status.
+
+**Key Features:**
+
+- **Live Campaign Stats**: Total recipients, sent/failed counts, throughput (emails/sec), estimated time remaining
+- **Real-time Recipient Tracking**: Individual email status, retry attempts, duration, error messages
+- **SMTP Response Monitoring**: Track response codes (250, 421, 550, etc.) for debugging
+- **Domain Analytics**: Breakdown by email provider (Gmail, Outlook, etc.)
+- **Live Log Stream**: Real-time activity feed of send events
+- **Progress Visualization**: Progress bars and status indicators
+
+**Dashboard Interface:**
+
+The monitoring dashboard provides a modern, responsive web interface accessible at `http://localhost:<port>` (default port 9091). The dashboard includes:
+
+- **Campaign Overview**: Job ID, start time, configuration summary
+- **Statistics Grid**: Key metrics with progress visualization
+- **Recipients Table**: Live status updates for up to 20 recent recipients
+- **Activity Logs**: Rolling log of the latest send events
+
+**Examples:**
+
+```bash
+# Enable monitoring with default port (9091)
+mailgrid --env config.json \
+  --csv subscribers.csv \
+  --template newsletter.html \
+  --subject "Newsletter {{.name}}" \
+  --monitor
+
+# Use custom port for monitoring dashboard
+mailgrid --env config.json \
+  --to "user@example.com" \
+  --subject "Test Email" \
+  --text "Hello world!" \
+  --monitor --monitor-port 8080
+
+# Monitor high-throughput campaign
+mailgrid --env config.json \
+  --csv large_list.csv \
+  --template campaign.html \
+  --subject "Special Offer" \
+  --concurrency 10 \
+  --monitor --monitor-port 9092
+```
+
+**Notes:**
+- Dashboard automatically starts when `--monitor` is enabled
+- Server stops automatically 5 seconds after email sending completes
+- Works with both bulk campaigns and single email sending
+- Real-time updates via Server-Sent Events (no page refresh needed)
+- Compatible with all other CLI flags and features
 
 ---
 

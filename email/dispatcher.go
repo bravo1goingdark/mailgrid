@@ -2,6 +2,7 @@ package email
 
 import (
 	"github.com/bravo1goingdark/mailgrid/config"
+	"github.com/bravo1goingdark/mailgrid/monitor"
 	"github.com/bravo1goingdark/mailgrid/parser"
 	"log"
 	"sync"
@@ -26,15 +27,26 @@ type worker struct {
 	Wg        *sync.WaitGroup
 	RetryWg   *sync.WaitGroup
 	BatchSize int
+	Monitor   monitor.Monitor
 }
 
 // StartDispatcher spawns workers and processes email tasks with retries and batch-mode dispatch.
 func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int) {
+	StartDispatcherWithMonitor(tasks, cfg, concurrency, batchSize, monitor.NewNoOpMonitor())
+}
+
+// StartDispatcherWithMonitor spawns workers with monitoring support.
+func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor) {
 	taskChan := make(chan Task, 1000)
 	retryChan := make(chan Task, 500)
 
 	var wg sync.WaitGroup
 	var retryWg sync.WaitGroup
+
+	// Initialize all recipients as pending in monitor
+	for _, task := range tasks {
+		mon.UpdateRecipientStatus(task.Recipient.Email, monitor.StatusPending, 0, "")
+	}
 
 	// Spawn workers
 	for i := 0; i < concurrency; i++ {
@@ -47,6 +59,7 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 			Wg:        &wg,
 			RetryWg:   &retryWg,
 			BatchSize: batchSize,
+			Monitor:   mon,
 		})
 	}
 

@@ -42,9 +42,11 @@ Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV fi
 ### ⚙️ Configuration & Control
 - **SMTP support** with simple `config.json`
 - **Concurrency, batching, and automatic retries** for high throughput
+- **Real-time monitoring dashboard** (`--monitor`) with live metrics and recipient tracking
 - **Preview server** (`--preview`) to view rendered emails in the browser
 - **Dry-run mode** (`--dry-run`) to render without sending
 - **Logical recipient filtering** using `--filter`
+- **Webhook notifications** for campaign completion events
 - **Success and failure logs** written to CSV
 
 ---
@@ -253,6 +255,11 @@ mailgrid --env config.json --csv recipients.csv --template email.html --subject 
 **Schedule recurring emails:**
 ```bash
 mailgrid --env config.json --to user@example.com --subject "Weekly Report" --text "Here's your report..." --cron "0 9 * * 1"
+```
+
+**Monitor campaign progress:**
+```bash
+mailgrid --env config.json --csv recipients.csv --template email.html --monitor --concurrency 5
 ```
 
 **Preview before sending:**

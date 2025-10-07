@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"net/http"
 	"text/template"
 	"time"
 
 	"github.com/bravo1goingdark/mailgrid/config"
 	"github.com/bravo1goingdark/mailgrid/email"
+	"github.com/bravo1goingdark/mailgrid/monitor"
 	"github.com/bravo1goingdark/mailgrid/parser"
 	"github.com/bravo1goingdark/mailgrid/utils"
 	"github.com/bravo1goingdark/mailgrid/utils/preview"
@@ -150,7 +152,43 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 	jobID := fmt.Sprintf("mailgrid-single-%d", start.Unix())
 
 	email.SetRetryLimit(args.RetryLimit)
-	email.StartDispatcher(tasks, cfg, 1, 1)
+
+	// Initialize monitoring for single email if enabled
+	var mon monitor.Monitor = monitor.NewNoOpMonitor()
+	if args.Monitor {
+		monitorServer := monitor.NewServer(args.MonitorPort)
+		mon = monitorServer
+
+		// Start monitoring server in background
+		go func() {
+			if err := monitorServer.Start(); err != nil && err != http.ErrServerClosed {
+				log.Printf("⚠️ Monitor server failed: %v", err)
+			}
+		}()
+
+		// Initialize campaign tracking
+		configSummary := monitor.ConfigSummary{
+			TemplateFile:      args.TemplatePath,
+			ConcurrentWorkers: 1,
+			BatchSize:         1,
+			RetryLimit:        args.RetryLimit,
+		}
+		mon.InitializeCampaign(jobID, configSummary, 1)
+
+		fmt.Printf("🖥️  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
+
+		// Cleanup monitor after completion
+		defer func() {
+			go func() {
+				time.Sleep(5 * time.Second)
+				if err := monitorServer.Stop(); err != nil {
+					log.Printf("⚠️ Failed to stop monitor server: %v", err)
+				}
+			}()
+		}()
+	}
+
+	email.StartDispatcherWithMonitor(tasks, cfg, 1, 1, mon)
 	duration := time.Since(start)
 
 	// Send webhook notification if URL is provided
