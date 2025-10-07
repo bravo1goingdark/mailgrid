@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"text/template"
+	"time"
 
 	"github.com/bravo1goingdark/mailgrid/config"
 	"github.com/bravo1goingdark/mailgrid/email"
 	"github.com/bravo1goingdark/mailgrid/parser"
 	"github.com/bravo1goingdark/mailgrid/utils"
 	"github.com/bravo1goingdark/mailgrid/utils/preview"
+	"github.com/bravo1goingdark/mailgrid/webhook"
 )
 
 // PrepareEmailTasks renders the subject and body templates for each recipient
@@ -144,7 +146,43 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 		return nil
 	}
 
+	start := time.Now()
+	jobID := fmt.Sprintf("mailgrid-single-%d", start.Unix())
+
 	email.SetRetryLimit(args.RetryLimit)
 	email.StartDispatcher(tasks, cfg, 1, 1)
+	duration := time.Since(start)
+
+	// Send webhook notification if URL is provided
+	if args.WebhookURL != "" {
+		endTime := time.Now()
+
+		// Create webhook payload for single email
+		result := webhook.CampaignResult{
+			JobID:                jobID,
+			Status:               "completed",
+			TotalRecipients:      1,
+			SuccessfulDeliveries: 1, // TODO: Get actual success count
+			FailedDeliveries:     0, // TODO: Get actual failure count
+			StartTime:            start,
+			EndTime:              endTime,
+			DurationSeconds:      int(duration.Seconds()),
+			ConcurrentWorkers:    1,
+		}
+
+		// Set template file if provided
+		if args.TemplatePath != "" {
+			result.TemplateFile = args.TemplatePath
+		}
+
+		// Send webhook notification
+		webhookClient := webhook.NewClient()
+		if err := webhookClient.SendNotification(args.WebhookURL, result); err != nil {
+			fmt.Printf("⚠️ Failed to send webhook notification: %v\n", err)
+		} else {
+			fmt.Printf("🔔 Webhook notification sent to %s\n", args.WebhookURL)
+		}
+	}
+
 	return nil
 }
