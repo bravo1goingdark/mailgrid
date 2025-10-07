@@ -37,7 +37,6 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				JobBackoff:   "2s",
 				SchedulerDB:  "mailgrid.db",
-				MonitorPort:  9091,
 				Attachments:  []string{}, // Default empty slice, not nil
 			},
 		},
@@ -62,7 +61,6 @@ func TestParseFlags(t *testing.T) {
 				BatchSize:   1,
 				PreviewPort: 8080,
 				SchedulerDB: "mailgrid.db",
-				MonitorPort: 9091,
 				Attachments: []string{}, // Default empty slice, not nil
 			},
 		},
@@ -71,7 +69,6 @@ func TestParseFlags(t *testing.T) {
 			args: []string{
 				"--dry-run",
 				"--preview",
-				"--monitor",
 				"--jobs-list",
 				"--scheduler-run",
 			},
@@ -80,7 +77,6 @@ func TestParseFlags(t *testing.T) {
 				Concurrency:  1,                          // Default value
 				DryRun:       true,
 				ShowPreview:  true,
-				Monitor:      true,
 				ListJobs:     true,
 				SchedulerRun: true,
 				RetryLimit:   1,
@@ -89,29 +85,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				JobBackoff:   "2s",
 				SchedulerDB:  "mailgrid.db",
-				MonitorPort:  9091,
 				Attachments:  []string{}, // Default empty slice, not nil
-			},
-		},
-		{
-			name: "webhook and monitoring flags",
-			args: []string{
-				"--webhook", "https://example.com/webhook",
-				"--monitor-port", "9092",
-				"--port", "8081",
-			},
-			expected: CLIArgs{
-				Subject:     "Test Email from Mailgrid", // Default value
-				Concurrency: 1,                          // Default value
-				WebhookURL:  "https://example.com/webhook",
-				MonitorPort: 9092,
-				PreviewPort: 8081,
-				RetryLimit:  1,
-				BatchSize:   1,
-				JobRetries:  3,
-				JobBackoff:  "2s",
-				SchedulerDB: "mailgrid.db",
-				Attachments: []string{}, // Default empty slice, not nil
 			},
 		},
 		{
@@ -138,7 +112,6 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:  3,
 				JobBackoff:  "2s",
 				SchedulerDB: "mailgrid.db",
-				MonitorPort: 9091,
 			},
 		},
 	}
@@ -184,7 +157,6 @@ func TestCLIArgs_DefaultValues(t *testing.T) {
 	assert.Equal(t, 3, result.JobRetries)
 	assert.Equal(t, "2s", result.JobBackoff)
 	assert.Equal(t, "mailgrid.db", result.SchedulerDB)
-	assert.Equal(t, 9091, result.MonitorPort)
 }
 
 func TestCLIArgs_ShortFlags(t *testing.T) {
