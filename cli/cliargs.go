@@ -22,6 +22,7 @@ type CLIArgs struct {
 	Bcc          string   // Comma-separated emails or file path for BCC
 	To           string   // Email address for one-off sending
 	Text         string   // Inline plain-text body or path to a text file
+	WebhookURL   string   // HTTP URL to send completion notification
 
 	// Scheduling options (if any of these are set, we schedule instead of immediate sending)
 	ScheduleAt string // RFC3339 timestamp
@@ -61,6 +62,7 @@ func ParseFlags() CLIArgs {
 	pflag.StringSliceVar(&args.Attachments, "attach", []string{}, "File attachments (repeat flag to add multiple)")
 	pflag.StringVar(&args.To, "to", "", "Email address for single-recipient sending (mutually exclusive with --csv or --sheet-url)")
 	pflag.StringVar(&args.Text, "text", "", "Inline plain-text body or path to a .txt file (mutually exclusive with --template)")
+	pflag.StringVar(&args.WebhookURL, "webhook", "", "HTTP URL to send POST request with campaign results")
 
 	// Scheduling flags (single-letter shorthands)
 	pflag.StringVarP(&args.ScheduleAt, "schedule-at", "A", "", "Schedule time in RFC3339 (e.g., 2025-09-08T09:00:00Z)")

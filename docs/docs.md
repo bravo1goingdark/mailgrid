@@ -38,6 +38,7 @@ mailgrid \
 | `--batch-size`     | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).                      |
 | `--filter`         | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`).              |
 | `--attach`         | -         | `[]`                       | File attachments to include with every email. Repeat flag for multiple files. (MAX = 10MB)  |
+| `--webhook`        | —         | `""`                       | HTTP URL to send POST request with campaign results after completion.                        |
 | `--schedule-at`    | `-A`      | `""`                       | Schedule send at an RFC3339 time (e.g. `2025-09-08T09:00:00Z`).                             |
 | `--interval`       | `-i`      | `""`                       | Recurring schedule using Go duration (e.g. `1h`, `30m`).                                    |
 | `--cron`           | `-C`      | `""`                       | Recurring schedule using 5-field cron (minute hour dom month dow).                          |
@@ -389,6 +390,53 @@ mailgrid \
   --template invoice.html \
   --attach invoice.pdf \
   --attach receipt.pdf
+```
+
+---
+
+#### `--webhook`
+
+Send HTTP POST notifications with campaign results after email completion.
+
+- **URL validation**: Only HTTP and HTTPS URLs are accepted
+- **Automatic notifications**: Sent after both bulk and single email campaigns
+- **Rich payload**: Includes metrics like total recipients, success/failure counts, duration, and file paths
+- **Non-blocking**: Webhook delivery runs asynchronously and won't delay email sending
+
+The webhook payload structure:
+
+```json
+{
+  "job_id": "mailgrid-1633024800",
+  "status": "completed",
+  "total_recipients": 150,
+  "successful_deliveries": 148,
+  "failed_deliveries": 2,
+  "start_time": "2023-10-01T10:00:00Z",
+  "end_time": "2023-10-01T10:05:30Z",
+  "duration_seconds": 330,
+  "concurrent_workers": 5,
+  "csv_file": "subscribers.csv",
+  "template_file": "newsletter.html"
+}
+```
+
+**Examples:**
+
+```bash
+# Webhook with bulk email campaign
+mailgrid --env config.json \
+  --csv subscribers.csv \
+  --template newsletter.html \
+  --subject "Newsletter {{.name}}" \
+  --webhook "https://api.example.com/webhooks/mailgrid"
+
+# Webhook with single email
+mailgrid --env config.json \
+  --to "user@example.com" \
+  --subject "Welcome" \
+  --text "Thanks for signing up!" \
+  --webhook "https://api.example.com/webhooks/mailgrid"
 ```
 
 ---

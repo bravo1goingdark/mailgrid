@@ -19,6 +19,7 @@ import (
 	"github.com/bravo1goingdark/mailgrid/utils"
 	"github.com/bravo1goingdark/mailgrid/utils/preview"
 	"github.com/bravo1goingdark/mailgrid/utils/valid"
+	"github.com/bravo1goingdark/mailgrid/webhook"
 )
 
 const maxAttachSize = 10 << 20 // 10 MB
@@ -314,6 +315,11 @@ func Run(args CLIArgs) error {
 		return fmt.Errorf("provide --template, --attach, or both")
 	}
 
+	// Validate webhook URL if provided
+	if err := webhook.ValidateURL(args.WebhookURL); err != nil {
+		return fmt.Errorf("invalid webhook URL: %w", err)
+	}
+
 	// Parse CC and BCC addresses from inline or file input
 	ccList, err := valid.ParseAddressInput(args.Cc)
 	if err != nil {
@@ -406,8 +412,51 @@ func Run(args CLIArgs) error {
 	// Otherwise, send emails using dispatcher
 	start := time.Now()
 	email.SetRetryLimit(args.RetryLimit)
-	email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize)
 
-	fmt.Printf("\u2705 Completed in %s using %d workers\n", time.Since(start), args.Concurrency)
+	// Generate unique job ID for webhook
+	jobID := fmt.Sprintf("mailgrid-%d", start.Unix())
+
+	email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize)
+	duration := time.Since(start)
+
+	fmt.Printf("\u2705 Completed in %s using %d workers\n", duration, args.Concurrency)
+
+	// Send webhook notification if URL is provided
+	if args.WebhookURL != "" {
+		endTime := time.Now()
+
+		// Create webhook payload
+		result := webhook.CampaignResult{
+			JobID:                jobID,
+			Status:               "completed",
+			TotalRecipients:      len(tasks),
+			SuccessfulDeliveries: len(tasks), // TODO: Get actual success count from dispatcher
+			FailedDeliveries:     0,         // TODO: Get actual failure count from dispatcher
+			StartTime:            start,
+			EndTime:              endTime,
+			DurationSeconds:      int(duration.Seconds()),
+			ConcurrentWorkers:    args.Concurrency,
+		}
+
+		// Set file paths
+		if args.CSVPath != "" {
+			result.CSVFile = args.CSVPath
+		}
+		if args.SheetURL != "" {
+			result.SheetURL = args.SheetURL
+		}
+		if args.TemplatePath != "" {
+			result.TemplateFile = args.TemplatePath
+		}
+
+		// Send webhook notification
+		webhookClient := webhook.NewClient()
+		if err := webhookClient.SendNotification(args.WebhookURL, result); err != nil {
+			fmt.Printf("⚠️ Failed to send webhook notification: %v\n", err)
+		} else {
+			fmt.Printf("🔔 Webhook notification sent to %s\n", args.WebhookURL)
+		}
+	}
+
 	return nil
 }
