@@ -54,3 +54,6 @@ features.md
 mailgrid.db
 success.csv
 failed.csv
+.claude
+CLAUDE.md
+WINDOWS_SETUP.md

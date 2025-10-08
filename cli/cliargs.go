@@ -49,27 +49,27 @@ type CLIArgs struct {
 func ParseFlags() CLIArgs {
 	var args CLIArgs
 
-	pflag.StringVar(&args.EnvPath, "env", "", "Path to SMTP config JSON")
-	pflag.StringVar(&args.CSVPath, "csv", "", "Path to recipient CSV file")
-	pflag.StringVar(&args.SheetURL, "sheet-url", "", "Public Google Sheet URL (replaces --csv)")
+	pflag.StringVarP(&args.EnvPath, "env", "e", "", "Path to SMTP config JSON")
+	pflag.StringVarP(&args.CSVPath, "csv", "f", "", "Path to recipient CSV file")
+	pflag.StringVarP(&args.SheetURL, "sheet-url", "u", "", "Public Google Sheet URL (replaces --csv)")
 	pflag.StringVarP(&args.TemplatePath, "template", "t", "", "Path to email HTML template")
 	pflag.StringVar(&args.Cc, "cc", "", "Comma-separated emails or file path for CC")
 	pflag.StringVar(&args.Bcc, "bcc", "", "Comma-separated emails or file path for BCC")
 	pflag.StringVarP(&args.Subject, "subject", "s", "Test Email from Mailgrid", "Email subject (templated with {{ .field }})")
-	pflag.BoolVar(&args.DryRun, "dry-run", false, "Render emails to console without sending")
+	pflag.BoolVarP(&args.DryRun, "dry-run", "d", false, "Render emails to console without sending")
 	pflag.BoolVarP(&args.ShowPreview, "preview", "p", false, "Start a local preview server to view rendered email")
 	pflag.IntVar(&args.PreviewPort, "port", 8080, "Port for preview server")
 	pflag.IntVarP(&args.Concurrency, "concurrency", "c", 1, "Number of concurrent SMTP workers")
 	pflag.IntVarP(&args.RetryLimit, "retries", "r", 1, "Retry attempts per failed email")
-	pflag.IntVar(&args.BatchSize, "batch-size", 1, "Number of emails per SMTP batch")
-	pflag.StringVar(&args.Filter, "filter", "", "Logical filter for recipients")
-	pflag.StringSliceVar(&args.Attachments, "attach", []string{}, "File attachments (repeat flag to add multiple)")
+	pflag.IntVarP(&args.BatchSize, "batch-size", "b", 1, "Number of emails per SMTP batch")
+	pflag.StringVarP(&args.Filter, "filter", "F", "", "Logical filter for recipients")
+	pflag.StringSliceVarP(&args.Attachments, "attach", "a", []string{}, "File attachments (repeat flag to add multiple)")
 	pflag.StringVar(&args.To, "to", "", "Email address for single-recipient sending (mutually exclusive with --csv or --sheet-url)")
 	pflag.StringVar(&args.Text, "text", "", "Inline plain-text body or path to a .txt file (mutually exclusive with --template)")
-	pflag.StringVar(&args.WebhookURL, "webhook", "", "HTTP URL to send POST request with campaign results")
+	pflag.StringVarP(&args.WebhookURL, "webhook", "w", "", "HTTP URL to send POST request with campaign results")
 
 	// Monitoring flags
-	pflag.BoolVar(&args.Monitor, "monitor", false, "Enable real-time monitoring dashboard")
+	pflag.BoolVarP(&args.Monitor, "monitor", "m", false, "Enable real-time monitoring dashboard")
 	pflag.IntVar(&args.MonitorPort, "monitor-port", 9091, "Port for monitoring dashboard")
 
 	// Scheduling flags (single-letter shorthands)

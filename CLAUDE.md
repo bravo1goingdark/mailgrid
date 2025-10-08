@@ -83,10 +83,26 @@ internal/types/   - Core data structures and types
 - `github.com/stretchr/testify` - Testing framework
 
 ### Testing and Validation
-- Unit tests use testify framework
+- Unit tests use testify framework and are organized under `test/` directory
+- Test structure follows package organization: `test/{package}/*_test.go`
 - Mock SMTP server via `github.com/mocktools/go-smtp-mock/v2`
 - Coverage reports generated to `coverage.html`
 - Security scanning with gosec (optional)
+
+### Test Structure
+```
+test/
+├── cli/          - CLI argument parsing and task preparation tests
+├── config/       - Configuration loading and validation tests
+├── database/     - BoltDB persistence layer tests
+├── email/        - Email composition, templating, and SMTP tests
+├── logger/       - Logging functionality tests
+├── metrics/      - Performance metrics tests
+├── monitor/      - Real-time monitoring system tests
+├── parser/       - CSV/Google Sheets parsing tests
+├── utils/        - Utility function tests (sheet parsing, validation)
+└── webhook/      - Webhook notification tests
+```
 
 ### Performance Features
 - Concurrent email sending with configurable workers (`--concurrency`)

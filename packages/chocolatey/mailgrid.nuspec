@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>mailgrid</id>
+    <version>1.0.0</version>
+    <packageSourceUrl>https://github.com/bravo1goingdark/mailgrid</packageSourceUrl>
+    <owners>bravo1goingdark</owners>
+    <title>MailGrid - Email Orchestrator CLI</title>
+    <authors>bravo1goingdark</authors>
+    <projectUrl>https://github.com/bravo1goingdark/mailgrid</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/assets/logo.png</iconUrl>
+    <copyright>Copyright (c) 2024 MailGrid</copyright>
+    <licenseUrl>https://github.com/bravo1goingdark/mailgrid/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/bravo1goingdark/mailgrid</projectSourceUrl>
+    <docsUrl>https://github.com/bravo1goingdark/mailgrid/blob/main/README.md</docsUrl>
+    <mailingListUrl>https://github.com/bravo1goingdark/mailgrid/discussions</mailingListUrl>
+    <bugTrackerUrl>https://github.com/bravo1goingdark/mailgrid/issues</bugTrackerUrl>
+    <tags>email smtp cli automation scheduling templating bulk-email newsletter notifications go cross-platform</tags>
+    <summary>Production-ready CLI email orchestrator with templating, scheduling, and high-performance bulk sending</summary>
+    <description><![CDATA[
+# MailGrid - Production-Ready Email Orchestrator
+
+MailGrid is a comprehensive command-line email orchestration tool designed for developers, system administrators, and businesses who need reliable, efficient email automation.
+
+## 🚀 Key Features
+
+* **Single & Bulk Sending**: Send individual emails or bulk campaigns with CSV/Google Sheets support
+* **Advanced Templating**: Use Go templates for dynamic, personalized email content
+* **Flexible Scheduling**: Schedule emails with cron expressions or one-time delivery
+* **High Performance**: Concurrent sending with built-in rate limiting and connection pooling
+* **Smart Filtering**: Comprehensive recipient filtering and validation
+* **Preview Server**: Built-in server for testing and previewing email templates
+* **Reliability**: Retry logic with exponential backoff for failed deliveries
+* **Persistence**: Database storage with BoltDB for scheduling and state management
+* **Cross-Platform**: Works on Windows, Linux, macOS, and FreeBSD
+* **Lightweight**: Optimized binaries (~4MB) with minimal memory footprint
+
+## 🎯 Perfect For
+
+* Automated system notifications
+* Marketing campaign management
+* Transactional email sending
+* Newsletter distribution
+* Scheduled report delivery
+* CI/CD pipeline notifications
+
+## 📋 Quick Start
+
+After installation, create a `config.json` file:
+
+```json
+{
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "username": "your-email@gmail.com",
+    "password": "your-app-password",
+    "from_email": "your-email@gmail.com",
+    "from_name": "Your Name",
+    "use_tls": true
+  }
+}
+```
+
+Send your first email:
+
+```powershell
+mailgrid --to user@example.com --subject "Hello" --text "Welcome to MailGrid!" --env config.json
+```
+
+## 📚 Documentation
+
+* [Getting Started Guide](https://github.com/bravo1goingdark/mailgrid/blob/main/README.md)
+* [Installation Guide](https://github.com/bravo1goingdark/mailgrid/blob/main/INSTALLATION.md)
+* [CLI Reference](https://github.com/bravo1goingdark/mailgrid/blob/main/docs/CLI_REFERENCE.md)
+* [Examples](https://github.com/bravo1goingdark/mailgrid/tree/main/examples)
+
+## 🔧 System Requirements
+
+* Windows 10 or later
+* 50MB RAM minimum
+* Internet connection for SMTP
+
+MailGrid is open source software licensed under Apache 2.0.
+]]></description>
+    <releaseNotes><![CDATA[
+🎉 MailGrid v1.0.0 - Production Ready Release
+
+## New Features
+* Complete email orchestration system
+* Advanced scheduling with cron support
+* High-performance bulk sending with concurrent workers
+* HTML templating with Go template engine
+* CSV and Google Sheets integration
+* Email preview server for template testing
+* Comprehensive filtering system with logical operators
+* Database persistence with BoltDB
+* Cross-platform binary releases
+
+## Improvements
+* Optimized binaries (3.5-4.5MB)
+* Enhanced error handling and detailed logging
+* Improved SMTP connection pooling
+* Better memory management and resource cleanup
+* Full cross-platform compatibility
+
+## Bug Fixes
+* Fixed concurrent sending race conditions
+* Resolved template parsing edge cases
+* Improved database transaction handling
+* Better error recovery in scheduler
+]]></releaseNotes>
+    <dependencies>
+      <dependency id="chocolatey-core.extension" version="1.3.3" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

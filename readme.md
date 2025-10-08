@@ -113,7 +113,16 @@ mailgrid --scheduler-run --env config.json
 ```
 
 #### 📊 Monitoring & Metrics
-When active, the scheduler provides real-time metrics:
+Mailgrid provides comprehensive monitoring capabilities for both scheduled and real-time campaigns:
+
+**Real-time Campaign Monitoring** (`--monitor` flag):
+- **Live recipient tracking**: Monitor email delivery status per recipient in real-time
+- **Campaign metrics**: Track successful deliveries, failures, and retry attempts
+- **Performance analytics**: Monitor delivery times and throughput rates
+- **Status updates**: Real-time updates for pending, sending, sent, failed, and retry states
+- **Campaign details**: Track job ID, total recipients, CSV file, template file, and webhook URLs
+
+**Scheduler Metrics** (when scheduler is active):
 - **Metrics endpoint**: `http://localhost:8090/metrics`
 - **Health check**: `http://localhost:8090/health`
 - **Performance data**: Delivery times, success rates, connection status
@@ -249,6 +258,8 @@ mailgrid --env config.json --to user@example.com --subject "Hello" --text "Welco
 
 **Bulk emails from CSV:**
 ```bash
+mailgrid -e config.json -f recipients.csv -t email.html -s "Hi {{.name}}!"
+# Or with full flags:
 mailgrid --env config.json --csv recipients.csv --template email.html --subject "Hi {{.name}}!"
 ```
 
@@ -259,13 +270,38 @@ mailgrid --env config.json --to user@example.com --subject "Weekly Report" --tex
 
 **Monitor campaign progress:**
 ```bash
+mailgrid -e config.json -f recipients.csv -t email.html -m -c 5
+# Or with full flags:
 mailgrid --env config.json --csv recipients.csv --template email.html --monitor --concurrency 5
 ```
 
 **Preview before sending:**
 ```bash
+mailgrid -e config.json -f recipients.csv -t email.html -p
+# Or with full flags:
 mailgrid --env config.json --csv recipients.csv --template email.html --preview --port 8080
 ```
+
+### 🔧 Short Flags
+
+Mailgrid supports convenient short flags for faster CLI usage:
+
+| Short | Long Flag | Description |
+|-------|-----------|-------------|
+| `-e` | `--env` | Path to SMTP config JSON |
+| `-f` | `--csv` | Path to recipient CSV file |
+| `-u` | `--sheet-url` | Public Google Sheet URL |
+| `-t` | `--template` | Path to email HTML template |
+| `-s` | `--subject` | Email subject line |
+| `-d` | `--dry-run` | Render emails without sending |
+| `-p` | `--preview` | Start preview server |
+| `-c` | `--concurrency` | Number of concurrent workers |
+| `-r` | `--retries` | Retry attempts per failed email |
+| `-b` | `--batch-size` | Number of emails per SMTP batch |
+| `-F` | `--filter` | Logical filter for recipients |
+| `-a` | `--attach` | File attachments |
+| `-w` | `--webhook` | HTTP URL for notifications |
+| `-m` | `--monitor` | Enable monitoring dashboard |
 
 > 📚 **For comprehensive usage examples and CLI reference, see [docs/docs.md](./docs/docs.md)**
 
