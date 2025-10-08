@@ -72,11 +72,12 @@ type LogEntry struct {
 
 // Server provides real-time monitoring dashboard
 type Server struct {
-	mu       sync.RWMutex
-	stats    *CampaignStats
-	server   *http.Server
-	clients  map[chan CampaignStats]bool
-	stopping bool
+	mu        sync.RWMutex
+	stats     *CampaignStats
+	server    *http.Server
+	dashboard *DashboardServer
+	clients   map[chan CampaignStats]bool
+	stopping  bool
 }
 
 // NewServer creates a new monitoring server
@@ -88,20 +89,19 @@ func NewServer(port int) *Server {
 		LogEntries:        make([]LogEntry, 0, 1000),
 	}
 
-	mux := http.NewServeMux()
 	server := &Server{
 		stats:   stats,
 		clients: make(map[chan CampaignStats]bool),
-		server: &http.Server{
-			Addr:    fmt.Sprintf(":%d", port),
-			Handler: mux,
-		},
 	}
 
-	// Set up routes
-	mux.HandleFunc("/", server.handleDashboard)
-	mux.HandleFunc("/api/status", server.handleStatusAPI)
-	mux.HandleFunc("/api/stream", server.handleStatusStream)
+	// Create dashboard
+	server.dashboard = NewDashboardServer(server)
+
+	// Set up HTTP server
+	server.server = &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: server.dashboard,
+	}
 
 	return server
 }
@@ -543,4 +543,27 @@ func extractDomain(email string) string {
 		return email[at+1:]
 	}
 	return ""
+}
+
+// GetStats returns the current campaign statistics for the dashboard
+func (s *Server) GetStats() *CampaignStats {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Return a copy to avoid race conditions
+	statsCopy := *s.stats
+	return &statsCopy
+}
+
+// GetRecipients returns a slice of recipients for the dashboard table
+func (s *Server) GetRecipients() []RecipientStatus {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	recipients := make([]RecipientStatus, 0, len(s.stats.Recipients))
+	for _, recipient := range s.stats.Recipients {
+		recipients = append(recipients, *recipient)
+	}
+
+	return recipients
 }
