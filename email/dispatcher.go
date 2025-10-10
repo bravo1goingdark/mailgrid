@@ -23,23 +23,24 @@ type Task struct {
 }
 
 type worker struct {
-	ID        int
-	TaskQueue <-chan Task
-	RetryChan chan<- Task
-	Config    config.SMTPConfig
-	Wg        *sync.WaitGroup
-	RetryWg   *sync.WaitGroup
-	BatchSize int
-	Monitor   monitor.Monitor
+	ID            int
+	TaskQueue     <-chan Task
+	RetryChan     chan<- Task
+	Config        config.SMTPConfig
+	Wg            *sync.WaitGroup
+	RetryWg       *sync.WaitGroup
+	BatchSize     int
+	Monitor       monitor.Monitor
+	OffsetTracker *OffsetTracker
 }
 
 // StartDispatcher spawns workers and processes email tasks with retries and batch-mode dispatch.
 func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int) {
-	StartDispatcherWithMonitor(tasks, cfg, concurrency, batchSize, monitor.NewNoOpMonitor())
+	StartDispatcherWithMonitor(tasks, cfg, concurrency, batchSize, monitor.NewNoOpMonitor(), nil)
 }
 
-// StartDispatcherWithMonitor spawns workers with monitoring support.
-func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor) {
+// StartDispatcherWithMonitor spawns workers with monitoring support and optional offset tracking.
+func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor, offsetTracker *OffsetTracker) {
 	taskChan := make(chan Task, 1000)
 	retryChan := make(chan Task, 500)
 
@@ -55,14 +56,15 @@ func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go startWorker(worker{
-			ID:        i + 1,
-			TaskQueue: taskChan,
-			RetryChan: retryChan,
-			Config:    cfg,
-			Wg:        &wg,
-			RetryWg:   &retryWg,
-			BatchSize: batchSize,
-			Monitor:   mon,
+			ID:            i + 1,
+			TaskQueue:     taskChan,
+			RetryChan:     retryChan,
+			Config:        cfg,
+			Wg:            &wg,
+			RetryWg:       &retryWg,
+			BatchSize:     batchSize,
+			Monitor:       mon,
+			OffsetTracker: offsetTracker,
 		})
 	}
 

@@ -406,6 +406,50 @@ func Run(args CLIArgs) error {
 		return err
 	}
 
+	// Handle offset tracking for resumable delivery
+	var offsetTracker *email.OffsetTracker
+	if args.Resume || args.ResetOffset {
+		offsetTracker, err = email.NewOffsetTracker(args.OffsetFile)
+		if err != nil {
+			return fmt.Errorf("failed to initialize offset tracker: %w", err)
+		}
+		defer offsetTracker.Close()
+
+		// Reset offset if requested
+		if args.ResetOffset {
+			if err := offsetTracker.Reset(); err != nil {
+				return fmt.Errorf("failed to reset offset: %w", err)
+			}
+			fmt.Printf("🔄 Offset cleared, starting from beginning\n")
+		}
+
+		// Filter out already sent emails if resuming
+		if args.Resume {
+			originalCount := len(tasks)
+			filteredTasks := make([]email.Task, 0, len(tasks))
+
+			for _, task := range tasks {
+				if !offsetTracker.IsEmailSent(task.Recipient.Email) {
+					filteredTasks = append(filteredTasks, task)
+				}
+			}
+
+			tasks = filteredTasks
+			skippedCount := originalCount - len(tasks)
+
+			if skippedCount > 0 {
+				fmt.Printf("📧 Resuming: skipped %d already sent emails, %d remaining\n", skippedCount, len(tasks))
+			} else {
+				fmt.Printf("📧 Resuming: no emails to skip, all %d will be sent\n", len(tasks))
+			}
+
+			if len(tasks) == 0 {
+				fmt.Printf("✅ All emails already sent, campaign complete\n")
+				return nil
+			}
+		}
+	}
+
 	// If dry-run mode, print emails and skip sending
 	if args.DryRun {
 		printDryRun(tasks)
@@ -449,7 +493,7 @@ func Run(args CLIArgs) error {
 		fmt.Printf("🖥️  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
 	}
 
-	email.StartDispatcherWithMonitor(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon)
+	email.StartDispatcherWithMonitor(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon, offsetTracker)
 	duration := time.Since(start)
 
 	// Cleanup monitoring server if it was started

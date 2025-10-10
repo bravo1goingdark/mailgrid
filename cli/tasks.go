@@ -189,7 +189,7 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 		}()
 	}
 
-	email.StartDispatcherWithMonitor(tasks, cfg, 1, 1, mon)
+	email.StartDispatcherWithMonitor(tasks, cfg, 1, 1, mon, nil)
 	duration := time.Since(start)
 
 	// Send webhook notification if URL is provided

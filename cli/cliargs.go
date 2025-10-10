@@ -43,6 +43,11 @@ type CLIArgs struct {
 	SchedulerRun bool // Run dispatcher in foreground
 
 	SchedulerDB string // Path to BoltDB file for persisted schedules
+
+	// Offset tracking for resumable delivery
+	Resume      bool   // Resume from last saved offset
+	ResetOffset bool   // Clear offset and start fresh
+	OffsetFile  string // Path to offset tracking file
 }
 
 // ParseFlags reads command-line flags using spf13/pflag and returns a filled CLIArgs struct.
@@ -82,6 +87,11 @@ func ParseFlags() CLIArgs {
 	pflag.StringVarP(&args.CancelJobID, "jobs-cancel", "X", "", "Cancel job by ID")
 	pflag.BoolVarP(&args.SchedulerRun, "scheduler-run", "R", false, "Run the scheduler dispatcher in the foreground")
 	pflag.StringVarP(&args.SchedulerDB, "scheduler-db", "D", "mailgrid.db", "Path to BoltDB file for schedules")
+
+	// Offset tracking flags
+	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from last saved offset")
+	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Clear saved offset and start from beginning")
+	pflag.StringVar(&args.OffsetFile, "offset-file", ".mailgrid.offset", "Path to offset tracking file")
 
 	pflag.Parse()
 

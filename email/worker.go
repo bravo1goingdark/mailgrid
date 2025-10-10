@@ -104,6 +104,13 @@ func processBatch(w worker, client *smtp.Client, batch []Task) {
 			// Update status to sent
 			w.Monitor.UpdateRecipientStatus(task.Recipient.Email, monitor.StatusSent, duration, "")
 			w.Monitor.AddSMTPResponse("250") // Standard success code
+
+			// Mark email as sent in offset tracker if available
+			if w.OffsetTracker != nil {
+				if err := w.OffsetTracker.MarkEmailSent(task.Recipient.Email); err != nil {
+					log.Printf("[Worker %d] Warning: failed to update offset for %s: %v", w.ID, task.Recipient.Email, err)
+				}
+			}
 		}
 	}
 }
