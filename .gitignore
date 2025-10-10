@@ -42,11 +42,10 @@ coverage.*
 # Logs
 logs/
 *.log
-WARP.md
 
 # Backup files
 *~
-features.md
+
 # Test cache
 /tmp/
 
@@ -54,6 +53,13 @@ features.md
 mailgrid.db
 success.csv
 failed.csv
-.claude
+
+# Test data files
+*test*.csv
+*test*.txt
+*test*.html
+large_test_recipients.csv
+
+# Local development files
+.claude/
 CLAUDE.md
-WINDOWS_SETUP.md
