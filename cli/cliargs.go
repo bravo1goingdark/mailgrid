@@ -43,7 +43,7 @@ type CLIArgs struct {
 	SchedulerRun bool // Run dispatcher in foreground
 
 	SchedulerDB string // Path to BoltDB file for persisted schedules
-	
+
 	// Version flag
 	ShowVersion bool // Show version information and exit
 
@@ -98,6 +98,7 @@ func ParseFlags() CLIArgs {
 	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from last saved offset")
 	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Clear offset file and start from beginning")
 	pflag.StringVar(&args.OffsetFile, "offset-file", "", "Custom path to offset file (default: .mailgrid.offset)")
+
 
 	pflag.Parse()
 
