@@ -6,7 +6,6 @@ package cli_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -28,7 +27,7 @@ func TestScheduler_Integration(t *testing.T) {
 	defer server.Stop()
 
 	// Create a temporary database file
-	tmpfile, err := ioutil.TempFile("", "test.db")
+	tmpfile, err := os.CreateTemp("", "test.db")
 	require.NoError(t, err)
 	defer os.Remove(tmpfile.Name())
 
@@ -60,7 +59,7 @@ func TestScheduler_Integration(t *testing.T) {
 			"from": "test@example.com"
 		}
 	}`, server.HostAddress, server.Port)
-	configFile, err := ioutil.TempFile("", "config.json")
+	configFile, err := os.CreateTemp("", "config.json")
 	require.NoError(t, err)
 	defer os.Remove(configFile.Name())
 	_, err = configFile.WriteString(configContent)

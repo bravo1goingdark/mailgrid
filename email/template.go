@@ -26,6 +26,8 @@ type TemplateCache struct {
 	maxAge time.Duration
 	// Maximum number of templates to cache
 	maxSize int
+	// Channel to stop the cleanup goroutine
+	stopCh chan struct{}
 }
 
 // NewTemplateCache creates a new template cache with given configuration
@@ -42,6 +44,7 @@ func NewTemplateCache(maxAge time.Duration, maxSize int) *TemplateCache {
 		lastAccess: make(map[string]time.Time),
 		maxAge:     maxAge,
 		maxSize:    maxSize,
+		stopCh:     make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -97,6 +100,12 @@ func (c *TemplateCache) Clear() {
 	c.lastAccess = make(map[string]time.Time)
 }
 
+// Stop stops the cleanup goroutine and cleans up resources
+func (c *TemplateCache) Stop() {
+	close(c.stopCh)
+	c.Clear()
+}
+
 func (c *TemplateCache) hashFile(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -116,16 +125,21 @@ func (c *TemplateCache) periodicCleanup() {
 	ticker := time.NewTicker(c.maxAge / 2)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		c.mu.Lock()
-		now := time.Now()
-		for hash, lastAccess := range c.lastAccess {
-			if now.Sub(lastAccess) > c.maxAge {
-				delete(c.templates, hash)
-				delete(c.lastAccess, hash)
+	for {
+		select {
+		case <-ticker.C:
+			c.mu.Lock()
+			now := time.Now()
+			for hash, lastAccess := range c.lastAccess {
+				if now.Sub(lastAccess) > c.maxAge {
+					delete(c.templates, hash)
+					delete(c.lastAccess, hash)
+				}
 			}
+			c.mu.Unlock()
+		case <-c.stopCh:
+			return
 		}
-		c.mu.Unlock()
 	}
 }
 
@@ -164,21 +178,21 @@ type AttachmentProcessor struct {
 func NewAttachmentProcessor(maxSize int64) *AttachmentProcessor {
 	return &AttachmentProcessor{
 		bufferPool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				buf := make([]byte, 32*1024) // 32KB chunks
 				return &buf
 			},
 		},
 		maxSize: maxSize,
 		allowedTypes: map[string]struct{}{
-			"application/pdf":     {},
-			"image/jpeg":         {},
-			"image/png":          {},
-			"image/gif":          {},
-			"text/plain":         {},
+			"application/pdf":           {},
+			"image/jpeg":                {},
+			"image/png":                 {},
+			"image/gif":                 {},
+			"text/plain":                {},
 			"text/plain; charset=utf-8": {},
-			"application/zip":    {},
-			"application/octet-stream": {},
+			"application/zip":           {},
+			"application/octet-stream":  {},
 		},
 	}
 }

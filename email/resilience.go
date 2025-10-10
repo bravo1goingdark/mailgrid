@@ -2,9 +2,10 @@ package email
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"math"
-	"math/rand"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -40,9 +41,9 @@ type ErrorClassifier struct {
 func NewErrorClassifier() *ErrorClassifier {
 	return &ErrorClassifier{
 		patterns: map[string]ErrorType{
-			"connection refused":    NetworkError,
-			"timeout":              NetworkError,
-			"authentication":       AuthError,
+			"connection refused":  NetworkError,
+			"timeout":             NetworkError,
+			"authentication":      AuthError,
 			"quota":               QuotaError,
 			"rate limit":          QuotaError,
 			"temporary":           TemporaryError,
@@ -73,21 +74,21 @@ type CircuitBreaker struct {
 	mu sync.RWMutex
 
 	// Configuration
-	maxFailures     int64
-	timeout         time.Duration
-	resetTimeout    time.Duration
+	maxFailures  int64
+	timeout      time.Duration
+	resetTimeout time.Duration
 
 	// State
-	state         CircuitBreakerState
-	failures      int64
-	successes     int64
-	lastFailTime  time.Time
-	nextAttempt   time.Time
+	state        CircuitBreakerState
+	failures     int64
+	successes    int64
+	lastFailTime time.Time
+	nextAttempt  time.Time
 
 	// Error tracking
-	classifier    *ErrorClassifier
-	errorCounts   map[ErrorType]int64
-	recentErrors  []error
+	classifier      *ErrorClassifier
+	errorCounts     map[ErrorType]int64
+	recentErrors    []error
 	maxRecentErrors int
 }
 
@@ -101,13 +102,13 @@ func NewCircuitBreaker(maxFailures int64, timeout time.Duration) *CircuitBreaker
 	}
 
 	return &CircuitBreaker{
-		maxFailures:    maxFailures,
-		timeout:        timeout,
-		resetTimeout:   timeout * 2,
-		state:         Closed,
-		classifier:    NewErrorClassifier(),
-		errorCounts:   make(map[ErrorType]int64),
-		recentErrors:  make([]error, 0, 100),
+		maxFailures:     maxFailures,
+		timeout:         timeout,
+		resetTimeout:    timeout * 2,
+		state:           Closed,
+		classifier:      NewErrorClassifier(),
+		errorCounts:     make(map[ErrorType]int64),
+		recentErrors:    make([]error, 0, 100),
 		maxRecentErrors: 100,
 	}
 }
@@ -121,13 +122,13 @@ func (cb *CircuitBreaker) Call(ctx context.Context, fn func() error) error {
 
 	// Execute the function
 	err := fn()
-	
+
 	// Record the result
 	if err != nil {
 		cb.recordFailure(err)
 		return err
 	}
-	
+
 	cb.recordSuccess()
 	return nil
 }
@@ -161,7 +162,7 @@ func (cb *CircuitBreaker) recordSuccess() {
 	defer cb.mu.Unlock()
 
 	cb.successes++
-	
+
 	switch cb.state {
 	case HalfOpen:
 		// Reset the circuit breaker
@@ -182,7 +183,7 @@ func (cb *CircuitBreaker) recordFailure(err error) {
 
 	errorType := cb.classifier.ClassifyError(err)
 	cb.errorCounts[errorType]++
-	
+
 	// Add to recent errors
 	cb.recentErrors = append(cb.recentErrors, err)
 	if len(cb.recentErrors) > cb.maxRecentErrors {
@@ -289,7 +290,12 @@ func (rp *RetryPolicy) Retry(ctx context.Context, classifier *ErrorClassifier, f
 			}
 
 			// Add jitter to prevent thundering herd
-			jitter := time.Duration(rand.Int63n(int64(delay) / 4))
+			jitterMax := int64(delay) / 4
+			if jitterMax <= 0 {
+				jitterMax = 1
+			}
+			jitterNs, _ := rand.Int(rand.Reader, big.NewInt(jitterMax))
+			jitter := time.Duration(jitterNs.Int64())
 			delay += jitter
 
 			select {

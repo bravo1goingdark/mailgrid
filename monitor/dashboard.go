@@ -62,12 +62,12 @@ func (d *DashboardServer) serveStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build response
-	response := map[string]interface{}{
+	response := map[string]any{
 		"campaignStats": stats,
-		"realTimeMetrics": map[string]interface{}{
-			"emailsPerMinute":  emailsPerMinute,
-			"successRate":      calculateSuccessRate(int64(stats.SentCount), int64(stats.FailedCount)),
-			"currentTime":      now.Format(time.RFC3339),
+		"realTimeMetrics": map[string]any{
+			"emailsPerMinute": emailsPerMinute,
+			"successRate":     calculateSuccessRate(int64(stats.SentCount), int64(stats.FailedCount)),
+			"currentTime":     now.Format(time.RFC3339),
 			"uptime":          formatDuration(now.Sub(stats.StartTime)),
 		},
 	}
@@ -136,8 +136,7 @@ class MonitoringDashboard {
             const response = await fetch('/api/stats');
             const data = await response.json();
 
-            // Debug logging to see the actual data structure
-            console.log('Dashboard data received:', data);
+            // Data received successfully
 
             this.updateMetrics(data);
             this.updateChart(data);
@@ -148,14 +147,12 @@ class MonitoringDashboard {
     }
 
     updateMetrics(data) {
-        console.log('Updating metrics with data:', data);
 
         if (data.campaignStats) {
             const sentCount = data.campaignStats.sent_count || 0;
             const failedCount = data.campaignStats.failed_count || 0;
             const totalRecipients = data.campaignStats.total_recipients || 0;
 
-            console.log('Metrics - Sent:', sentCount, 'Failed:', failedCount, 'Total:', totalRecipients);
 
             // Update counter elements directly first, then animate
             const sentElement = document.getElementById('emailsSent');
@@ -163,14 +160,12 @@ class MonitoringDashboard {
 
             if (sentElement) {
                 sentElement.textContent = sentCount;
-                console.log('Updated emailsSent element to:', sentCount);
             } else {
                 console.error('emailsSent element not found!');
             }
 
             if (failedElement) {
                 failedElement.textContent = failedCount;
-                console.log('Updated emailsFailed element to:', failedCount);
             } else {
                 console.error('emailsFailed element not found!');
             }
@@ -180,7 +175,6 @@ class MonitoringDashboard {
             const successRateElement = document.getElementById('successRate');
             if (successRateElement) {
                 successRateElement.textContent = successRate + '%';
-                console.log('Updated successRate to:', successRate + '%');
             }
 
             // Calculate emails per minute
@@ -188,7 +182,6 @@ class MonitoringDashboard {
             const emailRateElement = document.getElementById('emailRate');
             if (emailRateElement) {
                 emailRateElement.textContent = emailsPerMinute.toFixed(1) + '/min';
-                console.log('Updated emailRate to:', emailsPerMinute.toFixed(1) + '/min');
             }
 
             // Update last updated timestamp

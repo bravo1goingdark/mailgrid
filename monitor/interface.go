@@ -21,8 +21,9 @@ type Monitor interface {
 type NoOpMonitor struct{}
 
 func (n *NoOpMonitor) InitializeCampaign(jobID string, config ConfigSummary, totalRecipients int) {}
-func (n *NoOpMonitor) UpdateRecipientStatus(email string, status EmailStatus, duration time.Duration, errorMsg string) {}
-func (n *NoOpMonitor) AddSMTPResponse(code string) {}
+func (n *NoOpMonitor) UpdateRecipientStatus(email string, status EmailStatus, duration time.Duration, errorMsg string) {
+}
+func (n *NoOpMonitor) AddSMTPResponse(code string)              {}
 func (n *NoOpMonitor) AddLogEntry(level, message, email string) {}
 
 // NewNoOpMonitor creates a no-op monitor

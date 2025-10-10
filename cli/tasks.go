@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,7 +27,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 	}
 
 	var tasks []email.Task
-	for _, r := range recipients {
+	for i, r := range recipients {
 		// Skip rows with missing fields
 		if HasMissingFields(r) {
 			log.Printf("⚠️ Skipping %s: missing CSV fields", r.Email)
@@ -58,6 +59,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 			CC:          ccList,
 			BCC:         bccList,
 			Retries:     0,
+			Index:       i, // Add index for offset tracking
 		})
 	}
 	return tasks, nil
@@ -119,8 +121,8 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 		}
 	}
 
-	ccList := utils.SplitAndTrim(args.Cc);
-	bccList := utils.SplitAndTrim(args.Bcc);
+	ccList := utils.SplitAndTrim(args.Cc)
+	bccList := utils.SplitAndTrim(args.Bcc)
 
 	// Use existing logic to render subject and body
 	tasks, err := PrepareEmailTasks(
@@ -178,10 +180,12 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 
 		fmt.Printf("🖥️  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
 
-		// Cleanup monitor after completion
+		// Cleanup monitor after completion with context timeout instead of sleep
 		defer func() {
 			go func() {
-				time.Sleep(5 * time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				<-ctx.Done() // Wait for timeout or cancellation
 				if err := monitorServer.Stop(); err != nil {
 					log.Printf("⚠️ Failed to stop monitor server: %v", err)
 				}

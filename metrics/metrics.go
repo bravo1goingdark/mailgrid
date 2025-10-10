@@ -16,34 +16,34 @@ type Metrics struct {
 	mu sync.RWMutex
 
 	// Email statistics
-	TotalEmailsSent      uint64
-	TotalEmailsFailed    uint64
-	TotalAttachmentSize  uint64
+	TotalEmailsSent     uint64
+	TotalEmailsFailed   uint64
+	TotalAttachmentSize uint64
 	AvgDeliveryTime     time.Duration
 	deliveryTimesamples uint64
 
 	// Connection metrics
-	ActiveConnections    int64
-	TotalConnections    uint64
-	ConnectionErrors    uint64
-	ConnectionTimeouts  uint64
+	ActiveConnections  int64
+	TotalConnections   uint64
+	ConnectionErrors   uint64
+	ConnectionTimeouts uint64
 
 	// Batch metrics
-	BatchesProcessed    uint64
-	AvgBatchSize       float64
-	BatchSuccessRate   float64
-	batchSizeSum       uint64
-	batchCount         uint64
+	BatchesProcessed uint64
+	AvgBatchSize     float64
+	BatchSuccessRate float64
+	batchSizeSum     uint64
+	batchCount       uint64
 
 	// Rate limiting
-	ThrottleEvents     uint64
-	CurrentRateLimit   int64
-	RateLimitHits      uint64
+	ThrottleEvents   uint64
+	CurrentRateLimit int64
+	RateLimitHits    uint64
 
 	// Template metrics
-	TemplateCacheHits    uint64
-	TemplateCacheMisses  uint64
-	TemplateCacheSize    int64
+	TemplateCacheHits   uint64
+	TemplateCacheMisses uint64
+	TemplateCacheSize   int64
 
 	// Error tracking
 	ErrorCounts     map[string]uint64
@@ -51,17 +51,17 @@ type Metrics struct {
 	ConsecutiveErrs uint64
 
 	// Performance tracking
-	startTime        time.Time
-	lastMinuteStats  minuteStats
-	hourlyStats      []minuteStats
+	startTime       time.Time
+	lastMinuteStats minuteStats
+	hourlyStats     []minuteStats
 }
 
 type minuteStats struct {
-	timestamp     time.Time
-	emailsSent    uint64
-	emailsFailed  uint64
-	avgLatency    time.Duration
-	errorCount    uint64
+	timestamp    time.Time
+	emailsSent   uint64
+	emailsFailed uint64
+	avgLatency   time.Duration
+	errorCount   uint64
 }
 
 // NewMetrics creates a new metrics collector
@@ -81,7 +81,7 @@ func NewMetrics() *Metrics {
 // RecordEmailSent records a successful email delivery
 func (m *Metrics) RecordEmailSent(duration time.Duration) {
 	atomic.AddUint64(&m.TotalEmailsSent, 1)
-	
+
 	// Update average delivery time
 	samples := atomic.AddUint64(&m.deliveryTimesamples, 1)
 	current := time.Duration(atomic.LoadUint64((*uint64)(unsafe.Pointer(&m.AvgDeliveryTime))))
@@ -156,19 +156,19 @@ func (m *Metrics) GetStats() string {
 	defer m.mu.RUnlock()
 
 	stats := struct {
-		Uptime            time.Duration `json:"uptime"`
-		EmailsSent        uint64        `json:"emails_sent"`
-		EmailsFailed      uint64        `json:"emails_failed"`
-		AvgDeliveryTime   time.Duration `json:"avg_delivery_time"`
-		ActiveConnections int64         `json:"active_connections"`
-		BatchesProcessed  uint64        `json:"batches_processed"`
-		AvgBatchSize     float64       `json:"avg_batch_size"`
-		BatchSuccessRate  float64       `json:"batch_success_rate"`
-		ErrorCounts      map[string]uint64 `json:"error_counts"`
-		LastError        time.Time      `json:"last_error"`
-		TemplateCacheHits uint64       `json:"template_cache_hits"`
-		ThrottleEvents   uint64        `json:"throttle_events"`
-		CurrentRateLimit int64         `json:"current_rate_limit"`
+		Uptime            time.Duration     `json:"uptime"`
+		EmailsSent        uint64            `json:"emails_sent"`
+		EmailsFailed      uint64            `json:"emails_failed"`
+		AvgDeliveryTime   time.Duration     `json:"avg_delivery_time"`
+		ActiveConnections int64             `json:"active_connections"`
+		BatchesProcessed  uint64            `json:"batches_processed"`
+		AvgBatchSize      float64           `json:"avg_batch_size"`
+		BatchSuccessRate  float64           `json:"batch_success_rate"`
+		ErrorCounts       map[string]uint64 `json:"error_counts"`
+		LastError         time.Time         `json:"last_error"`
+		TemplateCacheHits uint64            `json:"template_cache_hits"`
+		ThrottleEvents    uint64            `json:"throttle_events"`
+		CurrentRateLimit  int64             `json:"current_rate_limit"`
 	}{
 		Uptime:            time.Since(m.startTime),
 		EmailsSent:        atomic.LoadUint64(&m.TotalEmailsSent),
@@ -176,10 +176,10 @@ func (m *Metrics) GetStats() string {
 		AvgDeliveryTime:   time.Duration(atomic.LoadUint64((*uint64)(unsafe.Pointer(&m.AvgDeliveryTime)))),
 		ActiveConnections: atomic.LoadInt64(&m.ActiveConnections),
 		BatchesProcessed:  atomic.LoadUint64(&m.BatchesProcessed),
-		AvgBatchSize:     m.AvgBatchSize,
+		AvgBatchSize:      m.AvgBatchSize,
 		BatchSuccessRate:  m.BatchSuccessRate,
-		ErrorCounts:      m.ErrorCounts,
-		LastError:        m.LastError,
+		ErrorCounts:       m.ErrorCounts,
+		LastError:         m.LastError,
 		TemplateCacheHits: atomic.LoadUint64(&m.TemplateCacheHits),
 		ThrottleEvents:    atomic.LoadUint64(&m.ThrottleEvents),
 		CurrentRateLimit:  atomic.LoadInt64(&m.CurrentRateLimit),
@@ -202,9 +202,9 @@ func (m *Metrics) collectStats() {
 	for range ticker.C {
 		stats := minuteStats{
 			timestamp:    time.Now(),
-			emailsSent:  atomic.LoadUint64(&m.TotalEmailsSent),
+			emailsSent:   atomic.LoadUint64(&m.TotalEmailsSent),
 			emailsFailed: atomic.LoadUint64(&m.TotalEmailsFailed),
-			avgLatency:  time.Duration(atomic.LoadUint64((*uint64)(unsafe.Pointer(&m.AvgDeliveryTime)))),
+			avgLatency:   time.Duration(atomic.LoadUint64((*uint64)(unsafe.Pointer(&m.AvgDeliveryTime)))),
 		}
 
 		m.mu.Lock()
@@ -214,7 +214,7 @@ func (m *Metrics) collectStats() {
 
 		// Calculate delta from last minute
 		delta := minuteStats{
-			emailsSent:  stats.emailsSent - m.lastMinuteStats.emailsSent,
+			emailsSent:   stats.emailsSent - m.lastMinuteStats.emailsSent,
 			emailsFailed: stats.emailsFailed - m.lastMinuteStats.emailsFailed,
 		}
 		m.lastMinuteStats = stats

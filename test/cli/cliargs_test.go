@@ -38,7 +38,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				JobBackoff:   "2s",
 				SchedulerDB:  "mailgrid.db",
-				MonitorPort:  9091, // Default monitor port
+				MonitorPort:  9091,       // Default monitor port
 				Attachments:  []string{}, // Default empty slice, not nil
 			},
 		},
@@ -63,7 +63,7 @@ func TestParseFlags(t *testing.T) {
 				BatchSize:   1,
 				PreviewPort: 8080,
 				SchedulerDB: "mailgrid.db",
-				MonitorPort: 9091, // Default monitor port
+				MonitorPort: 9091,       // Default monitor port
 				Attachments: []string{}, // Default empty slice, not nil
 			},
 		},
@@ -88,7 +88,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				JobBackoff:   "2s",
 				SchedulerDB:  "mailgrid.db",
-				MonitorPort:  9091, // Default monitor port
+				MonitorPort:  9091,       // Default monitor port
 				Attachments:  []string{}, // Default empty slice, not nil
 			},
 		},
@@ -175,7 +175,7 @@ func TestCLIArgs_ShortFlags(t *testing.T) {
 		"mailgrid",
 		"-t", "template.html",
 		"-s", "Test Subject",
-		"-p",  // preview
+		"-p",      // preview
 		"-c", "3", // concurrency
 		"-r", "2", // retries
 	}

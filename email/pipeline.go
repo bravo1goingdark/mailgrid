@@ -15,10 +15,10 @@ import (
 
 // SMTPPipeline provides optimized SMTP command pipelining
 type SMTPPipeline struct {
-	conn    net.Conn
-	text    *textproto.Conn
-	writer  *bufio.Writer
-	reader  *bufio.Reader
+	conn   net.Conn
+	text   *textproto.Conn
+	writer *bufio.Writer
+	reader *bufio.Reader
 
 	// Connection state
 	ext     map[string]string
@@ -43,12 +43,12 @@ func NewSMTPPipeline(conn net.Conn, maxPipeline int, flushInterval time.Duration
 	writer := bufio.NewWriter(conn)
 
 	return &SMTPPipeline{
-		conn:    conn,
-		text:    textproto.NewConn(conn),
-		writer:  writer,
-		reader:  reader,
-		ext:     make(map[string]string),
-		maxPipeline: maxPipeline,
+		conn:          conn,
+		text:          textproto.NewConn(conn),
+		writer:        writer,
+		reader:        reader,
+		ext:           make(map[string]string),
+		maxPipeline:   maxPipeline,
 		flushInterval: flushInterval,
 	}
 }
@@ -68,7 +68,7 @@ func NewPipeline(size int) *Pipeline {
 }
 
 // QueueCommand adds a command to the pipeline
-func (p *Pipeline) QueueCommand(format string, args ...interface{}) {
+func (p *Pipeline) QueueCommand(format string, args ...any) {
 	cmd := fmt.Sprintf(format, args...)
 	p.commands = append(p.commands, cmd)
 }
@@ -220,7 +220,7 @@ func (s *SMTPPipeline) Auth(auth smtp.Auth) error {
 }
 
 // cmd sends a command and waits for the expected response code
-func (s *SMTPPipeline) cmd(expectCode int, format string, args ...interface{}) error {
+func (s *SMTPPipeline) cmd(expectCode int, format string, args ...any) error {
 	cmd := fmt.Sprintf(format, args...)
 	if _, err := fmt.Fprintf(s.writer, "%s\r\n", cmd); err != nil {
 		return err

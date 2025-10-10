@@ -1,10 +1,11 @@
 package email
 
 import (
+	"crypto/rand"
 	"github.com/bravo1goingdark/mailgrid/logger"
 	"github.com/bravo1goingdark/mailgrid/monitor"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/smtp"
 	"strings"
 	"time"
@@ -33,6 +34,7 @@ func startWorker(w worker) {
 		}
 	}()
 
+	// Pre-allocate batch slice to avoid reallocations
 	batch := make([]Task, 0, w.BatchSize)
 
 	for {
@@ -48,7 +50,7 @@ func startWorker(w worker) {
 
 		if len(batch) >= w.BatchSize {
 			processBatch(w, client, batch)
-			batch = batch[:0]
+			batch = batch[:0] // Reset slice but keep capacity
 		}
 	}
 }
@@ -81,7 +83,8 @@ func processBatch(w worker, client *smtp.Client, batch []Task) {
 				if backoff > maxBackoff {
 					backoff = maxBackoff
 				}
-				jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
+				jitterMs, _ := rand.Int(rand.Reader, big.NewInt(1000))
+				jitter := time.Duration(jitterMs.Int64()) * time.Millisecond
 				delay := backoff + jitter
 
 				log.Printf("[Worker %d] Retrying %s in %v (attempt %d)", w.ID, task.Recipient.Email, delay, task.Retries)
@@ -104,39 +107,48 @@ func processBatch(w worker, client *smtp.Client, batch []Task) {
 			// Update status to sent
 			w.Monitor.UpdateRecipientStatus(task.Recipient.Email, monitor.StatusSent, duration, "")
 			w.Monitor.AddSMTPResponse("250") // Standard success code
+
+			// Update offset tracker if available
+			if w.Tracker != nil {
+				newOffset := w.StartOffset + task.Index + 1
+				w.Tracker.UpdateOffset(newOffset)
+				// Periodically save offset (buffered writes for performance)
+				if newOffset%10 == 0 {
+					if err := w.Tracker.Save(); err != nil {
+						log.Printf("⚠️ Warning: Failed to save offset: %v", err)
+					}
+				}
+			}
 		}
 	}
 }
 
 // extractSMTPCode attempts to extract SMTP response code from error message
 func extractSMTPCode(errMsg string) string {
-	// Common SMTP error patterns
-	if strings.Contains(errMsg, "421") {
-		return "421"
+	// Use more efficient search patterns for common SMTP codes
+	codes := []string{"421", "450", "451", "452", "550", "551", "552", "553", "554"}
+
+	// First check if the error message is long enough to contain a code
+	if len(errMsg) < 3 {
+		return ""
 	}
-	if strings.Contains(errMsg, "450") {
-		return "450"
+
+	// Fast path: check for codes at the beginning of the message
+	if len(errMsg) >= 3 {
+		prefix := errMsg[:3]
+		for _, code := range codes {
+			if prefix == code {
+				return code
+			}
+		}
 	}
-	if strings.Contains(errMsg, "451") {
-		return "451"
+
+	// Fallback to contains search for embedded codes
+	for _, code := range codes {
+		if strings.Contains(errMsg, code) {
+			return code
+		}
 	}
-	if strings.Contains(errMsg, "452") {
-		return "452"
-	}
-	if strings.Contains(errMsg, "550") {
-		return "550"
-	}
-	if strings.Contains(errMsg, "551") {
-		return "551"
-	}
-	if strings.Contains(errMsg, "552") {
-		return "552"
-	}
-	if strings.Contains(errMsg, "553") {
-		return "553"
-	}
-	if strings.Contains(errMsg, "554") {
-		return "554"
-	}
+
 	return ""
 }

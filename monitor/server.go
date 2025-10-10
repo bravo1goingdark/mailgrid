@@ -33,22 +33,22 @@ type RecipientStatus struct {
 
 // CampaignStats represents real-time campaign statistics
 type CampaignStats struct {
-	JobID              string                      `json:"job_id"`
-	StartTime          time.Time                   `json:"start_time"`
-	TotalRecipients    int                         `json:"total_recipients"`
-	PendingCount       int                         `json:"pending_count"`
-	SendingCount       int                         `json:"sending_count"`
-	SentCount          int                         `json:"sent_count"`
-	FailedCount        int                         `json:"failed_count"`
-	RetryCount         int                         `json:"retry_count"`
-	EmailsPerSecond    float64                     `json:"emails_per_second"`
-	EstimatedTimeLeft  string                      `json:"estimated_time_left"`
-	AvgDurationMs      float64                     `json:"avg_duration_ms"`
-	Recipients         map[string]*RecipientStatus `json:"recipients"`
-	DomainBreakdown    map[string]int              `json:"domain_breakdown"`
-	SMTPResponseCodes  map[string]int              `json:"smtp_response_codes"`
-	ConfigSummary      ConfigSummary               `json:"config_summary"`
-	LogEntries         []LogEntry                  `json:"log_entries"`
+	JobID             string                      `json:"job_id"`
+	StartTime         time.Time                   `json:"start_time"`
+	TotalRecipients   int                         `json:"total_recipients"`
+	PendingCount      int                         `json:"pending_count"`
+	SendingCount      int                         `json:"sending_count"`
+	SentCount         int                         `json:"sent_count"`
+	FailedCount       int                         `json:"failed_count"`
+	RetryCount        int                         `json:"retry_count"`
+	EmailsPerSecond   float64                     `json:"emails_per_second"`
+	EstimatedTimeLeft string                      `json:"estimated_time_left"`
+	AvgDurationMs     float64                     `json:"avg_duration_ms"`
+	Recipients        map[string]*RecipientStatus `json:"recipients"`
+	DomainBreakdown   map[string]int              `json:"domain_breakdown"`
+	SMTPResponseCodes map[string]int              `json:"smtp_response_codes"`
+	ConfigSummary     ConfigSummary               `json:"config_summary"`
+	LogEntries        []LogEntry                  `json:"log_entries"`
 }
 
 // ConfigSummary holds campaign configuration details
@@ -416,7 +416,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
             };
 
             eventSource.onerror = function() {
-                console.log('Connection lost, retrying in 5 seconds...');
+                // Connection lost, retrying in 5 seconds
                 setTimeout(connectEventSource, 5000);
             };
         }

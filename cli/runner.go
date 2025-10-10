@@ -15,6 +15,8 @@ import (
 	"github.com/bravo1goingdark/mailgrid/config"
 	"github.com/bravo1goingdark/mailgrid/email"
 	"github.com/bravo1goingdark/mailgrid/internal/types"
+	"github.com/bravo1goingdark/mailgrid/monitor"
+	"github.com/bravo1goingdark/mailgrid/offset"
 	"github.com/bravo1goingdark/mailgrid/parser"
 	"github.com/bravo1goingdark/mailgrid/parser/expression"
 	"github.com/bravo1goingdark/mailgrid/scheduler"
@@ -22,7 +24,6 @@ import (
 	"github.com/bravo1goingdark/mailgrid/utils/preview"
 	"github.com/bravo1goingdark/mailgrid/utils/valid"
 	"github.com/bravo1goingdark/mailgrid/webhook"
-	"github.com/bravo1goingdark/mailgrid/monitor"
 )
 
 const maxAttachSize = 10 << 20 // 10 MB
@@ -40,26 +41,26 @@ func Run(args CLIArgs) error {
 		if err != nil {
 			return fmt.Errorf("failed to load SMTP config: %w", err)
 		}
-		
+
 		// Configure optimized scheduler manager
 		managerConfig := scheduler.ManagerConfig{
-			DBPath:           args.SchedulerDB,
-			SMTPConfig:       smtpConfig.SMTP,
-			OptimizedConfig:  scheduler.DefaultOptimizedConfig(),
-			ShutdownDelay:    0, // Disable auto-shutdown in daemon mode
-			AutoShutdown:     false,
+			DBPath:          args.SchedulerDB,
+			SMTPConfig:      smtpConfig.SMTP,
+			OptimizedConfig: scheduler.DefaultOptimizedConfig(),
+			ShutdownDelay:   0, // Disable auto-shutdown in daemon mode
+			AutoShutdown:    false,
 		}
-		
+
 		// Create scheduler manager
 		manager := scheduler.NewSchedulerManager(managerConfig)
-		
+
 		// Create job handler
 		handler := func(job types.Job) error {
 			var a types.CLIArgs
 			if err := json.Unmarshal(job.Args, &a); err != nil {
 				return fmt.Errorf("decode job args: %w", err)
 			}
-			
+
 			// Execute the job based on type
 			if a.To != "" {
 				// Single email
@@ -94,16 +95,16 @@ func Run(args CLIArgs) error {
 				return Run(cliArgs)
 			}
 		}
-		
+
 		// Attach default handler
 		if err := manager.AttachDefaultHandler(handler); err != nil {
 			return fmt.Errorf("failed to attach handler: %w", err)
 		}
-		
+
 		// Run as daemon
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		
+
 		return manager.RunDaemon(ctx)
 	}
 
@@ -111,11 +112,11 @@ func Run(args CLIArgs) error {
 	if args.ListJobs || args.CancelJobID != "" {
 		// Configure manager for admin operations
 		managerConfig := scheduler.ManagerConfig{
-			DBPath:           args.SchedulerDB,
-			OptimizedConfig:  scheduler.DefaultOptimizedConfig(),
-			AutoShutdown:     false, // Don't auto-shutdown during admin operations
+			DBPath:          args.SchedulerDB,
+			OptimizedConfig: scheduler.DefaultOptimizedConfig(),
+			AutoShutdown:    false, // Don't auto-shutdown during admin operations
 		}
-		
+
 		manager := scheduler.NewSchedulerManager(managerConfig)
 		defer manager.Stop()
 
@@ -125,22 +126,22 @@ func Run(args CLIArgs) error {
 			}
 			fmt.Printf("🛑 Cancelled job %s\n", args.CancelJobID)
 		}
-		
+
 		if args.ListJobs {
 			jobs, err := manager.ListJobs()
 			if err != nil {
 				return fmt.Errorf("failed to list jobs: %w", err)
 			}
-			
+
 			if len(jobs) == 0 {
 				fmt.Println("📋 No jobs found")
 				return nil
 			}
-			
+
 			fmt.Printf("📋 Found %d job(s):\n\n", len(jobs))
 			fmt.Printf("%-20s %-10s %-20s %-20s %-10s\n", "JOB ID", "STATUS", "RUN AT", "NEXT RUN", "ATTEMPTS")
 			fmt.Printf("%s\n", strings.Repeat("-", 85))
-			
+
 			for _, j := range jobs {
 				next := "-"
 				if !j.NextRunAt.IsZero() {
@@ -151,10 +152,10 @@ func Run(args CLIArgs) error {
 				if len(jobID) > 18 {
 					jobID = jobID[:18] + "..."
 				}
-				fmt.Printf("%-20s %-10s %-20s %-20s %d/%d\n", 
+				fmt.Printf("%-20s %-10s %-20s %-20s %d/%d\n",
 					jobID, j.Status, runAt, next, j.Attempts, j.MaxAttempts)
 			}
-			
+
 			fmt.Printf("\n💡 Use --cancel-job <JOB_ID> to cancel a specific job\n")
 		}
 		return nil
@@ -165,33 +166,33 @@ func Run(args CLIArgs) error {
 		if args.To == "" && args.CSVPath == "" && args.SheetURL == "" {
 			return fmt.Errorf("❌ scheduling requires --to or --csv or --sheet-url")
 		}
-		
+
 		// Load SMTP config for the scheduler manager
 		smtpConfig, err := config.LoadConfig(args.EnvPath)
 		if err != nil {
 			return fmt.Errorf("failed to load SMTP config: %w", err)
 		}
-		
+
 		// Configure the optimized scheduler manager
 		managerConfig := scheduler.ManagerConfig{
-			DBPath:           args.SchedulerDB,
-			SMTPConfig:       smtpConfig.SMTP,
-			OptimizedConfig:  scheduler.DefaultOptimizedConfig(),
-			ShutdownDelay:    5 * time.Minute,
-			AutoShutdown:     true,
+			DBPath:          args.SchedulerDB,
+			SMTPConfig:      smtpConfig.SMTP,
+			OptimizedConfig: scheduler.DefaultOptimizedConfig(),
+			ShutdownDelay:   5 * time.Minute,
+			AutoShutdown:    true,
 		}
-		
+
 		// Initialize global scheduler manager
 		scheduler.InitGlobalManager(managerConfig)
 		manager := scheduler.GetGlobalManager()
-		
+
 		// Create job handler
 		handler := func(job types.Job) error {
 			var a types.CLIArgs
 			if err := json.Unmarshal(job.Args, &a); err != nil {
 				return fmt.Errorf("decode job args: %w", err)
 			}
-			
+
 			// Execute the job based on type
 			if a.To != "" {
 				// Single email
@@ -226,7 +227,7 @@ func Run(args CLIArgs) error {
 				return Run(cliArgs)
 			}
 		}
-		
+
 		// Parse schedule time
 		var runAt time.Time
 		if args.ScheduleAt != "" {
@@ -238,7 +239,7 @@ func Run(args CLIArgs) error {
 		} else {
 			runAt = time.Now()
 		}
-		
+
 		// Create job payload
 		payload := types.CLIArgs{
 			EnvPath:       args.EnvPath,
@@ -261,12 +262,12 @@ func Run(args CLIArgs) error {
 			JobRetries:    args.JobRetries,
 			JobBackoffDur: args.JobBackoff,
 		}
-		
+
 		// Schedule the job (this will auto-start the scheduler)
 		if err := manager.ScheduleJob(payload, runAt, args.Cron, args.Interval, handler); err != nil {
 			return fmt.Errorf("failed to schedule job: %w", err)
 		}
-		
+
 		scheduleInfo := ""
 		if args.ScheduleAt != "" {
 			scheduleInfo = fmt.Sprintf(" at %s", args.ScheduleAt)
@@ -277,12 +278,12 @@ func Run(args CLIArgs) error {
 		if args.Cron != "" {
 			scheduleInfo += fmt.Sprintf(" using cron %q", args.Cron)
 		}
-		
+
 		fmt.Printf("📅 Job scheduled successfully%s\n", scheduleInfo)
 		fmt.Printf("🗄️  Database: %s\n", args.SchedulerDB)
 		fmt.Printf("📊 Metrics: http://localhost:8090/metrics\n")
 		fmt.Printf("💡 The scheduler will start automatically and run in the background\n")
-		
+
 		return nil
 	}
 	// Load SMTP configuration from a file
@@ -342,9 +343,8 @@ func Run(args CLIArgs) error {
 			return fmt.Errorf("failed to fetch Google Sheet: %w", err)
 		}
 		defer func(stream io.ReadCloser) {
-			err := stream.Close()
-			if err != nil {
-				return
+			if closeErr := stream.Close(); closeErr != nil {
+				log.Printf("Warning: Failed to close Google Sheet stream: %v", closeErr)
 			}
 		}(stream)
 
@@ -406,6 +406,47 @@ func Run(args CLIArgs) error {
 		return err
 	}
 
+	// Initialize offset tracker for resumable delivery
+	var tracker *offset.Tracker
+	var startOffset int
+
+	// Handle offset tracking (only for bulk operations, not single emails)
+	if len(tasks) > 1 {
+		tracker = offset.NewTracker(args.OffsetFile)
+
+		// Handle reset-offset flag
+		if args.ResetOffset {
+			if err := tracker.Reset(); err != nil {
+				log.Printf("⚠️ Warning: Failed to reset offset: %v", err)
+			} else {
+				fmt.Println("🔄 Offset file cleared, starting from beginning")
+			}
+		}
+
+		// Load existing offset if resume is enabled
+		if args.Resume {
+			if err := tracker.Load(); err != nil {
+				log.Printf("⚠️ Warning: Failed to load offset (starting from beginning): %v", err)
+			} else {
+				startOffset = tracker.GetOffset()
+				if startOffset > 0 {
+					if startOffset >= len(tasks) {
+						fmt.Printf("✅ All emails already sent (offset: %d, total: %d)\n", startOffset, len(tasks))
+						return nil
+					}
+					fmt.Printf("▶️ Resuming from offset %d (skipping %d already sent emails)\n", startOffset, startOffset)
+					tasks = tasks[startOffset:] // Skip already sent emails
+				}
+			}
+		}
+
+		// Generate unique job ID and set it in tracker
+		jobID := fmt.Sprintf("mailgrid-%d", time.Now().Unix())
+		if tracker != nil {
+			tracker.SetJobID(jobID)
+		}
+	}
+
 	// If dry-run mode, print emails and skip sending
 	if args.DryRun {
 		printDryRun(tasks)
@@ -416,8 +457,13 @@ func Run(args CLIArgs) error {
 	start := time.Now()
 	email.SetRetryLimit(args.RetryLimit)
 
-	// Generate unique job ID for webhook and monitoring
-	jobID := fmt.Sprintf("mailgrid-%d", start.Unix())
+	// Use existing job ID from tracker or generate new one
+	var jobID string
+	if tracker != nil && tracker.GetJobID() != "" {
+		jobID = tracker.GetJobID()
+	} else {
+		jobID = fmt.Sprintf("mailgrid-%d", start.Unix())
+	}
 
 	// Initialize monitoring if enabled
 	var mon monitor.Monitor = monitor.NewNoOpMonitor()
@@ -449,13 +495,25 @@ func Run(args CLIArgs) error {
 		fmt.Printf("🖥️  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
 	}
 
-	email.StartDispatcherWithMonitor(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon)
+	// Use offset-aware dispatcher if tracker is available
+	if tracker != nil {
+		email.StartDispatcherWithOffset(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon, tracker, startOffset)
+		// Save final offset after campaign completion
+		if err := tracker.Save(); err != nil {
+			log.Printf("⚠️ Warning: Failed to save final offset: %v", err)
+		}
+	} else {
+		email.StartDispatcherWithMonitor(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon)
+	}
 	duration := time.Since(start)
 
 	// Cleanup monitoring server if it was started
 	if monitorServer != nil {
 		go func() {
-			time.Sleep(5 * time.Second) // Give users time to see final results
+			// Use context with timeout instead of sleep for cleaner shutdown
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			<-ctx.Done() // Give users time to see final results
 			if err := monitorServer.Stop(); err != nil {
 				log.Printf("⚠️ Failed to stop monitor server: %v", err)
 			}

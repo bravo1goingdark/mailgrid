@@ -32,20 +32,19 @@ type CLIArgs struct {
 // Job represents a scheduled unit of work persisted by the scheduler.
 // Args contains a JSON-encoded CLIArgs payload.
 type Job struct {
-	ID        string          `json:"id"`
-	Args      json.RawMessage `json:"args"`
-	Status    string          `json:"status"` // pending, running, done, cancelled, failed
-	RunAt     time.Time       `json:"run_at"`
-	CronExpr  string          `json:"cron_expr,omitempty"`
-	Interval  string          `json:"interval,omitempty"`
+	ID       string          `json:"id"`
+	Args     json.RawMessage `json:"args"`
+	Status   string          `json:"status"` // pending, running, done, cancelled, failed
+	RunAt    time.Time       `json:"run_at"`
+	CronExpr string          `json:"cron_expr,omitempty"`
+	Interval string          `json:"interval,omitempty"`
 
-	Attempts    int       `json:"attempts"`
-	MaxAttempts int       `json:"max_attempts"`
-	Backoff     string    `json:"backoff,omitempty"` // base backoff duration
+	Attempts    int    `json:"attempts"`
+	MaxAttempts int    `json:"max_attempts"`
+	Backoff     string `json:"backoff,omitempty"` // base backoff duration
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	LastRunAt time.Time `json:"last_run_at,omitempty"`
 	NextRunAt time.Time `json:"next_run_at,omitempty"`
 }
-

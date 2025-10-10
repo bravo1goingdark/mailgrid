@@ -42,6 +42,7 @@ Mailgrid is a fast, minimal CLI tool for sending personalized emails from CSV fi
 ### ⚙️ Configuration & Control
 - **SMTP support** with simple `config.json`
 - **Concurrency, batching, and automatic retries** for high throughput
+- **Resumable delivery** (`--resume`) with offset tracking for interrupted campaigns
 - **Real-time monitoring dashboard** (`--monitor`) with live metrics and recipient tracking
 - **Preview server** (`--preview`) to view rendered emails in the browser
 - **Dry-run mode** (`--dry-run`) to render without sending
@@ -282,6 +283,18 @@ mailgrid -e config.json -f recipients.csv -t email.html -p
 mailgrid --env config.json --csv recipients.csv --template email.html --preview --port 8080
 ```
 
+**Resumable delivery (handle interruptions):**
+```bash
+# Start a campaign (will be tracked automatically)
+mailgrid --env config.json --csv recipients.csv --template email.html
+
+# If interrupted, resume from where you left off
+mailgrid --env config.json --csv recipients.csv --template email.html --resume
+
+# Start fresh (clear offset)
+mailgrid --env config.json --csv recipients.csv --template email.html --reset-offset
+```
+
 ### 🔧 Short Flags
 
 Mailgrid supports convenient short flags for faster CLI usage:
@@ -302,6 +315,9 @@ Mailgrid supports convenient short flags for faster CLI usage:
 | `-a` | `--attach` | File attachments |
 | `-w` | `--webhook` | HTTP URL for notifications |
 | `-m` | `--monitor` | Enable monitoring dashboard |
+| | `--resume` | Resume from last saved offset |
+| | `--reset-offset` | Clear offset and start fresh |
+| | `--offset-file` | Custom offset file path |
 
 > 📚 **For comprehensive usage examples and CLI reference, see [docs/docs.md](./docs/docs.md)**
 

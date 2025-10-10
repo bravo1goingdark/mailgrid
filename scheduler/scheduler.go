@@ -1,9 +1,10 @@
 package scheduler
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"sync"
 	"time"
 
@@ -56,7 +57,8 @@ func NewScheduler(db *database.BoltDBClient, log Logger) *Scheduler {
 }
 
 func newInstanceID() string {
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), rand.Int())
+	randomInt, _ := rand.Int(rand.Reader, big.NewInt(1000000))
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), randomInt.Int64())
 }
 
 // NewJob constructs a Job from CLI args and desired schedule.
@@ -268,7 +270,8 @@ func computeBackoff(job types.Job) time.Duration {
 		delay = 5 * time.Minute
 	}
 	// jitter up to 500ms
-	jitter := time.Duration(rand.Intn(500)) * time.Millisecond
+	jitterMs, _ := rand.Int(rand.Reader, big.NewInt(500))
+	jitter := time.Duration(jitterMs.Int64()) * time.Millisecond
 	return delay + jitter
 }
 
@@ -277,4 +280,3 @@ func (s *Scheduler) Stop() {
 	close(s.quit)
 	s.wg.Wait()
 }
-

@@ -28,7 +28,10 @@ func LoadConfig(path string) (*AppConfig, error) {
 		return nil, fmt.Errorf("open config %q: %w", path, err)
 	}
 	defer func() {
-		_ = file.Close()
+		if closeErr := file.Close(); closeErr != nil {
+			// Log error but don't override main function error
+			// This ensures we don't mask the main error if JSON decoding fails
+		}
 	}()
 
 	var cfg AppConfig

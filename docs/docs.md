@@ -32,7 +32,7 @@ mailgrid \
 | `--text`           | -         | `""`                       | Inline plain-text body or path to a .txt file. Cannot be used with --template.              |
 | `--dry-run`        | —         | `false`                    | If set, renders the emails to console without sending them via SMTP.                        |
 | `--preview`        | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.                              |
-| `--preview-port`   | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                                    |
+| `--port`           | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                                    |
 | `--concurrency`    | `-c`      | `1`                        | Number of parallel worker goroutines that send emails concurrently.                         |
 | `--retries`        | `-r`      | `2`                        | Maximum retry attempts per email on transient errors (exponential backoff).                 |
 | `--batch-size`     | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).                      |

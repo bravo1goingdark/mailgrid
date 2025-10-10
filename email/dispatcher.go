@@ -20,6 +20,7 @@ type Task struct {
 	Attachments []string
 	CC          []string
 	BCC         []string
+	Index       int // Position in original task list for offset tracking
 }
 
 type worker struct {
@@ -31,6 +32,16 @@ type worker struct {
 	RetryWg   *sync.WaitGroup
 	BatchSize int
 	Monitor   monitor.Monitor
+	Tracker   OffsetTracker // For tracking successful sends
+	StartOffset int         // Base offset for this campaign
+}
+
+// maxInt returns the larger of two integers (helper for Go 1.18 compatibility)
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // StartDispatcher spawns workers and processes email tasks with retries and batch-mode dispatch.
@@ -38,10 +49,31 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 	StartDispatcherWithMonitor(tasks, cfg, concurrency, batchSize, monitor.NewNoOpMonitor())
 }
 
+// OffsetTracker interface for tracking email delivery progress
+type OffsetTracker interface {
+	UpdateOffset(offset int)
+	Save() error
+}
+
 // StartDispatcherWithMonitor spawns workers with monitoring support.
 func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor) {
-	taskChan := make(chan Task, 1000)
-	retryChan := make(chan Task, 500)
+	StartDispatcherWithOffset(tasks, cfg, concurrency, batchSize, mon, nil, 0)
+}
+
+// StartDispatcherWithOffset spawns workers with offset tracking support for resumable delivery.
+func StartDispatcherWithOffset(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor, tracker OffsetTracker, startOffset int) {
+	// Optimize buffer sizes based on workload
+	taskBufSize := maxInt(len(tasks)/2, concurrency*batchSize*2)
+	if taskBufSize > 2000 {
+		taskBufSize = 2000 // Cap to avoid excessive memory
+	}
+	retryBufSize := maxInt(len(tasks)/10, concurrency*5)
+	if retryBufSize > 1000 {
+		retryBufSize = 1000
+	}
+
+	taskChan := make(chan Task, taskBufSize)
+	retryChan := make(chan Task, retryBufSize)
 
 	var wg sync.WaitGroup
 	var retryWg sync.WaitGroup
@@ -55,14 +87,16 @@ func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go startWorker(worker{
-			ID:        i + 1,
-			TaskQueue: taskChan,
-			RetryChan: retryChan,
-			Config:    cfg,
-			Wg:        &wg,
-			RetryWg:   &retryWg,
-			BatchSize: batchSize,
-			Monitor:   mon,
+			ID:          i + 1,
+			TaskQueue:   taskChan,
+			RetryChan:   retryChan,
+			Config:      cfg,
+			Wg:          &wg,
+			RetryWg:     &retryWg,
+			BatchSize:   batchSize,
+			Monitor:     mon,
+			Tracker:     tracker,
+			StartOffset: startOffset,
 		})
 	}
 
@@ -74,15 +108,26 @@ func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency
 		close(taskChan)
 	}()
 
-	// Handle retries
+	// Handle retries efficiently without spawning excessive goroutines
 	go func() {
 		for task := range retryChan {
 			if task.Retries > 0 {
 				retryWg.Add(1)
-				go func(t Task) {
-					defer retryWg.Done()
-					taskChan <- t
-				}(task)
+				// Process retry directly without additional goroutine
+				select {
+				case taskChan <- task:
+					retryWg.Done()
+				default:
+					// Channel full, try with timeout
+					go func(t Task) {
+						defer retryWg.Done()
+						select {
+						case taskChan <- t:
+						case <-time.After(5 * time.Second):
+							log.Printf("Retry timeout for %s", t.Recipient.Email)
+						}
+					}(task)
+				}
 			} else {
 				log.Printf("Permanent failure: %s", task.Recipient.Email)
 			}

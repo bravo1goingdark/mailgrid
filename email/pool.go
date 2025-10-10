@@ -78,12 +78,12 @@ func NewSMTPPool(smtpCfg config.SMTPConfig, poolCfg PoolConfig) (*SMTPPool, erro
 	}
 
 	p := &SMTPPool{
-		conns:          make(chan *poolConn, poolCfg.MaxSize),
-		config:         poolCfg,
-		smtpCfg:       smtpCfg,
-		healthCheck:    make(chan struct{}),
+		conns:           make(chan *poolConn, poolCfg.MaxSize),
+		config:          poolCfg,
+		smtpCfg:         smtpCfg,
+		healthCheck:     make(chan struct{}),
 		healthCheckStop: make(chan struct{}),
-		breakerTimeout: 1 * time.Minute,
+		breakerTimeout:  1 * time.Minute,
 	}
 
 	// Initialize pool with connections
@@ -234,14 +234,20 @@ func (p *SMTPPool) checkConnections() {
 		return
 	}
 
-	var healthyConns []*poolConn
+	// Only check a subset of connections to reduce overhead
+	checkCount := len(p.conns)
+	if checkCount > 5 {
+		checkCount = 5 // Limit to checking 5 connections per cycle
+	}
+
+	var checkedConns []*poolConn
 	unhealthyCount := 0
 
-	// Drain the channel
-	for len(p.conns) > 0 {
+	// Check only a limited number of connections
+	for i := 0; i < checkCount && len(p.conns) > 0; i++ {
 		conn := <-p.conns
 		if p.isConnHealthy(conn) {
-			healthyConns = append(healthyConns, conn)
+			checkedConns = append(checkedConns, conn)
 		} else {
 			_ = conn.client.Close()
 			unhealthyCount++
@@ -252,13 +258,13 @@ func (p *SMTPPool) checkConnections() {
 	// Replace unhealthy connections
 	for i := 0; i < unhealthyCount && p.numConns < p.config.MaxSize; i++ {
 		if conn, err := p.createConn(); err == nil {
-			healthyConns = append(healthyConns, conn)
+			checkedConns = append(checkedConns, conn)
 			p.numConns++
 		}
 	}
 
-	// Restore healthy connections
-	for _, conn := range healthyConns {
+	// Restore checked connections
+	for _, conn := range checkedConns {
 		p.conns <- conn
 	}
 }

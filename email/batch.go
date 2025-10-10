@@ -79,7 +79,7 @@ func NewBatchProcessor(pool *SMTPPool, config BatchConfig) *BatchProcessor {
 		metrics: &BatchMetrics{
 			windowStats:        make(map[time.Time]batchStats),
 			windowStart:        time.Now(),
-			optimalBatchSize:  config.MinBatchSize,
+			optimalBatchSize:   config.MinBatchSize,
 			minSuccessfulBatch: config.MaxBatchSize,
 			maxSuccessfulBatch: config.MinBatchSize,
 		},
@@ -279,7 +279,7 @@ func (p *BatchProcessor) GetMetrics() BatchStats {
 	defer p.metrics.mu.RUnlock()
 
 	return BatchStats{
-		AvgProcessingTime:   p.metrics.avgProcessingTime,
+		AvgProcessingTime:  p.metrics.avgProcessingTime,
 		Successes:          p.metrics.successes,
 		Failures:           p.metrics.failures,
 		OptimalBatchSize:   p.metrics.optimalBatchSize,
@@ -291,7 +291,7 @@ func (p *BatchProcessor) GetMetrics() BatchStats {
 
 // BatchStats provides metrics about batch processing
 type BatchStats struct {
-	AvgProcessingTime   time.Duration
+	AvgProcessingTime  time.Duration
 	Successes          int64
 	Failures           int64
 	OptimalBatchSize   int
@@ -302,8 +302,8 @@ type BatchStats struct {
 
 // BatchConfig provides configuration for batch processing
 type BatchConfig struct {
-	MinBatchSize      int
-	MaxBatchSize      int
-	TargetLatency     time.Duration
-	AdaptationPeriod  time.Duration
+	MinBatchSize     int
+	MaxBatchSize     int
+	TargetLatency    time.Duration
+	AdaptationPeriod time.Duration
 }

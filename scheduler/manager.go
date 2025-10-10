@@ -16,25 +16,25 @@ import (
 // SchedulerManager provides automatic scheduler lifecycle management
 // It automatically starts the scheduler when jobs are scheduled and manages cleanup
 type SchedulerManager struct {
-	mu               sync.RWMutex
-	scheduler        *OptimizedScheduler
-	isRunning        bool
-	dbPath           string
-	smtpConfig       config.SMTPConfig
-	config           OptimizedConfig
-	logger           Logger
-	shutdownTimer    *time.Timer
-	shutdownDelay    time.Duration
-	metricsServer    *metrics.Server
+	mu            sync.RWMutex
+	scheduler     *OptimizedScheduler
+	isRunning     bool
+	dbPath        string
+	smtpConfig    config.SMTPConfig
+	config        OptimizedConfig
+	logger        Logger
+	shutdownTimer *time.Timer
+	shutdownDelay time.Duration
+	metricsServer *metrics.Server
 }
 
 // ManagerConfig provides configuration for the scheduler manager
 type ManagerConfig struct {
-	DBPath           string
-	SMTPConfig       config.SMTPConfig
-	OptimizedConfig  OptimizedConfig
-	ShutdownDelay    time.Duration // Time to wait before auto-shutdown when no jobs
-	AutoShutdown     bool          // Whether to auto-shutdown when idle
+	DBPath          string
+	SMTPConfig      config.SMTPConfig
+	OptimizedConfig OptimizedConfig
+	ShutdownDelay   time.Duration // Time to wait before auto-shutdown when no jobs
+	AutoShutdown    bool          // Whether to auto-shutdown when idle
 }
 
 // DefaultManagerConfig returns sensible defaults for the manager
@@ -62,7 +62,7 @@ func NewSchedulerManager(config ManagerConfig) *SchedulerManager {
 func (sm *SchedulerManager) ensureStarted() error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	if sm.isRunning {
 		// Cancel any pending shutdown
 		if sm.shutdownTimer != nil {
@@ -71,22 +71,22 @@ func (sm *SchedulerManager) ensureStarted() error {
 		}
 		return nil
 	}
-	
+
 	// Start the scheduler
 	db, err := database.NewDB(sm.dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open scheduler database: %w", err)
 	}
-	
+
 	scheduler, err := NewOptimizedScheduler(db, sm.logger, sm.smtpConfig, sm.config)
 	if err != nil {
 		db.Close()
 		return fmt.Errorf("failed to create optimized scheduler: %w", err)
 	}
-	
+
 	sm.scheduler = scheduler
 	sm.isRunning = true
-	
+
 	// Start metrics server if enabled
 	if sm.config.MetricsPort > 0 {
 		sm.metricsServer = metrics.NewServer(scheduler.GetMetrics(), sm.config.MetricsPort)
@@ -96,13 +96,13 @@ func (sm *SchedulerManager) ensureStarted() error {
 			}
 		}()
 	}
-	
+
 	sm.logger.Infof("Scheduler started automatically with database: %s", sm.dbPath)
 	sm.logger.Infof("Metrics server available at: http://localhost:%d/metrics", sm.config.MetricsPort)
-	
+
 	// Start monitoring for auto-shutdown
 	go sm.monitorActivity()
-	
+
 	return nil
 }
 
@@ -110,19 +110,19 @@ func (sm *SchedulerManager) ensureStarted() error {
 func (sm *SchedulerManager) monitorActivity() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
 			if !sm.isRunning {
 				return
 			}
-			
+
 			jobs, err := sm.scheduler.ListJobs()
 			if err != nil {
 				continue
 			}
-			
+
 			// Check if there are any pending jobs
 			hasPendingJobs := false
 			now := time.Now()
@@ -137,7 +137,7 @@ func (sm *SchedulerManager) monitorActivity() {
 					break
 				}
 			}
-			
+
 			if !hasPendingJobs {
 				sm.scheduleShutdown()
 			} else {
@@ -157,17 +157,17 @@ func (sm *SchedulerManager) monitorActivity() {
 func (sm *SchedulerManager) scheduleShutdown() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	// Don't schedule if already scheduled or if auto-shutdown is disabled
 	if sm.shutdownTimer != nil || sm.shutdownDelay <= 0 {
 		return
 	}
-	
+
 	sm.shutdownTimer = time.AfterFunc(sm.shutdownDelay, func() {
 		sm.logger.Infof("Auto-shutting down scheduler after %v of inactivity", sm.shutdownDelay)
 		sm.Stop()
 	})
-	
+
 	sm.logger.Infof("Scheduled auto-shutdown in %v (no pending jobs)", sm.shutdownDelay)
 }
 
@@ -177,18 +177,18 @@ func (sm *SchedulerManager) ScheduleJob(args types.CLIArgs, runAt time.Time, cro
 	if err := sm.ensureStarted(); err != nil {
 		return fmt.Errorf("failed to start scheduler: %w", err)
 	}
-	
+
 	// Create and schedule the job
 	job := NewJob(args, runAt, cronExpr, interval)
-	
+
 	sm.mu.RLock()
 	scheduler := sm.scheduler
 	sm.mu.RUnlock()
-	
+
 	if err := scheduler.AddJob(job, handler); err != nil {
 		return fmt.Errorf("failed to add job: %w", err)
 	}
-	
+
 	sm.logger.Infof("Job %s scheduled successfully", job.ID)
 	return nil
 }
@@ -197,7 +197,7 @@ func (sm *SchedulerManager) ScheduleJob(args types.CLIArgs, runAt time.Time, cro
 func (sm *SchedulerManager) ListJobs() ([]types.Job, error) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
-	
+
 	if !sm.isRunning {
 		// If scheduler is not running, create a temporary connection to read jobs
 		db, err := database.NewDB(sm.dbPath)
@@ -205,10 +205,10 @@ func (sm *SchedulerManager) ListJobs() ([]types.Job, error) {
 			return nil, fmt.Errorf("failed to open database: %w", err)
 		}
 		defer db.Close()
-		
+
 		return db.LoadJobs()
 	}
-	
+
 	return sm.scheduler.ListJobs()
 }
 
@@ -217,15 +217,15 @@ func (sm *SchedulerManager) CancelJob(jobID string) error {
 	if err := sm.ensureStarted(); err != nil {
 		return fmt.Errorf("failed to start scheduler: %w", err)
 	}
-	
+
 	sm.mu.RLock()
 	scheduler := sm.scheduler
 	sm.mu.RUnlock()
-	
+
 	if !scheduler.CancelJob(jobID) {
 		return fmt.Errorf("job not found or couldn't be cancelled: %s", jobID)
 	}
-	
+
 	sm.logger.Infof("Job %s cancelled successfully", jobID)
 	return nil
 }
@@ -234,11 +234,11 @@ func (sm *SchedulerManager) CancelJob(jobID string) error {
 func (sm *SchedulerManager) GetMetrics() *metrics.Metrics {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
-	
+
 	if !sm.isRunning {
 		return nil
 	}
-	
+
 	return sm.scheduler.GetMetrics()
 }
 
@@ -253,17 +253,17 @@ func (sm *SchedulerManager) IsRunning() bool {
 func (sm *SchedulerManager) Stop() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	if !sm.isRunning {
 		return
 	}
-	
+
 	// Cancel shutdown timer if active
 	if sm.shutdownTimer != nil {
 		sm.shutdownTimer.Stop()
 		sm.shutdownTimer = nil
 	}
-	
+
 	// Stop metrics server
 	if sm.metricsServer != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -271,13 +271,13 @@ func (sm *SchedulerManager) Stop() {
 		sm.metricsServer.Stop(ctx)
 		sm.metricsServer = nil
 	}
-	
+
 	// Stop scheduler
 	if sm.scheduler != nil {
 		sm.scheduler.Stop()
 		sm.scheduler = nil
 	}
-	
+
 	sm.isRunning = false
 	sm.logger.Infof("Scheduler stopped")
 }
@@ -287,14 +287,14 @@ func (sm *SchedulerManager) RunDaemon(ctx context.Context) error {
 	if err := sm.ensureStarted(); err != nil {
 		return fmt.Errorf("failed to start scheduler daemon: %w", err)
 	}
-	
+
 	sm.logger.Infof("Scheduler daemon started. Press Ctrl+C to stop.")
 	sm.logger.Infof("Database: %s", sm.dbPath)
 	if sm.config.MetricsPort > 0 {
 		sm.logger.Infof("Metrics: http://localhost:%d/metrics", sm.config.MetricsPort)
 		sm.logger.Infof("Health: http://localhost:%d/health", sm.config.MetricsPort)
 	}
-	
+
 	// Disable auto-shutdown in daemon mode
 	sm.mu.Lock()
 	if sm.shutdownTimer != nil {
@@ -302,13 +302,13 @@ func (sm *SchedulerManager) RunDaemon(ctx context.Context) error {
 		sm.shutdownTimer = nil
 	}
 	sm.mu.Unlock()
-	
+
 	// Wait for context cancellation
 	<-ctx.Done()
-	
+
 	sm.logger.Infof("Shutting down scheduler daemon...")
 	sm.Stop()
-	
+
 	return nil
 }
 
@@ -317,14 +317,14 @@ func (sm *SchedulerManager) AttachDefaultHandler(handler JobHandler) error {
 	if err := sm.ensureStarted(); err != nil {
 		return fmt.Errorf("failed to start scheduler: %w", err)
 	}
-	
+
 	sm.mu.RLock()
 	scheduler := sm.scheduler
 	sm.mu.RUnlock()
-	
+
 	scheduler.ReattachHandlers(handler)
 	sm.logger.Infof("Default job handler attached")
-	
+
 	return nil
 }
 
