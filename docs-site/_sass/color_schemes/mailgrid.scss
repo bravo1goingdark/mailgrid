@@ -1,0 +1,83 @@
+// MailGrid Custom Color Scheme
+// Modern, professional color palette for enterprise documentation
+
+// Primary brand colors
+$primary-color: #2563eb;
+$primary-dark: #1d4ed8;
+$primary-light: #3b82f6;
+
+// Secondary colors
+$secondary-color: #10b981;
+$secondary-dark: #059669;
+$secondary-light: #34d399;
+
+// Accent colors
+$accent-orange: #f59e0b;
+$accent-red: #ef4444;
+$accent-purple: #8b5cf6;
+
+// Neutral colors
+$grey-dk-000: #fafafa;
+$grey-dk-100: #f4f4f5;
+$grey-dk-200: #e4e4e7;
+$grey-dk-250: #d4d4d8;
+$grey-dk-300: #a1a1aa;
+
+$grey-lt-000: #ffffff;
+$grey-lt-100: #f8fafc;
+$grey-lt-200: #f1f5f9;
+$grey-lt-250: #e2e8f0;
+$grey-lt-300: #cbd5e1;
+
+// Text colors
+$body-text-color: #334155;
+$body-heading-color: #0f172a;
+$nav-child-link-color: #64748b;
+$search-result-preview-color: #64748b;
+
+// Link colors
+$link-color: $primary-color;
+$btn-primary-color: $primary-color;
+$base-button-color: #f8fafc;
+
+// Code colors
+$code-background-color: #f1f5f9;
+$search-background-color: $grey-lt-100;
+$table-background-color: $grey-lt-000;
+$feedback-color: darken($secondary-color, 25%);
+
+// Border colors
+$border-color: $grey-lt-250;
+
+// Focus colors
+$focus-color: $primary-light;
+
+// Navigation
+$sidebar-color: $grey-lt-100;
+$nav-width: 264px;
+$nav-width-md: 248px;
+
+// Custom brand colors for callouts
+$callout-note: $primary-color;
+$callout-important: $accent-orange;
+$callout-warning: $accent-red;
+$callout-success: $secondary-color;
+
+// Override specific component colors
+$btn-primary-color: $primary-color;
+$btn-primary-hover-color: $primary-dark;
+
+// Search
+$search-active-color: $primary-color;
+$search-result-preview-color: $body-text-color;
+
+// Tables
+$table-header-background-color: $grey-lt-100;
+$table-border-color: $border-color;
+
+// Labels
+$label-primary: $primary-color;
+$label-green: $secondary-color;
+$label-purple: $accent-purple;
+$label-yellow: $accent-orange;
+$label-red: $accent-red;

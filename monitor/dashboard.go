@@ -89,12 +89,12 @@ func (d *DashboardServer) serveCSS(w http.ResponseWriter, r *http.Request) {
 func (d *DashboardServer) serveJS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript")
 
-	// Simple inline JavaScript for now - can be expanded later
+	// Real-time JavaScript with instant updates and job tracking
 	simpleJS := `
 class MonitoringDashboard {
     constructor() {
         this.chart = null;
-        this.refreshInterval = 2000;
+        this.refreshInterval = 250; // 250ms for real-time updates
         this.init();
     }
 
@@ -135,19 +135,72 @@ class MonitoringDashboard {
         try {
             const response = await fetch('/api/stats');
             const data = await response.json();
+
+            // Debug logging to see the actual data structure
+            console.log('Dashboard data received:', data);
+
             this.updateMetrics(data);
             this.updateChart(data);
+            this.updateCampaignDetails(data);
         } catch (error) {
             console.error('Error fetching stats:', error);
         }
     }
 
     updateMetrics(data) {
+        console.log('Updating metrics with data:', data);
+
         if (data.campaignStats) {
-            document.getElementById('emailsSent').textContent = data.campaignStats.sent_count || 0;
-            document.getElementById('emailsFailed').textContent = data.campaignStats.failed_count || 0;
+            const sentCount = data.campaignStats.sent_count || 0;
+            const failedCount = data.campaignStats.failed_count || 0;
+            const totalRecipients = data.campaignStats.total_recipients || 0;
+
+            console.log('Metrics - Sent:', sentCount, 'Failed:', failedCount, 'Total:', totalRecipients);
+
+            // Update counter elements directly first, then animate
+            const sentElement = document.getElementById('emailsSent');
+            const failedElement = document.getElementById('emailsFailed');
+
+            if (sentElement) {
+                sentElement.textContent = sentCount;
+                console.log('Updated emailsSent element to:', sentCount);
+            } else {
+                console.error('emailsSent element not found!');
+            }
+
+            if (failedElement) {
+                failedElement.textContent = failedCount;
+                console.log('Updated emailsFailed element to:', failedCount);
+            } else {
+                console.error('emailsFailed element not found!');
+            }
+
+            // Calculate and display success rate
+            const successRate = totalRecipients > 0 ? ((sentCount / totalRecipients) * 100).toFixed(1) : 0;
+            const successRateElement = document.getElementById('successRate');
+            if (successRateElement) {
+                successRateElement.textContent = successRate + '%';
+                console.log('Updated successRate to:', successRate + '%');
+            }
+
+            // Calculate emails per minute
+            const emailsPerMinute = data.realTimeMetrics?.emailsPerMinute || 0;
+            const emailRateElement = document.getElementById('emailRate');
+            if (emailRateElement) {
+                emailRateElement.textContent = emailsPerMinute.toFixed(1) + '/min';
+                console.log('Updated emailRate to:', emailsPerMinute.toFixed(1) + '/min');
+            }
+
+            // Update last updated timestamp
+            const lastUpdatedElement = document.getElementById('lastUpdated');
+            if (lastUpdatedElement) {
+                lastUpdatedElement.textContent = new Date().toLocaleTimeString();
+            }
+        } else {
+            console.error('No campaignStats in data!');
         }
     }
+
 
     updateChart(data) {
         if (!this.chart || !data.campaignStats) return;
@@ -162,6 +215,23 @@ class MonitoringDashboard {
         }
 
         this.chart.update('none');
+    }
+
+    updateCampaignDetails(data) {
+        if (data.campaignStats) {
+            const stats = data.campaignStats;
+
+            // Update campaign details
+            document.getElementById('jobId').textContent = stats.job_id || '-';
+            document.getElementById('totalRecipients').textContent = stats.total_recipients || '-';
+            document.getElementById('csvFile').textContent = stats.csv_file || '-';
+            document.getElementById('templateFile').textContent = stats.template_file || '-';
+
+            // Update uptime from realTimeMetrics
+            if (data.realTimeMetrics) {
+                document.getElementById('uptime').textContent = data.realTimeMetrics.uptime || '-';
+            }
+        }
     }
 
     startDataPolling() {
@@ -186,6 +256,7 @@ function refreshData() {
         window.dashboard.fetchStats();
     }
 }
+
 `
 
 	w.Write([]byte(simpleJS))

@@ -1,0 +1,86 @@
+# Jekyll configuration for GitHub Pages
+title: "MailGrid"
+description: "Enterprise-grade CLI for high-performance bulk email delivery"
+baseurl: "/mailgrid"
+url: "https://bravo1goingdark.github.io"
+
+# GitHub Pages settings
+remote_theme: just-the-docs/just-the-docs
+color_scheme: mailgrid
+search_enabled: true
+heading_anchors: true
+
+# Logo and branding
+logo: "/assets/images/mailgrid-logo.svg"
+
+# Navigation links
+aux_links:
+  "GitHub":
+    - "//github.com/bravo1goingdark/mailgrid"
+  "Download":
+    - "//github.com/bravo1goingdark/mailgrid/releases/latest"
+
+# Navigation structure
+nav_sort: case_insensitive
+nav_external_links:
+  - title: "Live Demo"
+    url: "https://demo.mailgrid.example.com"
+    hide_icon: false
+
+# Footer content
+footer_content: "© 2024 MailGrid. Licensed under <a href=\"https://github.com/bravo1goingdark/mailgrid/blob/main/LICENSE\">BSD-3-Clause</a>"
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Callouts
+callouts_level: quiet
+callouts:
+  highlight:
+    color: blue
+  important:
+    title: Important
+    color: yellow
+  new:
+    title: New
+    color: green
+  note:
+    title: Note
+    color: purple
+  warning:
+    title: Warning
+    color: red
+
+# Google Analytics (optional)
+# ga_tracking: UA-NNNNNNNN-N
+# ga_tracking_anonymize_ip: true
+
+# Exclude files from processing
+exclude:
+  - node_modules/
+  - "*.gemspec"
+  - "*.gem"
+  - Gemfile
+  - Gemfile.lock
+  - package.json
+  - package-lock.json
+  - script/
+  - LICENSE.txt
+  - lib/
+  - bin/
+  - README.md
+  - Rakefile
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  syntax_highlighter_opts:
+    block:
+      line_numbers: false
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag

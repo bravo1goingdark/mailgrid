@@ -155,8 +155,9 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 
 	// Initialize monitoring for single email if enabled
 	var mon monitor.Monitor = monitor.NewNoOpMonitor()
+	var monitorServer *monitor.Server
 	if args.Monitor {
-		monitorServer := monitor.NewServer(args.MonitorPort)
+		monitorServer = monitor.NewServer(args.MonitorPort)
 		mon = monitorServer
 
 		// Start monitoring server in background
@@ -195,13 +196,23 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 	if args.WebhookURL != "" {
 		endTime := time.Now()
 
+		// Get actual delivery statistics from monitor
+		var successfulDeliveries, failedDeliveries int
+		if monitorServer != nil {
+			stats := monitorServer.GetStats()
+			if stats != nil {
+				successfulDeliveries = stats.SentCount
+				failedDeliveries = stats.FailedCount
+			}
+		}
+
 		// Create webhook payload for single email
 		result := webhook.CampaignResult{
 			JobID:                jobID,
 			Status:               "completed",
 			TotalRecipients:      1,
-			SuccessfulDeliveries: 1, // TODO: Get actual success count
-			FailedDeliveries:     0, // TODO: Get actual failure count
+			SuccessfulDeliveries: successfulDeliveries,
+			FailedDeliveries:     failedDeliveries,
 			StartTime:            start,
 			EndTime:              endTime,
 			DurationSeconds:      int(duration.Seconds()),

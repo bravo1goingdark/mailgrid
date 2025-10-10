@@ -1,0 +1,361 @@
+// MailGrid Custom Styling
+// Professional, modern styling for enterprise documentation
+
+// Import fonts
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+// Typography
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.site-title {
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: -0.025em;
+  color: $primary-color !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: $body-heading-color;
+}
+
+// Code and monospace
+code, pre, .highlight {
+  font-family: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+// Hero section for landing page
+.hero-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 4rem 0;
+  margin: -2rem -2rem 3rem -2rem;
+  text-align: center;
+
+  .hero-title {
+    font-size: 3.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    letter-spacing: -0.05em;
+    line-height: 1.1;
+  }
+
+  .hero-subtitle {
+    font-size: 1.25rem;
+    opacity: 0.9;
+    margin-bottom: 2rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.5;
+  }
+
+  .hero-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+
+    .btn {
+      padding: 0.75rem 2rem;
+      font-weight: 500;
+      font-size: 1.1rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      border: none;
+
+      &.btn-primary {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.3);
+          transform: translateY(-2px);
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+      }
+
+      &.btn-secondary {
+        background: transparent;
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: white;
+          transform: translateY(-2px);
+        }
+      }
+    }
+  }
+}
+
+// Feature grid
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin: 3rem 0;
+
+  .feature-card {
+    background: white;
+    border: 1px solid $border-color;
+    border-radius: 12px;
+    padding: 2rem;
+    transition: all 0.3s ease;
+
+    &:hover {
+      border-color: $primary-color;
+      box-shadow: 0 8px 25px rgba(37, 99, 235, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .feature-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: $body-heading-color;
+    }
+
+    .feature-description {
+      color: $body-text-color;
+      line-height: 1.6;
+    }
+  }
+}
+
+// Stats section
+.stats-section {
+  background: $grey-lt-100;
+  padding: 3rem 2rem;
+  margin: 3rem -2rem;
+  border-radius: 12px;
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    text-align: center;
+
+    .stat-item {
+      .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: $primary-color;
+        display: block;
+        line-height: 1;
+      }
+
+      .stat-label {
+        color: $body-text-color;
+        font-weight: 500;
+        margin-top: 0.5rem;
+      }
+    }
+  }
+}
+
+// Code blocks
+.highlight {
+  background: $code-background-color;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border: 1px solid $border-color;
+
+  pre {
+    margin: 0;
+    background: transparent;
+  }
+}
+
+// Improved buttons
+.btn {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+
+  &.btn-primary {
+    background: $primary-color;
+    color: white;
+
+    &:hover {
+      background: $primary-dark;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+  }
+
+  &.btn-outline {
+    background: transparent;
+    border: 2px solid $primary-color;
+    color: $primary-color;
+
+    &:hover {
+      background: $primary-color;
+      color: white;
+    }
+  }
+}
+
+// Labels
+.label {
+  border-radius: 6px;
+  padding: 0.25rem 0.75rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+
+  &.label-green {
+    background: rgba(16, 185, 129, 0.1);
+    color: $secondary-dark;
+  }
+
+  &.label-blue {
+    background: rgba(37, 99, 235, 0.1);
+    color: $primary-dark;
+  }
+
+  &.label-yellow {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+  }
+
+  &.label-red {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+  }
+}
+
+// Navigation improvements
+.site-nav {
+  .nav-list-item {
+    margin: 0.25rem 0;
+
+    .nav-list-link {
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(37, 99, 235, 0.1);
+      }
+    }
+  }
+}
+
+// Table improvements
+.table-wrapper {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid $border-color;
+
+  table {
+    margin: 0;
+
+    th {
+      background: $table-header-background-color;
+      font-weight: 600;
+      color: $body-heading-color;
+    }
+
+    td, th {
+      padding: 1rem;
+      border-color: $border-color;
+    }
+  }
+}
+
+// Callouts
+.callout {
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border-left: 4px solid;
+
+  &.callout-note {
+    background: rgba(37, 99, 235, 0.05);
+    border-left-color: $primary-color;
+  }
+
+  &.callout-warning {
+    background: rgba(239, 68, 68, 0.05);
+    border-left-color: $accent-red;
+  }
+
+  &.callout-success {
+    background: rgba(16, 185, 129, 0.05);
+    border-left-color: $secondary-color;
+  }
+}
+
+// Search improvements
+.search-input {
+  border-radius: 8px;
+  border: 2px solid $border-color;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+}
+
+// Mobile responsiveness
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 2rem 1rem;
+    margin: -1rem -1rem 2rem -1rem;
+
+    .hero-title {
+      font-size: 2.5rem;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+    }
+
+    .hero-buttons {
+      flex-direction: column;
+      align-items: center;
+
+      .btn {
+        width: 100%;
+        max-width: 300px;
+      }
+    }
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .stats-section {
+    margin: 2rem -1rem;
+    padding: 2rem 1rem;
+
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+  }
+}

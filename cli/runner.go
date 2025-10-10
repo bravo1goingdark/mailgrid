@@ -468,13 +468,23 @@ func Run(args CLIArgs) error {
 	if args.WebhookURL != "" {
 		endTime := time.Now()
 
+		// Get actual delivery statistics from monitor
+		var successfulDeliveries, failedDeliveries int
+		if monitorServer != nil {
+			stats := monitorServer.GetStats()
+			if stats != nil {
+				successfulDeliveries = stats.SentCount
+				failedDeliveries = stats.FailedCount
+			}
+		}
+
 		// Create webhook payload
 		result := webhook.CampaignResult{
 			JobID:                jobID,
 			Status:               "completed",
 			TotalRecipients:      len(tasks),
-			SuccessfulDeliveries: len(tasks), // TODO: Get actual success count from dispatcher
-			FailedDeliveries:     0,         // TODO: Get actual failure count from dispatcher
+			SuccessfulDeliveries: successfulDeliveries,
+			FailedDeliveries:     failedDeliveries,
 			StartTime:            start,
 			EndTime:              endTime,
 			DurationSeconds:      int(duration.Seconds()),
