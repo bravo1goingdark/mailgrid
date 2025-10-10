@@ -97,7 +97,7 @@ func ParseFlags() CLIArgs {
 	// Offset tracking flags
 	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from last saved offset")
 	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Clear offset file and start from beginning")
-	pflag.StringVar(&args.OffsetFile, "offset-file", "", "Custom path to offset file (default: .mailgrid.offset)")
+	pflag.StringVar(&args.OffsetFile, "offset-file", ".mailgrid.offset", "Custom path to offset file")
 
 
 	pflag.Parse()
