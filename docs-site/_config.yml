@@ -1,0 +1,57 @@
+# Jekyll configuration for GitHub Pages
+title: "MailGrid Documentation"
+description: "High-performance CLI tool for bulk email sending via SMTP"
+baseurl: "/mailgrid"
+url: "https://bravo1goingdark.github.io"
+
+# GitHub Pages settings
+remote_theme: just-the-docs/just-the-docs
+color_scheme: nil
+search_enabled: true
+heading_anchors: true
+aux_links:
+  "GitHub":
+    - "//github.com/bravo1goingdark/mailgrid"
+
+# Navigation structure
+nav_sort: case_insensitive
+
+# Footer content
+footer_content: "Copyright &copy; 2024 MailGrid. Licensed under BSD-3-Clause."
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Google Analytics (optional)
+# ga_tracking: UA-NNNNNNNN-N
+# ga_tracking_anonymize_ip: true
+
+# Exclude files from processing
+exclude:
+  - node_modules/
+  - "*.gemspec"
+  - "*.gem"
+  - Gemfile
+  - Gemfile.lock
+  - package.json
+  - package-lock.json
+  - script/
+  - LICENSE.txt
+  - lib/
+  - bin/
+  - README.md
+  - Rakefile
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  syntax_highlighter_opts:
+    block:
+      line_numbers: false
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
