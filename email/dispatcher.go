@@ -24,16 +24,16 @@ type Task struct {
 }
 
 type worker struct {
-	ID        int
-	TaskQueue <-chan Task
-	RetryChan chan<- Task
-	Config    config.SMTPConfig
-	Wg        *sync.WaitGroup
-	RetryWg   *sync.WaitGroup
-	BatchSize int
-	Monitor   monitor.Monitor
-	Tracker   OffsetTracker // For tracking successful sends
-	StartOffset int         // Base offset for this campaign
+	ID          int
+	TaskQueue   <-chan Task
+	RetryChan   chan<- Task
+	Config      config.SMTPConfig
+	Wg          *sync.WaitGroup
+	RetryWg     *sync.WaitGroup
+	BatchSize   int
+	Monitor     monitor.Monitor
+	Tracker     OffsetTracker // For tracking successful sends
+	StartOffset int           // Base offset for this campaign
 }
 
 // maxInt returns the larger of two integers (helper for Go 1.18 compatibility)

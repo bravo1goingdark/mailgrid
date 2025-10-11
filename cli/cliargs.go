@@ -90,7 +90,7 @@ func ParseFlags() CLIArgs {
 	pflag.StringVarP(&args.CancelJobID, "jobs-cancel", "X", "", "Cancel job by ID")
 	pflag.BoolVarP(&args.SchedulerRun, "scheduler-run", "R", false, "Run the scheduler dispatcher in the foreground")
 	pflag.StringVarP(&args.SchedulerDB, "scheduler-db", "D", "mailgrid.db", "Path to BoltDB file for schedules")
-	
+
 	// Version flag
 	pflag.BoolVar(&args.ShowVersion, "version", false, "Show version information and exit")
 
@@ -98,7 +98,6 @@ func ParseFlags() CLIArgs {
 	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from last saved offset")
 	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Clear offset file and start from beginning")
 	pflag.StringVar(&args.OffsetFile, "offset-file", ".mailgrid.offset", "Custom path to offset file")
-
 
 	pflag.Parse()
 

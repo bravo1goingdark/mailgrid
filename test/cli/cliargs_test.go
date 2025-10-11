@@ -38,8 +38,8 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				JobBackoff:   "2s",
 				SchedulerDB:  "mailgrid.db",
-				MonitorPort:  9091,       // Default monitor port
-				Attachments:  []string{}, // Default empty slice, not nil
+				MonitorPort:  9091,               // Default monitor port
+				Attachments:  []string{},         // Default empty slice, not nil
 				OffsetFile:   ".mailgrid.offset", // Default offset file
 			},
 		},
@@ -64,8 +64,8 @@ func TestParseFlags(t *testing.T) {
 				BatchSize:   1,
 				PreviewPort: 8080,
 				SchedulerDB: "mailgrid.db",
-				MonitorPort: 9091,       // Default monitor port
-				Attachments: []string{}, // Default empty slice, not nil
+				MonitorPort: 9091,               // Default monitor port
+				Attachments: []string{},         // Default empty slice, not nil
 				OffsetFile:  ".mailgrid.offset", // Default offset file
 			},
 		},
@@ -90,8 +90,8 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				JobBackoff:   "2s",
 				SchedulerDB:  "mailgrid.db",
-				MonitorPort:  9091,       // Default monitor port
-				Attachments:  []string{}, // Default empty slice, not nil
+				MonitorPort:  9091,               // Default monitor port
+				Attachments:  []string{},         // Default empty slice, not nil
 				OffsetFile:   ".mailgrid.offset", // Default offset file
 			},
 		},
@@ -119,7 +119,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:  3,
 				JobBackoff:  "2s",
 				SchedulerDB: "mailgrid.db",
-				MonitorPort: 9091, // Default monitor port
+				MonitorPort: 9091,               // Default monitor port
 				OffsetFile:  ".mailgrid.offset", // Default offset file
 			},
 		},

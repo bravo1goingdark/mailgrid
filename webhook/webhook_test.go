@@ -10,15 +10,15 @@ import (
 
 func TestNewClient(t *testing.T) {
 	client := NewClient()
-	
+
 	if client == nil {
 		t.Fatal("NewClient returned nil")
 	}
-	
+
 	if client.httpClient == nil {
 		t.Fatal("HTTP client is nil")
 	}
-	
+
 	// Check timeout is set
 	if client.httpClient.Timeout != 30*time.Second {
 		t.Errorf("Expected timeout 30s, got %v", client.httpClient.Timeout)
@@ -75,40 +75,40 @@ func TestSendNotificationSync(t *testing.T) {
 		if r.Method != "POST" {
 			t.Errorf("Expected POST request, got %s", r.Method)
 		}
-		
+
 		// Verify content type
 		expectedContentType := "application/json"
 		if r.Header.Get("Content-Type") != expectedContentType {
 			t.Errorf("Expected Content-Type %s, got %s", expectedContentType, r.Header.Get("Content-Type"))
 		}
-		
+
 		// Verify user agent
 		expectedUserAgent := "Mailgrid-Webhook/1.0"
 		if r.Header.Get("User-Agent") != expectedUserAgent {
 			t.Errorf("Expected User-Agent %s, got %s", expectedUserAgent, r.Header.Get("User-Agent"))
 		}
-		
+
 		// Parse the request body
 		var result CampaignResult
 		err := json.NewDecoder(r.Body).Decode(&result)
 		if err != nil {
 			t.Errorf("Failed to decode request body: %v", err)
 		}
-		
+
 		// Verify some fields
 		if result.JobID != "test-job-123" {
 			t.Errorf("Expected JobID 'test-job-123', got '%s'", result.JobID)
 		}
-		
+
 		if result.Status != "completed" {
 			t.Errorf("Expected Status 'completed', got '%s'", result.Status)
 		}
-		
+
 		// Send successful response
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	// Create client and test data
 	client := NewClient()
 	result := CampaignResult{
@@ -121,7 +121,7 @@ func TestSendNotificationSync(t *testing.T) {
 		EndTime:              time.Now(),
 		DurationSeconds:      3600,
 	}
-	
+
 	// Send notification
 	err := client.SendNotificationSync(server.URL, result)
 	if err != nil {
@@ -135,7 +135,7 @@ func TestSendNotificationSync_EmptyURL(t *testing.T) {
 		JobID:  "test-job",
 		Status: "completed",
 	}
-	
+
 	// Should return nil for empty URL (no webhook configured)
 	err := client.SendNotificationSync("", result)
 	if err != nil {
@@ -149,13 +149,13 @@ func TestSendNotificationSync_ServerError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
-	
+
 	client := NewClient()
 	result := CampaignResult{
 		JobID:  "test-job",
 		Status: "completed",
 	}
-	
+
 	// Should return error for server error
 	err := client.SendNotificationSync(server.URL, result)
 	if err == nil {
@@ -170,13 +170,13 @@ func TestSendNotification(t *testing.T) {
 		JobID:  "test-job",
 		Status: "completed",
 	}
-	
+
 	// Should return nil immediately (async call)
 	err := client.SendNotification("http://example.com/webhook", result)
 	if err != nil {
 		t.Errorf("SendNotification should return nil immediately, got: %v", err)
 	}
-	
+
 	// For empty URL
 	err = client.SendNotification("", result)
 	if err != nil {
