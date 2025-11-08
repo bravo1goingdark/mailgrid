@@ -26,6 +26,32 @@ func TestParseCSVFromReader(t *testing.T) {
 	}
 }
 
+func TestParseCSVFromReader_SkipsMalformedRows(t *testing.T) {
+	csvData := strings.Join([]string{
+		"email,name,company",
+		"user1@example.com,Alice,Acme",
+		"user2@example.com,Bob,Widgets",
+		"badrow@example.com,OnlyName", // missing company field
+		"too,many,fields,here",
+	}, "\n") + "\n"
+
+	recipients, err := parser.ParseCSVFromReader(strings.NewReader(csvData))
+	if err != nil {
+		t.Fatalf("ParseCSVFromReader error: %v", err)
+	}
+
+	if len(recipients) != 2 {
+		t.Fatalf("expected 2 recipients, got %d", len(recipients))
+	}
+
+	if recipients[0].Email != "user1@example.com" {
+		t.Errorf("unexpected first recipient: %+v", recipients[0])
+	}
+	if recipients[1].Email != "user2@example.com" {
+		t.Errorf("unexpected second recipient: %+v", recipients[1])
+	}
+}
+
 func TestParseCSV_MissingEmailColumn(t *testing.T) {
 	csvData := "name,company\nAlice,Acme\n"
 	r := strings.NewReader(csvData)
