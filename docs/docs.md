@@ -34,7 +34,7 @@ mailgrid \
 | `--preview`        | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.                              |
 | `--port`           | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                                    |
 | `--concurrency`    | `-c`      | `1`                        | Number of parallel worker goroutines that send emails concurrently.                         |
-| `--retries`        | `-r`      | `2`                        | Maximum retry attempts per email on transient errors (exponential backoff).                 |
+| `--retries`        | `-r`      | `1`                        | Maximum retry attempts per email on transient errors (exponential backoff).                 |
 | `--batch-size`     | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).                      |
 | `--filter`         | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`).              |
 | `--attach`         | -         | `[]`                       | File attachments to include with every email. Repeat flag for multiple files. (MAX = 10MB)  |
@@ -282,7 +282,10 @@ mailgrid \
 
 Set how many times a failed email will be retried before being marked as a failure.
 
-- Retries are spaced using **exponential backoff**:  
+- Mailgrid performs **1 retry by default**, so each message gets the initial send plus one automatic follow-up attempt. Increase the limit with `--retries <n>` (or `-r <n>`) when you expect transient issues.
+- Set `--retries 0` if you want to disable automatic retries entirely.
+
+- Retries are spaced using **exponential backoff**:
   Delay = `2^n seconds` between each retry attempt.
 - A small **jitter (random delay)** is added to each retry to avoid **thundering herd** problems when multiple failures
   occur at once.
