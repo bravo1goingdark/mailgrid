@@ -23,12 +23,13 @@ const (
 
 // RecipientStatus tracks the status of a single recipient
 type RecipientStatus struct {
-	Email       string      `json:"email"`
-	Status      EmailStatus `json:"status"`
-	Attempts    int         `json:"attempts"`
-	LastAttempt time.Time   `json:"last_attempt"`
-	Error       string      `json:"error,omitempty"`
-	Duration    int64       `json:"duration_ms"` // Duration in milliseconds
+	Email         string      `json:"email"`
+	Status        EmailStatus `json:"status"`
+	Attempts      int         `json:"attempts"`
+	LastAttempt   time.Time   `json:"last_attempt"`
+	Error         string      `json:"error,omitempty"`
+	Duration      int64       `json:"duration_ms"` // Duration in milliseconds
+	domainCounted bool        `json:"-"`
 }
 
 // CampaignStats represents real-time campaign statistics
@@ -175,10 +176,14 @@ func (s *Server) UpdateRecipientStatus(email string, status EmailStatus, duratio
 		recipient.Error = errorMsg
 	}
 
-	// Update domain breakdown
-	domain := extractDomain(email)
-	if domain != "" {
-		s.stats.DomainBreakdown[domain]++
+	// Update domain breakdown only when first tracking this recipient or when leaving pending
+	shouldIncrementDomain := !exists || (oldStatus == StatusPending && status != StatusPending)
+	if shouldIncrementDomain && !recipient.domainCounted {
+		domain := extractDomain(email)
+		if domain != "" {
+			s.stats.DomainBreakdown[domain]++
+		}
+		recipient.domainCounted = true
 	}
 
 	// Calculate real-time metrics

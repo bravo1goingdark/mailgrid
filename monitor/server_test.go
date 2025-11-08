@@ -156,6 +156,29 @@ func TestUpdateRecipientStatusMultiple(t *testing.T) {
 	}
 }
 
+func TestDomainBreakdownSingleRecipientMultipleTransitions(t *testing.T) {
+	server := NewServer(9091)
+	server.InitializeCampaign("test-job", ConfigSummary{}, 10)
+
+	email := "user@example.com"
+	statuses := []EmailStatus{
+		StatusPending,
+		StatusSending,
+		StatusFailed,
+		StatusRetry,
+		StatusSent,
+	}
+
+	for _, status := range statuses {
+		server.UpdateRecipientStatus(email, status, 100*time.Millisecond, "")
+	}
+
+	domain := "example.com"
+	if count := server.stats.DomainBreakdown[domain]; count != 1 {
+		t.Fatalf("expected domain count for %s to remain 1, got %d", domain, count)
+	}
+}
+
 func TestAddSMTPResponse(t *testing.T) {
 	server := NewServer(9091)
 
