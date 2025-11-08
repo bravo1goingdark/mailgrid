@@ -62,7 +62,7 @@ Use this to match only when **both conditions are true**.
 
 ```bash
 --filter 'company != mailgrid and email endswith "@gmail.com"'
-````
+```
 
 ---
 
