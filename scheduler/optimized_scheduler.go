@@ -16,7 +16,7 @@ import (
 // - Concurrent job execution
 // - Adaptive polling intervals
 // - Performance metrics
-// - Connection pooling
+// - Template caching for email rendering
 // - Circuit breaking and resilience
 type OptimizedScheduler struct {
 	db         *database.BoltDBClient
