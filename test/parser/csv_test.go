@@ -52,6 +52,43 @@ func TestParseCSVFromReader_SkipsMalformedRows(t *testing.T) {
 	}
 }
 
+func TestParseCSVFromReader_TrimsAndNormalizesHeaders(t *testing.T) {
+	csvData := strings.Join([]string{
+		"  Email , Name , FAVORITE_COLOR ",
+		"  USER1@example.com  , Alice  , blue  ",
+		"\tuser2@example.com\t,  Bob\t, GREEN",
+	}, "\n") + "\n"
+
+	recipients, err := parser.ParseCSVFromReader(strings.NewReader(csvData))
+	if err != nil {
+		t.Fatalf("ParseCSVFromReader error: %v", err)
+	}
+
+	if len(recipients) != 2 {
+		t.Fatalf("expected 2 recipients, got %d", len(recipients))
+	}
+
+	if recipients[0].Email != "USER1@example.com" {
+		t.Errorf("expected trimmed email, got %q", recipients[0].Email)
+	}
+	if recipients[0].Data["name"] != "Alice" {
+		t.Errorf("expected normalized name key with trimmed value, got %+v", recipients[0].Data)
+	}
+	if recipients[0].Data["favorite_color"] != "blue" {
+		t.Errorf("expected normalized favorite_color key with trimmed value, got %+v", recipients[0].Data)
+	}
+
+	if recipients[1].Email != "user2@example.com" {
+		t.Errorf("expected trimmed email for second recipient, got %q", recipients[1].Email)
+	}
+	if recipients[1].Data["name"] != "Bob" {
+		t.Errorf("expected normalized name key with trimmed value, got %+v", recipients[1].Data)
+	}
+	if recipients[1].Data["favorite_color"] != "GREEN" {
+		t.Errorf("expected trimmed value for favorite_color, got %+v", recipients[1].Data)
+	}
+}
+
 func TestParseCSV_MissingEmailColumn(t *testing.T) {
 	csvData := "name,company\nAlice,Acme\n"
 	r := strings.NewReader(csvData)
