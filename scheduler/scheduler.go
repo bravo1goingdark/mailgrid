@@ -183,8 +183,10 @@ func (s *Scheduler) dispatchLoop() {
 					continue
 				}
 				// Execute synchronously to guarantee state persistence before observers check it
-				defer func() { _ = s.db.ReleaseLock(j.ID, s.instanceID) }()
 				s.execute(j)
+				if err := s.db.ReleaseLock(j.ID, s.instanceID); err != nil {
+					s.log.Errorf("release lock for job %s: %v", j.ID, err)
+				}
 			}
 		}
 	}
