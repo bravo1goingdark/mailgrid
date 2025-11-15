@@ -125,22 +125,26 @@ func (p *BatchProcessor) processingLoop(ctx context.Context) {
 			return
 
 		case <-p.flushTrigger:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			p.flush()
 			timer.Reset(p.targetLatency)
 
 		case <-timer.C:
-			p.mu.Lock()
-			if len(p.currentBatch) > 0 {
-				p.flush()
-			}
-			p.mu.Unlock()
+			p.flush()
 			timer.Reset(p.targetLatency)
 		}
 	}
 }
 
 func (p *BatchProcessor) flush() {
+	p.mu.Lock()
 	if len(p.currentBatch) == 0 {
+		p.mu.Unlock()
 		return
 	}
 
@@ -175,8 +179,6 @@ func (p *BatchProcessor) flush() {
 		p.metrics.minSuccessfulBatch = len(batch)
 	}
 	p.metrics.mu.Unlock()
-
-	p.mu.Lock()
 }
 
 func (p *BatchProcessor) processBatch(batch []Task) (successes, failures int) {

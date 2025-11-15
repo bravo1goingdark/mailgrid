@@ -1,4 +1,4 @@
-# MailGrid Build and Release Makefile
+﻿# MailGrid Build and Release Makefile
 # Optimized for minimal binary sizes and cross-platform compatibility
 
 # Build variables
@@ -118,21 +118,6 @@ release: test build-all release-packages checksums
 	@echo "📋 Release assets:"
 	@ls -lah $(RELEASES_DIR)/ 2>/dev/null || dir $(RELEASES_DIR)\* 2>nul || true
 
-# Docker build (local)
-.PHONY: docker-build
-docker-build:
-	@echo "🐳 Building Docker image..."
-	@docker build -t mailgrid:latest -t mailgrid:$(VERSION) .
-	@echo "✅ Docker image built!"
-
-# Docker multi-platform build
-.PHONY: docker-buildx
-docker-buildx:
-	@echo "🐳 Building multi-platform Docker images..."
-	@docker buildx build --platform linux/amd64,linux/arm64 \
-		-t mailgrid:latest -t mailgrid:$(VERSION) .
-	@echo "✅ Multi-platform Docker images built!"
-
 # Run locally
 .PHONY: run
 run: build
@@ -216,8 +201,6 @@ help:
 	@echo "  release          - Create full release with packages and checksums"
 	@echo "  release-packages - Create compressed release packages"
 	@echo "  checksums        - Generate SHA256 checksums"
-	@echo "  docker-build     - Build Docker image"
-	@echo "  docker-buildx    - Build multi-platform Docker images"
 	@echo "  test             - Run unit tests"
 	@echo "  test-coverage    - Run tests with coverage report"
 	@echo "  lint             - Lint code with golangci-lint"
@@ -236,4 +219,3 @@ help:
 	@echo "Examples:"
 	@echo "  make build                    # Build for current platform"
 	@echo "  make release VERSION=v1.0.1  # Create v1.0.1 release"
-	@echo "  make docker-build             # Build Docker image"

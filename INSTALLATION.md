@@ -32,11 +32,6 @@ iwr -useb https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/instal
 .\install-enhanced.ps1 -CheckUpdates
 ```
 
-### **Docker**
-```bash
-docker run --rm ghcr.io/bravo1goingdark/mailgrid:latest --help
-```
-
 ## 📥 Direct Downloads
 
 ### **Windows**
@@ -127,33 +122,6 @@ scoop install mailgrid
 # Update MailGrid
 scoop update mailgrid
 ```
-
-## 🐳 Docker Usage
-
-### **Quick Start**
-```bash
-# Pull image
-docker pull ghcr.io/bravo1goingdark/mailgrid:latest
-
-# Run with config
-docker run --rm -v $(pwd)/config.json:/app/config.json \
-  ghcr.io/bravo1goingdark/mailgrid:latest \
-  --to user@example.com --subject "Test" --text "Hello!"
-```
-
-### **Docker Compose**
-```bash
-# Download docker-compose.yml
-curl -sSL https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/docker-compose.yml -o docker-compose.yml
-
-# Start scheduler service
-docker-compose up -d
-```
-
-### **Available Tags**
-- `latest` - Latest stable release
-- `v1.0.0` - Specific version
-- `main` - Development version
 
 ## ⚙️ Configuration
 
@@ -268,8 +236,6 @@ make release
 # Run tests
 make test
 
-# Build Docker image
-make docker-build
 ```
 
 ## 📊 System Requirements
@@ -411,18 +377,6 @@ $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";"
 
 # Option 3: Restart PowerShell/Command Prompt
 # Close and reopen your terminal
-```
-
-### **Docker Issues**
-```bash
-# Check if Docker is running
-docker version
-
-# Pull latest image
-docker pull ghcr.io/bravo1goingdark/mailgrid:latest
-
-# Check container logs
-docker logs mailgrid-scheduler
 ```
 
 ## 📈 Performance Tips

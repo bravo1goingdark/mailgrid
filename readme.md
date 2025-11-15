@@ -39,8 +39,6 @@ curl -sSL https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/instal
 # Windows (PowerShell)
 iwr -useb https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/install.ps1 | iex
 
-# Docker
-docker run --rm ghcr.io/bravo1goingdark/mailgrid:latest --help
 ```
 
 Download binaries: [GitHub Releases](https://github.com/bravo1goingdark/mailgrid/releases/latest) • [Installation Guide](./INSTALLATION.md)
