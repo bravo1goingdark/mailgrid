@@ -9,7 +9,7 @@ import (
 )
 
 func TestRenderTemplate(t *testing.T) {
-	tmpl := "<p>Hello {{ .Data.name }}</p>"
+	tmpl := "<p>Hello {{ .name }}</p>"
 	tmp, err := os.CreateTemp(t.TempDir(), "tmpl*.html")
 	if err != nil {
 		t.Fatal(err)

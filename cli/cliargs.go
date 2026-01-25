@@ -27,6 +27,7 @@ type CLIArgs struct {
 	// Monitoring options
 	Monitor     bool // Enable real-time monitoring dashboard
 	MonitorPort int  // Port for monitoring dashboard
+	MetricsPort int  // Port for metrics server
 
 	// Scheduling options (if any of these are set, we schedule instead of immediate sending)
 	ScheduleAt string // RFC3339 timestamp
@@ -79,6 +80,7 @@ func ParseFlags() CLIArgs {
 	// Monitoring flags
 	pflag.BoolVarP(&args.Monitor, "monitor", "m", false, "Enable real-time monitoring dashboard")
 	pflag.IntVar(&args.MonitorPort, "monitor-port", 9091, "Port for monitoring dashboard")
+	pflag.IntVar(&args.MetricsPort, "metrics-port", 0, "Port for metrics server (0=auto, disables if conflict)")
 
 	// Scheduling flags (single-letter shorthands)
 	pflag.StringVarP(&args.ScheduleAt, "schedule-at", "A", "", "Schedule time in RFC3339 (e.g., 2025-09-08T09:00:00Z)")

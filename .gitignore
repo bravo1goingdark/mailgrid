@@ -41,7 +41,6 @@ coverage.*
 
 # Logs
 logs/
-*.log
 
 # Backup files
 *~

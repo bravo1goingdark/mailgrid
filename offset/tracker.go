@@ -74,7 +74,11 @@ func (t *Tracker) Load() error {
 			if offset, err := strconv.Atoi(parts[1]); err == nil {
 				t.offset = offset
 			} else {
-				return fmt.Errorf("invalid offset format in file: %s", line)
+				// If parsing fails, reset to start and warn user
+				t.offset = 0
+				t.jobID = ""
+				t.dirty = true // Mark for cleanup
+				return fmt.Errorf("invalid offset format in file: %s (resetting to start)", line)
 			}
 		} else if len(parts) == 1 {
 			// Backward compatibility: just offset number
@@ -82,10 +86,18 @@ func (t *Tracker) Load() error {
 				t.offset = offset
 				t.jobID = ""
 			} else {
-				return fmt.Errorf("invalid offset format in file: %s", line)
+				// If parsing fails, reset to start and warn user
+				t.offset = 0
+				t.jobID = ""
+				t.dirty = true // Mark for cleanup
+				return fmt.Errorf("invalid offset format in file: %s (resetting to start)", line)
 			}
 		} else {
-			return fmt.Errorf("invalid offset format in file: %s", line)
+			// If format is completely wrong, reset to start and warn user
+			t.offset = 0
+			t.jobID = ""
+			t.dirty = true // Mark for cleanup
+			return fmt.Errorf("invalid offset format in file: %s (resetting to start)", line)
 		}
 	}
 

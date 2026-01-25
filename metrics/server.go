@@ -35,7 +35,42 @@ func NewServer(metrics *Metrics, port int) *Server {
 
 // Start starts the metrics server
 func (s *Server) Start() error {
-	return s.srv.ListenAndServe()
+	err := s.srv.ListenAndServe()
+	// If we get a port conflict error, provide a more helpful message
+	if err != nil && isPortConflictError(err) {
+		return fmt.Errorf("metrics server port %s already in use. This can happen when running multiple MailGrid commands. The scheduler will continue to work, but metrics won't be available", s.srv.Addr)
+	}
+	return err
+}
+
+// isPortConflictError checks if the error is a port conflict
+func isPortConflictError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return contains(errStr, "bind: only one usage") ||
+		contains(errStr, "address already in use") ||
+		contains(errStr, "already in use")
+}
+
+// contains checks if a string contains a substring (case-insensitive)
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) &&
+		(s == substr ||
+			s[:len(substr)] == substr ||
+			s[len(s)-len(substr):] == substr ||
+			indexOf(s, substr) != -1)
+}
+
+// indexOf finds the index of a substring
+func indexOf(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
 }
 
 // Stop gracefully stops the server

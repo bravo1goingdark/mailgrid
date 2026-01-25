@@ -60,14 +60,18 @@ type OptimizedConfig struct {
 
 // DefaultOptimizedConfig returns sensible defaults
 func DefaultOptimizedConfig() OptimizedConfig {
+	return DefaultOptimizedConfigWithPort(8090)
+}
+
+func DefaultOptimizedConfigWithPort(port int) OptimizedConfig {
 	return OptimizedConfig{
 		MaxConcurrency:  10,
 		AdaptivePolling: true,
-		BaseInterval:    100 * time.Millisecond,
-		MaxInterval:     5 * time.Second,
+		BaseInterval:    1 * time.Second,
+		MaxInterval:     30 * time.Second,
 		PoolConfig: email.PoolConfig{
 			InitialSize:         5,
-			MaxSize:             20,
+			MaxSize:             50,
 			MaxIdleTime:         5 * time.Minute,
 			MaxWaitTime:         30 * time.Second,
 			HealthCheckInterval: 30 * time.Second,
@@ -78,7 +82,7 @@ func DefaultOptimizedConfig() OptimizedConfig {
 			TargetLatency:    500 * time.Millisecond,
 			AdaptationPeriod: 1 * time.Minute,
 		},
-		MetricsPort:      8090,
+		MetricsPort:      port,
 		EnableResilience: true,
 	}
 }
