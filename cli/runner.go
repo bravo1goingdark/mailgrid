@@ -152,8 +152,8 @@ func Run(args CLIArgs) error {
 
 		fmt.Printf("📅 Job scheduled successfully%s\n", scheduleInfo)
 		fmt.Printf("🗄️  Database: %s\n", args.SchedulerDB)
-		fmt.Printf("📊 Metrics: http://localhost:8090/metrics\n")
-		fmt.Printf("💡 The scheduler will start automatically and run in the background\n")
+		fmt.Printf(" Metrics: http://localhost:8090/metrics\n")
+		fmt.Printf(" The scheduler will start automatically and run in the background\n")
 
 		return nil
 	}
@@ -164,16 +164,16 @@ func Run(args CLIArgs) error {
 	}
 	if args.To != "" {
 		if args.CSVPath != "" || args.SheetURL != "" {
-			return fmt.Errorf("❌ --to is mutually exclusive with --csv and --sheet-url")
+			return fmt.Errorf(" --to is mutually exclusive with --csv and --sheet-url")
 		}
 
 		return SendSingleEmail(args, cfg.SMTP)
 	}
 	if args.CSVPath == "" && args.SheetURL == "" {
-		return fmt.Errorf("❌ You must provide either --csv or --sheet-url")
+		return fmt.Errorf(" You must provide either --csv or --sheet-url")
 	}
 	if args.CSVPath != "" && args.SheetURL != "" {
-		return fmt.Errorf("❌ Provide only one of --csv or --sheet-url, not both")
+		return fmt.Errorf(" Provide only one of --csv or --sheet-url, not both")
 	}
 
 	for _, f := range args.Attachments {
@@ -225,7 +225,7 @@ func Run(args CLIArgs) error {
 		}
 
 		id, gid, _ := utils.ExtractSheetInfo(args.SheetURL)
-		fmt.Printf("📄 Loaded Google Sheet: Spreadsheet ID = %s, GID = %s\n", id, gid)
+		fmt.Printf(" Loaded Google Sheet: Spreadsheet ID = %s, GID = %s\n", id, gid)
 
 	} else {
 		recipients, err = parser.ParseCSV(args.CSVPath)
@@ -288,24 +288,24 @@ func Run(args CLIArgs) error {
 		// Handle reset-offset flag
 		if args.ResetOffset {
 			if err := tracker.Reset(); err != nil {
-				log.Printf("⚠️ Warning: Failed to reset offset: %v", err)
+				log.Printf("️ Warning: Failed to reset offset: %v", err)
 			} else {
-				fmt.Println("🔄 Offset file cleared, starting from beginning")
+				fmt.Println(" Offset file cleared, starting from beginning")
 			}
 		}
 
 		// Load existing offset if resume is enabled
 		if args.Resume {
 			if err := tracker.Load(); err != nil {
-				log.Printf("⚠️ Warning: Failed to load offset (starting from beginning): %v", err)
+				log.Printf("️ Warning: Failed to load offset (starting from beginning): %v", err)
 			} else {
 				startOffset = tracker.GetOffset()
 				if startOffset > 0 {
 					if startOffset >= len(tasks) {
-						fmt.Printf("✅ All emails already sent (offset: %d, total: %d)\n", startOffset, len(tasks))
+						fmt.Printf(" All emails already sent (offset: %d, total: %d)\n", startOffset, len(tasks))
 						return nil
 					}
-					fmt.Printf("▶️ Resuming from offset %d (skipping %d already sent emails)\n", startOffset, startOffset)
+					fmt.Printf(" Resuming from offset %d (skipping %d already sent emails)\n", startOffset, startOffset)
 					tasks = tasks[startOffset:] // Skip already sent emails
 				}
 			}
@@ -347,7 +347,7 @@ func Run(args CLIArgs) error {
 		// Start monitoring server in background
 		go func() {
 			if err := monitorServer.Start(); err != nil && err != http.ErrServerClosed {
-				log.Printf("⚠️ Monitor server failed: %v", err)
+				log.Printf("️ Monitor server failed: %v", err)
 			}
 		}()
 
@@ -363,7 +363,7 @@ func Run(args CLIArgs) error {
 		}
 		mon.InitializeCampaign(jobID, configSummary, len(tasks))
 
-		fmt.Printf("🖥️  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
+		fmt.Printf("  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
 	}
 
 	// Use offset-aware dispatcher if tracker is available
@@ -371,7 +371,7 @@ func Run(args CLIArgs) error {
 		email.StartDispatcherWithOffset(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon, tracker, startOffset)
 		// Save final offset after campaign completion
 		if err := tracker.Save(); err != nil {
-			log.Printf("⚠️ Warning: Failed to save final offset: %v", err)
+			log.Printf("️ Warning: Failed to save final offset: %v", err)
 		}
 	} else {
 		email.StartDispatcherWithMonitor(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon)
@@ -386,7 +386,7 @@ func Run(args CLIArgs) error {
 			defer cancel()
 			<-ctx.Done() // Give users time to see final results
 			if err := monitorServer.Stop(); err != nil {
-				log.Printf("⚠️ Failed to stop monitor server: %v", err)
+				log.Printf("️ Failed to stop monitor server: %v", err)
 			}
 		}()
 	}
@@ -434,9 +434,9 @@ func Run(args CLIArgs) error {
 		// Send webhook notification
 		webhookClient := webhook.NewClient()
 		if err := webhookClient.SendNotification(args.WebhookURL, result); err != nil {
-			fmt.Printf("⚠️ Failed to send webhook notification: %v\n", err)
+			fmt.Printf("️ Failed to send webhook notification: %v\n", err)
 		} else {
-			fmt.Printf("🔔 Webhook notification sent to %s\n", args.WebhookURL)
+			fmt.Printf(" Webhook notification sent to %s\n", args.WebhookURL)
 		}
 	}
 

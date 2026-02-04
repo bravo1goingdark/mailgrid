@@ -124,6 +124,7 @@ func (p *SMTPPool) Get(ctx context.Context) (*smtp.Client, error) {
 	select {
 	case conn := <-p.conns:
 		if time.Since(conn.lastUsed) > p.config.MaxIdleTime {
+			// Close the stale connection to prevent leaks
 			_ = conn.client.Close()
 			conn, err := p.createConn()
 			if err != nil {
@@ -159,6 +160,8 @@ func (p *SMTPPool) Put(client *smtp.Client) error {
 	p.mu.RLock()
 	if p.closed {
 		p.mu.RUnlock()
+		// Pool is closed, close the connection to prevent leaks
+		_ = client.Close()
 		return ErrPoolClosed
 	}
 	p.mu.RUnlock()
@@ -172,7 +175,7 @@ func (p *SMTPPool) Put(client *smtp.Client) error {
 	case p.conns <- conn:
 		return nil
 	default:
-		// Pool is full, close the connection
+		// Pool is full, close the connection to prevent leaks
 		return client.Close()
 	}
 }
@@ -249,6 +252,7 @@ func (p *SMTPPool) checkConnections() {
 		if p.isConnHealthy(conn) {
 			checkedConns = append(checkedConns, conn)
 		} else {
+			// Close the unhealthy connection to prevent leaks
 			_ = conn.client.Close()
 			unhealthyCount++
 			p.numConns--

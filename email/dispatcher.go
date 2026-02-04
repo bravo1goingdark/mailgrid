@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"log"
 	"sync"
 	"time"
@@ -34,6 +35,7 @@ type worker struct {
 	Monitor     monitor.Monitor
 	Tracker     OffsetTracker // For tracking successful sends
 	StartOffset int           // Base offset for this campaign
+	Ctx         context.Context
 }
 
 // maxInt returns the larger of two integers (helper for Go 1.18 compatibility)
@@ -57,19 +59,28 @@ type OffsetTracker interface {
 
 // StartDispatcherWithMonitor spawns workers with monitoring support.
 func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor) {
-	StartDispatcherWithOffset(tasks, cfg, concurrency, batchSize, mon, nil, 0)
+	StartDispatcherWithContext(context.Background(), tasks, cfg, concurrency, batchSize, mon, nil, 0)
 }
 
 // StartDispatcherWithOffset spawns workers with offset tracking support for resumable delivery.
 func StartDispatcherWithOffset(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor, tracker OffsetTracker, startOffset int) {
-	// Optimize buffer sizes based on workload
+	StartDispatcherWithContext(context.Background(), tasks, cfg, concurrency, batchSize, mon, tracker, startOffset)
+}
+
+// StartDispatcherWithContext spawns workers with context support for graceful shutdown and offset tracking.
+func StartDispatcherWithContext(ctx context.Context, tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor, tracker OffsetTracker, startOffset int) {
+	// Optimize buffer sizes based on workload - prevent over-allocation
 	taskBufSize := maxInt(len(tasks)/2, concurrency*batchSize*2)
 	if taskBufSize > 2000 {
 		taskBufSize = 2000 // Cap to avoid excessive memory
+	} else if taskBufSize < concurrency {
+		taskBufSize = concurrency // Ensure minimum buffer
 	}
 	retryBufSize := maxInt(len(tasks)/10, concurrency*5)
 	if retryBufSize > 1000 {
 		retryBufSize = 1000
+	} else if retryBufSize < concurrency {
+		retryBufSize = concurrency
 	}
 
 	taskChan := make(chan Task, taskBufSize)
@@ -97,19 +108,27 @@ func StartDispatcherWithOffset(tasks []Task, cfg config.SMTPConfig, concurrency 
 			Monitor:     mon,
 			Tracker:     tracker,
 			StartOffset: startOffset,
+			Ctx:         ctx,
 		})
 	}
 
-	// Dispatch initial tasks
+	// Dispatch initial tasks - check for context cancellation
 	go func() {
+		dispatchLoop:
 		for _, task := range tasks {
-			taskChan <- task
+			select {
+			case taskChan <- task:
+			case <-ctx.Done():
+				log.Printf(" Context cancelled, stopping task dispatch")
+				break dispatchLoop
+			}
 		}
 		close(taskChan)
 	}()
 
 	// Handle retries efficiently without spawning excessive goroutines
 	go func() {
+	retryLoop:
 		for task := range retryChan {
 			if task.Retries > 0 {
 				retryWg.Add(1)
@@ -117,12 +136,17 @@ func StartDispatcherWithOffset(tasks []Task, cfg config.SMTPConfig, concurrency 
 				select {
 				case taskChan <- task:
 					retryWg.Done()
+				case <-ctx.Done():
+					retryWg.Done()
+					log.Printf(" Context cancelled, stopping retry processing")
+					break retryLoop
 				default:
 					// Channel full, try with timeout
 					go func(t Task) {
 						defer retryWg.Done()
 						select {
 						case taskChan <- t:
+						case <-ctx.Done():
 						case <-time.After(5 * time.Second):
 							log.Printf("Retry timeout for %s", t.Recipient.Email)
 						}
@@ -289,7 +313,7 @@ func (d *PooledDispatcher) RecordFailureWithDetails(email string, duration time.
 // RecordRetryWithDetails records a retry attempt with details
 func (d *PooledDispatcher) RecordRetryWithDetails(email string, duration time.Duration, reason string) {
 	d.metrics.mu.Lock()
+	defer d.metrics.mu.Unlock()
 	d.metrics.retryCount++
-	d.metrics.mu.Unlock()
 	d.monitor.UpdateRecipientStatus(email, monitor.StatusRetry, duration, reason)
 }

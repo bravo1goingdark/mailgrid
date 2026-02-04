@@ -71,14 +71,24 @@ type LogEntry struct {
 	Email     string    `json:"email,omitempty"`
 }
 
+// SSEClient represents a connected SSE client with activity tracking
+type SSEClient struct {
+	Chan        chan CampaignStats
+	LastActive  time.Time
+	RemoteAddr  string
+}
+
 // Server provides real-time monitoring dashboard
 type Server struct {
 	mu        sync.RWMutex
 	stats     *CampaignStats
 	server    *http.Server
 	dashboard *DashboardServer
-	clients   map[chan CampaignStats]bool
+	clients   map[string]*SSEClient // Map client ID to client
+	clientID  uint64 // Counter for generating unique client IDs
 	stopping  bool
+	clientTimeout time.Duration
+	cleanupTicker *time.Ticker
 }
 
 // NewServer creates a new monitoring server
@@ -91,8 +101,10 @@ func NewServer(port int) *Server {
 	}
 
 	server := &Server{
-		stats:   stats,
-		clients: make(map[chan CampaignStats]bool),
+		stats:         stats,
+		clients:       make(map[string]*SSEClient),
+		clientTimeout: 5 * time.Minute,
+		cleanupTicker: time.NewTicker(1 * time.Minute),
 	}
 
 	// Create dashboard
@@ -104,12 +116,15 @@ func NewServer(port int) *Server {
 		Handler: server.dashboard,
 	}
 
+	// Start cleanup goroutine
+	go server.cleanupInactiveClients()
+
 	return server
 }
 
 // Start starts the monitoring server
 func (s *Server) Start() error {
-	log.Printf("🖥️  Starting monitoring dashboard on http://localhost%s", s.server.Addr)
+	log.Printf("  Starting monitoring dashboard on http://localhost%s", s.server.Addr)
 	return s.server.ListenAndServe()
 }
 
@@ -118,11 +133,16 @@ func (s *Server) Stop() error {
 	s.mu.Lock()
 	s.stopping = true
 
-	// Close all client channels
-	for clientChan := range s.clients {
-		close(clientChan)
+	// Stop cleanup ticker
+	if s.cleanupTicker != nil {
+		s.cleanupTicker.Stop()
 	}
-	s.clients = make(map[chan CampaignStats]bool)
+
+	// Close all client channels
+	for _, client := range s.clients {
+		close(client.Chan)
+	}
+	s.clients = make(map[string]*SSEClient)
 	s.mu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -211,6 +231,12 @@ func (s *Server) AddLogEntry(level, message, email string) {
 
 	s.addLogEntry(level, message, email)
 	s.broadcastUpdate()
+}
+
+// generateClientID generates a unique client ID
+func (s *Server) generateClientID() string {
+	s.clientID++
+	return fmt.Sprintf("client-%d", s.clientID)
 }
 
 func (s *Server) addLogEntry(level, message, email string) {
@@ -303,14 +329,49 @@ func (s *Server) broadcastUpdate() {
 	statsCopy := *s.stats
 
 	// Broadcast to all connected clients
-	for clientChan := range s.clients {
+	for clientID, client := range s.clients {
 		select {
-		case clientChan <- statsCopy:
+		case client.Chan <- statsCopy:
+			// Update last active time on successful send
+			client.LastActive = time.Now()
 		default:
-			// Client channel is full, remove it
-			delete(s.clients, clientChan)
-			close(clientChan)
+			// Client channel is full, remove stale client
+			delete(s.clients, clientID)
+			close(client.Chan)
+			log.Printf("🔌 Removed stale SSE client: %s", clientID)
 		}
+	}
+}
+
+// cleanupInactiveClients removes inactive SSE clients
+func (s *Server) cleanupInactiveClients() {
+	for range s.cleanupTicker.C {
+		s.mu.Lock()
+		if s.stopping {
+			s.mu.Unlock()
+			return
+		}
+
+		now := time.Now()
+		var clientIDsToRemove []string
+
+		// Find inactive clients
+		for clientID, client := range s.clients {
+			if now.Sub(client.LastActive) > s.clientTimeout {
+				clientIDsToRemove = append(clientIDsToRemove, clientID)
+			}
+		}
+
+		// Remove inactive clients
+		for _, clientID := range clientIDsToRemove {
+			if client, ok := s.clients[clientID]; ok {
+				close(client.Chan)
+				delete(s.clients, clientID)
+				log.Printf("🔌 Removed inactive SSE client: %s", clientID)
+			}
+		}
+
+		s.mu.Unlock()
 	}
 }
 
@@ -348,7 +409,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 <body>
     <div class="container">
         <div class="header">
-            <h1>📧 Mailgrid Monitor</h1>
+            <h1> Mailgrid Monitor</h1>
             <div id="campaign-info">
                 <strong>Campaign:</strong> <span id="job-id">-</span> |
                 <strong>Started:</strong> <span id="start-time">-</span>
@@ -497,15 +558,24 @@ func (s *Server) handleStatusStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	clientID := s.generateClientID()
 	clientChan := make(chan CampaignStats, 10)
 
 	s.mu.Lock()
-	s.clients[clientChan] = true
+	if s.stopping {
+		s.mu.Unlock()
+		return
+	}
+	s.clients[clientID] = &SSEClient{
+		Chan:       clientChan,
+		LastActive: time.Now(),
+		RemoteAddr: r.RemoteAddr,
+	}
 	s.mu.Unlock()
 
 	defer func() {
 		s.mu.Lock()
-		delete(s.clients, clientChan)
+		delete(s.clients, clientID)
 		s.mu.Unlock()
 		close(clientChan)
 	}()

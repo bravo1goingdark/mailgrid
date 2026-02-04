@@ -26,7 +26,9 @@ type TemplateCache struct {
 	maxAge time.Duration
 	// Maximum number of templates to cache
 	maxSize int
-	// Channel to stop the cleanup goroutine
+	// Current number of cached templates
+	currentSize int
+	// Channel to stop cleanup goroutine
 	stopCh chan struct{}
 }
 
@@ -44,6 +46,7 @@ func NewTemplateCache(maxAge time.Duration, maxSize int) *TemplateCache {
 		lastAccess: make(map[string]time.Time),
 		maxAge:     maxAge,
 		maxSize:    maxSize,
+		currentSize: 0,
 		stopCh:     make(chan struct{}),
 	}
 
@@ -80,13 +83,17 @@ func (c *TemplateCache) Get(path string) (*template.Template, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Check size limit
-	if len(c.templates) >= c.maxSize {
+	// Enforce size limit BEFORE adding new template
+	if c.currentSize >= c.maxSize {
 		c.evictOldest()
 	}
 
-	c.templates[hash] = tmpl
-	c.lastAccess[hash] = time.Now()
+	// Double-check after eviction in case multiple threads are racing
+	if c.currentSize < c.maxSize {
+		c.templates[hash] = tmpl
+		c.lastAccess[hash] = time.Now()
+		c.currentSize++
+	}
 
 	return tmpl, nil
 }
@@ -98,12 +105,20 @@ func (c *TemplateCache) Clear() {
 
 	c.templates = make(map[string]*template.Template)
 	c.lastAccess = make(map[string]time.Time)
+	c.currentSize = 0
 }
 
-// Stop stops the cleanup goroutine and cleans up resources
+// Stop stops cleanup goroutine and cleans up resources
 func (c *TemplateCache) Stop() {
 	close(c.stopCh)
 	c.Clear()
+}
+
+// GetCurrentSize returns the current number of cached templates
+func (c *TemplateCache) GetCurrentSize() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.currentSize
 }
 
 func (c *TemplateCache) hashFile(path string) (string, error) {
@@ -128,18 +143,32 @@ func (c *TemplateCache) periodicCleanup() {
 	for {
 		select {
 		case <-ticker.C:
-			c.mu.Lock()
-			now := time.Now()
-			for hash, lastAccess := range c.lastAccess {
-				if now.Sub(lastAccess) > c.maxAge {
-					delete(c.templates, hash)
-					delete(c.lastAccess, hash)
-				}
-			}
-			c.mu.Unlock()
+			c.cleanup()
 		case <-c.stopCh:
 			return
 		}
+	}
+}
+
+func (c *TemplateCache) cleanup() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+	var hashesToRemove []string
+
+	// Find expired templates
+	for hash, lastAccess := range c.lastAccess {
+		if now.Sub(lastAccess) > c.maxAge {
+			hashesToRemove = append(hashesToRemove, hash)
+		}
+	}
+
+	// Remove expired templates and update size
+	for _, hash := range hashesToRemove {
+		delete(c.templates, hash)
+		delete(c.lastAccess, hash)
+		c.currentSize--
 	}
 }
 
@@ -161,6 +190,7 @@ func (c *TemplateCache) evictOldest() {
 	if oldestHash != "" {
 		delete(c.templates, oldestHash)
 		delete(c.lastAccess, oldestHash)
+		c.currentSize--
 	}
 }
 

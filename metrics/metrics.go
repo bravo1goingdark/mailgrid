@@ -8,7 +8,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
 )
 
 // Metrics collects and exposes performance metrics for email sending
@@ -19,7 +18,7 @@ type Metrics struct {
 	TotalEmailsSent     uint64
 	TotalEmailsFailed   uint64
 	TotalAttachmentSize uint64
-	AvgDeliveryTime     time.Duration
+	avgDeliveryTime     int64 // Stored as nanoseconds for atomic operations
 	deliveryTimesamples uint64
 
 	// Connection metrics
@@ -82,11 +81,16 @@ func NewMetrics() *Metrics {
 func (m *Metrics) RecordEmailSent(duration time.Duration) {
 	atomic.AddUint64(&m.TotalEmailsSent, 1)
 
-	// Update average delivery time
+	// Update average delivery time safely without unsafe pointers
 	samples := atomic.AddUint64(&m.deliveryTimesamples, 1)
-	current := time.Duration(atomic.LoadUint64((*uint64)(unsafe.Pointer(&m.AvgDeliveryTime))))
-	newAvg := time.Duration((int64(current)*int64(samples-1) + int64(duration)) / int64(samples))
-	atomic.StoreUint64((*uint64)(unsafe.Pointer(&m.AvgDeliveryTime)), uint64(newAvg))
+	currentNanos := atomic.LoadInt64(&m.avgDeliveryTime)
+	newAvgNanos := (currentNanos*int64(samples-1) + int64(duration)) / int64(samples)
+	atomic.StoreInt64(&m.avgDeliveryTime, newAvgNanos)
+}
+
+// GetAvgDeliveryTime returns the average delivery time
+func (m *Metrics) GetAvgDeliveryTime() time.Duration {
+	return time.Duration(atomic.LoadInt64(&m.avgDeliveryTime))
 }
 
 // RecordEmailFailed records a failed email delivery
@@ -116,7 +120,9 @@ func (m *Metrics) RecordBatch(size int, success float64) {
 
 	// Update success rate with exponential moving average
 	alpha := 0.1 // Smoothing factor
+	m.mu.Lock()
 	m.BatchSuccessRate = m.BatchSuccessRate*(1-alpha) + success*alpha
+	m.mu.Unlock()
 }
 
 // RecordConnection records connection metrics
@@ -173,7 +179,7 @@ func (m *Metrics) GetStats() string {
 		Uptime:            time.Since(m.startTime),
 		EmailsSent:        atomic.LoadUint64(&m.TotalEmailsSent),
 		EmailsFailed:      atomic.LoadUint64(&m.TotalEmailsFailed),
-		AvgDeliveryTime:   time.Duration(atomic.LoadUint64((*uint64)(unsafe.Pointer(&m.AvgDeliveryTime)))),
+		AvgDeliveryTime:   m.GetAvgDeliveryTime(),
 		ActiveConnections: atomic.LoadInt64(&m.ActiveConnections),
 		BatchesProcessed:  atomic.LoadUint64(&m.BatchesProcessed),
 		AvgBatchSize:      m.AvgBatchSize,
@@ -204,7 +210,7 @@ func (m *Metrics) collectStats() {
 			timestamp:    time.Now(),
 			emailsSent:   atomic.LoadUint64(&m.TotalEmailsSent),
 			emailsFailed: atomic.LoadUint64(&m.TotalEmailsFailed),
-			avgLatency:   time.Duration(atomic.LoadUint64((*uint64)(unsafe.Pointer(&m.AvgDeliveryTime)))),
+			avgLatency:   m.GetAvgDeliveryTime(),
 		}
 
 		m.mu.Lock()

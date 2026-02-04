@@ -56,9 +56,19 @@ func NewScheduler(db *database.BoltDBClient, log Logger) *Scheduler {
 	return s
 }
 
+// newInstanceID generates a unique instance ID using UUID-like format
+// This provides better uniqueness than timestamp + random number
 func newInstanceID() string {
-	randomInt, _ := rand.Int(rand.Reader, big.NewInt(1000000))
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), randomInt.Int64())
+	// Generate 8 random bytes (64 bits) for collision resistance
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based ID if crypto/rand fails
+		return fmt.Sprintf("%d-%d", time.Now().UnixNano(), time.Now().Nanosecond())
+	}
+
+	// Format as hex string with timestamp prefix for sortability
+	timestamp := time.Now().Unix()
+	return fmt.Sprintf("%x-%x", timestamp, b)
 }
 
 // NewJob constructs a Job from CLI args and desired schedule.

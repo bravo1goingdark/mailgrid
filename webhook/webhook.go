@@ -2,14 +2,16 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
-// CampaignResult represents the job completion data sent to webhook
+// CampaignResult represents job completion data sent to webhook
 type CampaignResult struct {
 	JobID                string    `json:"job_id"`
 	Status               string    `json:"status"`
@@ -26,9 +28,12 @@ type CampaignResult struct {
 	ErrorMessage         string    `json:"error_message,omitempty"`
 }
 
-// Client handles webhook HTTP requests
+// Client handles webhook HTTP requests with goroutine tracking
 type Client struct {
 	httpClient *http.Client
+	wg          sync.WaitGroup
+	mu          sync.RWMutex
+	closed      bool
 }
 
 // NewClient creates a new webhook client with timeout configuration
@@ -40,19 +45,28 @@ func NewClient() *Client {
 	}
 }
 
-// SendNotification sends a POST request to the webhook URL with campaign results
+// SendNotification sends a POST request to webhook URL with campaign results.
+// This is non-blocking and spawns a goroutine for the HTTP request.
 func (c *Client) SendNotification(webhookURL string, result CampaignResult) error {
 	if webhookURL == "" {
 		return nil // No webhook configured
 	}
 
-	// Marshal the result to JSON
+	// Check if client is closed
+	c.mu.RLock()
+	if c.closed {
+		c.mu.RUnlock()
+		return fmt.Errorf("webhook client is closed")
+	}
+	c.mu.RUnlock()
+
+	// Marshal result to JSON
 	payload, err := json.Marshal(result)
 	if err != nil {
 		return fmt.Errorf("failed to marshal webhook payload: %w", err)
 	}
 
-	// Create the HTTP request
+	// Create HTTP request
 	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create webhook request: %w", err)
@@ -62,38 +76,49 @@ func (c *Client) SendNotification(webhookURL string, result CampaignResult) erro
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Mailgrid-Webhook/1.0")
 
-	// Send the request (non-blocking)
+	// Track goroutine with WaitGroup
+	c.wg.Add(1)
+
+	// Send request in goroutine (non-blocking)
 	go func() {
+		defer c.wg.Done()
+
+		// Create a context with timeout for this specific request
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		req = req.WithContext(ctx)
+
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			log.Printf("🔔 Webhook delivery failed: %v", err)
+			log.Printf(" Webhook delivery failed: %v", err)
 			return
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			log.Printf("🔔 Webhook delivered successfully to %s (status: %d)", webhookURL, resp.StatusCode)
+			log.Printf(" Webhook delivered successfully to %s (status: %d)", webhookURL, resp.StatusCode)
 		} else {
-			log.Printf("🔔 Webhook delivery failed: %s returned status %d", webhookURL, resp.StatusCode)
+			log.Printf(" Webhook delivery failed: %s returned status %d", webhookURL, resp.StatusCode)
 		}
 	}()
 
 	return nil
 }
 
-// SendNotificationSync sends a synchronous POST request to the webhook URL
+// SendNotificationSync sends a synchronous POST request to webhook URL
 func (c *Client) SendNotificationSync(webhookURL string, result CampaignResult) error {
 	if webhookURL == "" {
 		return nil // No webhook configured
 	}
 
-	// Marshal the result to JSON
+	// Marshal result to JSON
 	payload, err := json.Marshal(result)
 	if err != nil {
 		return fmt.Errorf("failed to marshal webhook payload: %w", err)
 	}
 
-	// Create the HTTP request
+	// Create HTTP request
 	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create webhook request: %w", err)
@@ -103,25 +128,25 @@ func (c *Client) SendNotificationSync(webhookURL string, result CampaignResult) 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Mailgrid-Webhook/1.0")
 
-	// Send the request
+	// Send request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Printf("🔔 Webhook delivery failed: %v", err)
+		log.Printf(" Webhook delivery failed: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		log.Printf("🔔 Webhook delivered successfully to %s (status: %d)", webhookURL, resp.StatusCode)
+		log.Printf(" Webhook delivered successfully to %s (status: %d)", webhookURL, resp.StatusCode)
 	} else {
-		log.Printf("🔔 Webhook delivery failed: %s returned status %d", webhookURL, resp.StatusCode)
+		log.Printf(" Webhook delivery failed: %s returned status %d", webhookURL, resp.StatusCode)
 		return fmt.Errorf("webhook returned status %d", resp.StatusCode)
 	}
 
 	return nil
 }
 
-// ValidateURL performs basic validation on the webhook URL
+// ValidateURL performs basic validation on webhook URL
 func ValidateURL(url string) error {
 	if url == "" {
 		return nil // Empty URL is valid (no webhook)
@@ -137,4 +162,17 @@ func ValidateURL(url string) error {
 	}
 
 	return nil
+}
+
+// Close waits for all pending webhook requests to complete
+func (c *Client) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return
+	}
+
+	c.closed = true
+	c.wg.Wait()
 }

@@ -56,7 +56,7 @@ test-coverage:
 # Build for current platform
 .PHONY: build
 build:
-	@echo "🔨 Building $(BINARY_NAME) for current platform..."
+	@echo " Building $(BINARY_NAME) for current platform..."
 	@$(GO_ENV) go build $(BUILD_FLAGS) -o $(BINARY_NAME) ./cmd/mailgrid
 	@echo "✅ Built $(BINARY_NAME)"
 	@ls -lah $(BINARY_NAME) 2>/dev/null || dir $(BINARY_NAME)* 2>nul || true

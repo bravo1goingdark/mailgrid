@@ -30,7 +30,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 	for i, r := range recipients {
 		// Skip rows with missing fields
 		if HasMissingFields(r) {
-			log.Printf("⚠️ Skipping %s: missing CSV fields", r.Email)
+			log.Printf("️ Skipping %s: missing CSV fields", r.Email)
 			continue
 		}
 
@@ -39,7 +39,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 			var err error
 			body, err = preview.RenderTemplate(r, templatePath)
 			if err != nil {
-				log.Printf("⚠️ Skipping %s: template rendering failed (%v)", r.Email, err)
+				log.Printf("️ Skipping %s: template rendering failed (%v)", r.Email, err)
 				continue
 			}
 		}
@@ -47,7 +47,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 		// Render personalized subject line
 		var sb bytes.Buffer
 		if err := tmpl.Execute(&sb, r.Data); err != nil {
-			log.Printf("⚠️ Skipping %s: subject template failed (%v)", r.Email, err)
+			log.Printf("️ Skipping %s: subject template failed (%v)", r.Email, err)
 			continue
 		}
 
@@ -165,7 +165,7 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 		// Start monitoring server in background
 		go func() {
 			if err := monitorServer.Start(); err != nil && err != http.ErrServerClosed {
-				log.Printf("⚠️ Monitor server failed: %v", err)
+				log.Printf("️ Monitor server failed: %v", err)
 			}
 		}()
 
@@ -178,7 +178,7 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 		}
 		mon.InitializeCampaign(jobID, configSummary, 1)
 
-		fmt.Printf("🖥️  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
+		fmt.Printf("  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
 
 		// Cleanup monitor after completion with context timeout instead of sleep
 		defer func() {
@@ -187,7 +187,7 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 				defer cancel()
 				<-ctx.Done() // Wait for timeout or cancellation
 				if err := monitorServer.Stop(); err != nil {
-					log.Printf("⚠️ Failed to stop monitor server: %v", err)
+					log.Printf("️ Failed to stop monitor server: %v", err)
 				}
 			}()
 		}()
@@ -231,9 +231,9 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 		// Send webhook notification
 		webhookClient := webhook.NewClient()
 		if err := webhookClient.SendNotification(args.WebhookURL, result); err != nil {
-			fmt.Printf("⚠️ Failed to send webhook notification: %v\n", err)
+			fmt.Printf("️ Failed to send webhook notification: %v\n", err)
 		} else {
-			fmt.Printf("🔔 Webhook notification sent to %s\n", args.WebhookURL)
+			fmt.Printf(" Webhook notification sent to %s\n", args.WebhookURL)
 		}
 	}
 
