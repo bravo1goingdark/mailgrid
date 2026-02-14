@@ -138,3 +138,127 @@ func TestBoltDB_LoadJobs(t *testing.T) {
 		}
 	}
 }
+
+func TestBoltDB_AcquireAndReleaseLock(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	db, err := NewDB(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to create BoltDB: %v", err)
+	}
+	defer db.Close()
+
+	jobID := "test-job-lock"
+	instanceID := "instance-1"
+
+	// Acquire lock
+	locked, err := db.AcquireLock(jobID, instanceID)
+	if err != nil {
+		t.Fatalf("Failed to acquire lock: %v", err)
+	}
+	if !locked {
+		t.Error("Expected lock to be acquired")
+	}
+
+	// Try to acquire same lock from different instance
+	locked, err = db.AcquireLock(jobID, "instance-2")
+	if err != nil {
+		t.Fatalf("Failed to acquire lock: %v", err)
+	}
+	if locked {
+		t.Error("Expected lock to not be acquired by different instance")
+	}
+
+	// Release lock
+	err = db.ReleaseLock(jobID, instanceID)
+	if err != nil {
+		t.Fatalf("Failed to release lock: %v", err)
+	}
+
+	// Now lock should be available
+	locked, err = db.AcquireLock(jobID, "instance-2")
+	if err != nil {
+		t.Fatalf("Failed to acquire lock: %v", err)
+	}
+	if !locked {
+		t.Error("Expected lock to be acquired after release")
+	}
+}
+
+func TestBoltDB_LockExpiry(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	db, err := NewDB(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to create BoltDB: %v", err)
+	}
+	defer db.Close()
+
+	jobID := "test-job-expiry"
+	instanceID := "instance-1"
+
+	// Acquire lock
+	locked, err := db.AcquireLock(jobID, instanceID)
+	if err != nil {
+		t.Fatalf("Failed to acquire lock: %v", err)
+	}
+	if !locked {
+		t.Error("Expected lock to be acquired")
+	}
+
+	// Release from wrong instance - should not release
+	err = db.ReleaseLock(jobID, "wrong-instance")
+	if err != nil {
+		t.Fatalf("Failed to release lock: %v", err)
+	}
+
+	// Lock should still be held
+	locked, err = db.AcquireLock(jobID, "another-instance")
+	if err != nil {
+		t.Fatalf("Failed to acquire lock: %v", err)
+	}
+	if locked {
+		t.Error("Expected lock to still be held")
+	}
+}
+
+func TestParseLockInfo(t *testing.T) {
+	tests := []struct {
+		name     string
+		lockData string
+		wantErr  bool
+		wantID   string
+	}{
+		{
+			name:     "valid lock data",
+			lockData: "instance-123:1700000000000000000",
+			wantErr:  false,
+			wantID:   "instance-123",
+		},
+		{
+			name:     "malformed - missing timestamp",
+			lockData: "instance-123",
+			wantErr:  true,
+		},
+		{
+			name:     "malformed - invalid timestamp",
+			lockData: "instance-123:not-a-number",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, _, err := parseLockInfo([]byte(tt.lockData))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseLockInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && id != tt.wantID {
+				t.Errorf("parseLockInfo() got = %v, want %v", id, tt.wantID)
+			}
+		})
+	}
+}
