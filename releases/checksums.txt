@@ -1,6 +1,0 @@
-dc37dba3d2d9ff6ce98c88ae0c1df99490225ef8a6274863e180a099282871ff  mailgrid-windows-amd64.exe.zip
-31d3e287f0b8fc17e87d8fbe17e97f6755eac618715d3a42b59e6445f09f2e4e  mailgrid-windows-arm64.exe.zip
-18d1074f059ad5e0b799cc523e86562e44f8296c42a7108c5a0c465310841f5f  mailgrid-linux-amd64.tar.gz
-82ed83f75c2582c9d8198c6bcbf06416d2df99adfbaa07712242499dc4329aa3  mailgrid-linux-arm64.tar.gz
-50e66a0ea25884f61be5462acece1f8946294b0c394c67be3c1c8eb9f2dac239  mailgrid-macos-apple-silicon.tar.gz
-e0d79e164c90cc2ef8854dbb9aff7b5b4c9045917c9d24154b3da37388424512  mailgrid-macos-intel.tar.gz
