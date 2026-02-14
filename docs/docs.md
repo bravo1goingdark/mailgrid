@@ -1,415 +1,283 @@
-## 🏁 CLI Flags
+# Mailgrid Documentation
 
-Mailgrid now supports high-throughput dispatch and automatic retry handling.  
-Below is the complete, production-ready flag reference with **`--concurrency`** and **`--retries`** added.
+Complete CLI reference for Mailgrid email automation tool.
 
----
+## Table of Contents
 
-### ⚙️ Basic Usage — Production Sends
-
-```bash
-mailgrid \
-  --env cfg/prod.json \
-  --csv contacts.csv \
-  --template welcome.html \
-  --subject "Welcome!" \
-  --concurrency 5 \
-  --retries 3
-```
-
-### 📁 Available Flags
-
-| Flag               | Shorthand | Default Value              | Description                                                                                 |
-|--------------------|-----------|----------------------------|---------------------------------------------------------------------------------------------|
-| `--env`            | —         | `""`                       | Path to the SMTP config JSON file (required for sending).                                   |
-| `--csv`            | —         | `""`                       | Path to the recipient CSV file. Must include headers like `email`, `name`.                  |
-| `--sheet-url`      | —         | `""`                       | Google Sheet CSV URL as an alternative to local `--csv` file.                               |
-| `--template`       | `-t`      | `example/welcome.html`     | Path to the HTML email template with Go-style placeholders.                                 |
-| `--subject`        | `-s`      | `Test Email from Mailgrid` | The subject line of the email. Can be overridden per run.                                   |
-| `--cc`             | —         | `""`                       | Comma-separated list or file (`@file.txt`) of CC email addresses (visible recipients).      |
-| `--bcc`            | —         | `""`                       | Comma-separated list or file (`@file.txt`) of BCC addresses (hidden from recipients).       |
-| `--to`             | -         | `""`                       | The email address of the single recipient. Cannot be used with --csv.                       |
-| `--text`           | -         | `""`                       | Inline plain-text body or path to a .txt file. Cannot be used with --template.              |
-| `--dry-run`        | —         | `false`                    | If set, renders the emails to console without sending them via SMTP.                        |
-| `--preview`        | `-p`      | `false`                    | Start a local server to preview the rendered email in browser.                              |
-| `--port`           | `--port`  | `8080`                     | Port for the preview server when using `--preview` flag.                                    |
-| `--concurrency`    | `-c`      | `1`                        | Number of parallel worker goroutines that send emails concurrently.                         |
-| `--retries`        | `-r`      | `1`                        | Maximum retry attempts per email on transient errors (exponential backoff).                 |
-| `--batch-size`     | —         | `1`                        | Number of emails to send per SMTP connection (helps avoid throttling).                      |
-| `--filter`         | —         | `""`                       | Filter rows using a conditional expression (e.g. `tier = "pro" and age > 25`).              |
-| `--attach`         | -         | `[]`                       | File attachments to include with every email. Repeat flag for multiple files. (MAX = 10MB)  |
-| `--webhook`        | —         | `""`                       | HTTP URL to send POST request with campaign results after completion.                        |
-| `--monitor`        | —         | `false`                    | Enable real-time monitoring dashboard to track email sending progress.                       |
-| `--monitor-port`   | —         | `9091`                     | Port for the real-time monitoring dashboard server.                                          |
-| `--schedule-at`    | `-A`      | `""`                       | Schedule send at an RFC3339 time (e.g. `2025-09-08T09:00:00Z`).                             |
-| `--interval`       | `-i`      | `""`                       | Recurring schedule using Go duration (e.g. `1h`, `30m`).                                    |
-| `--cron`           | `-C`      | `""`                       | Recurring schedule using 5-field cron (minute hour dom month dow).                          |
-| `--job-retries`    | `-J`      | `3`                        | Scheduler-level max attempts on handler failure (separate from SMTP `--retries`).           |
-| `--job-backoff`    | `-B`      | `2s`                       | Base backoff duration for scheduler retries (exponential with jitter, capped at 5m).        |
-| `--jobs-list`      | `-L`      | `false`                    | List scheduled jobs in the scheduler database.                                              |
-| `--jobs-cancel`    | `-X`      | `""`                       | Cancel job by ID.                                                                           |
-| `--scheduler-run`  | `-R`      | `false`                    | Run the scheduler dispatcher in the foreground (press Ctrl+C to stop).                      |
-| `--scheduler-db`   | `-D`      | `mailgrid.db`              | Path to BoltDB for schedules. Default is `mailgrid.db` in current working directory.        |
+- [Configuration](#configuration)
+- [Data Sources](#data-sources)
+- [Email Content](#email-content)
+- [Performance Options](#performance-options)
+- [Scheduling](#scheduling)
+- [Monitoring](#monitoring)
+- [Advanced Features](#advanced-features)
+- [Examples](#examples)
 
 ---
 
-### 📌 Flag Descriptions
+## Configuration
 
-#### `--env`
+### `--env` / `-e`
 
-Path to a required SMTP config file in JSON format:
+Path to SMTP configuration file (required for sending).
 
 ```json
 {
-  "host": "smtp.zoho.com",
-  "port": 587,
-  "username": "you@example.com",
-  "password": "your_smtp_password",
-  "from": "you@example.com"
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "username": "your-email@gmail.com",
+    "password": "your-app-password",
+    "from": "Your Name <your-email@gmail.com>"
+  }
 }
 ```
 
 ---
 
-#### `--csv`
+## Data Sources
 
-Path to the `.csv` file containing recipients.
+### `--csv` / `-f`
 
-- **Required column:** `email` (case-insensitive).
-- Optional columns (e.g. `name`, `company`) can be referenced from the template.
+Path to CSV file with recipients. Required column: `email`.
 
-Each row becomes one email.
-
----
-
----
-
-#### `--sheet-url`
-
-Fetch recipients from a **public Google Sheet** instead of a local CSV.
-
-- **Required column:** `email` (case-insensitive).
-- Optional columns (e.g. `name`, `company`) can be used in the email template.
-- Each row becomes one email.
-- ⚠️ Currently works **only for public Google Sheets** (set to "Anyone with the link can view").
-
-**Example:**
-
-```bash
-mailgrid --env example/config.json \
-  --sheet-url "https://docs.google.com/spreadsheets/d/1EUh5VWlSNtrlEIJ6SjJAQ9kYAcf4XrlsIIwXtYjImKc/edit?gid=1980978683#gid=1980978683" \
-  -t example/welcome.html \
-  -s "Welcome {{.name}}" \
-  -c 5 \
-  --batch-size 5
+```csv
+email,name,company
+john@example.com,John,Acme Corp
+jane@example.com,Jane,Tech Inc
 ```
 
+```bash
+mailgrid --env config.json --csv recipients.csv --template email.html
+```
+
+### `--sheet-url` / `-u`
+
+Fetch recipients from a public Google Sheet.
+
+```bash
+mailgrid --env config.json --sheet-url "https://docs.google.com/spreadsheets/d/abc123/edit?gid=0#gid=0" \
+  --template email.html
+```
+
+> **Note:** Only works with public sheets (Anyone with link can view).
+
 ---
 
-#### `--template` / `-t`
+## Email Content
 
-Path to an HTML (or plain-text) email template rendered with Go’s `text/template`.
+### `--template` / `-t`
 
-**Interpolation**
-
-- Use `{{ .ColumnName }}` to inject values from each CSV row—e.g. `{{ .email }}`, `{{ .name }}`, `{{ .company }}`.
-
-Example:
+HTML email template using Go templates.
 
 ```html
 <p>Hello {{ .name }},</p>
 <p>Welcome to {{ .company }}!</p>
 ```
 
----
+### `--subject` / `-s`
 
-#### `--subject` / `-s`
-
-Define the **subject line** for each outgoing email.
-
-- Accepts **plain text** or Go `text/template` placeholders—e.g. `Welcome, {{ .name }}!`.
-- Overrides the default subject (`Test Email from Mailgrid`) if one isn’t already set.
-- Placeholders are resolved with the same CSV columns available to your template.
-
-Example:
+Subject line with template support.
 
 ```bash
-mailgrid \
-  --subject "Monthly update for {{ .company }}" \
-  --csv contacts.csv \
-  --template newsletter.html
+--subject "Welcome {{ .name }}!"
 ```
----
-#### `--cc`
 
-Define one or more CC (carbon copy) recipients for the outgoing email.
-
-- These addresses will appear in the Cc: header and be visible to all recipients.
-- Accepts a comma-separated string or a file reference using the @ symbol.
-- Useful when you want to transparently include teammates, managers, or collaborators.
-
-Example:
-
-```bash
-mailgrid \
-  --cc "team@example.com,manager@example.com" \
-  --csv contacts.csv \
-  --template newsletter.html
-```
----
-#### `--bcc`
-
-Define one or more BCC (blind carbon copy) recipients for each email.
-
-- These addresses receive the email silently—they don’t appear in the To: or Cc: headers.
-- Accepts a comma-separated string or a file reference with @.
-- Great for logging, supervisors, or invisible monitoring.
-
-Example:
-
-```bash
-mailgrid \
-  --bcc "admin@example.com" \
-  --csv contacts.csv \
-  --template newsletter.html
-```
----
-### `--to`
-
-Used to send an email to a single recipient without a CSV or Google Sheet.
-This flag is mutually exclusive with --csv and --sheet-url.
-
-Example:
-```bash
---to test@example.com
-```
-Useful for sending quick one-off messages without uploading recipient lists.
-
----
 ### `--text`
-Provides a plain-text body for the email, either inline or via a .txt file path.
-This flag is mutually exclusive with --template.
 
-Example:
+Plain text body (inline or file path).
+
 ```bash
-# Inline text
---text "This is a test email body"
+# Inline
+--text "Hello world!"
 
-# OR from a file
+# From file
 --text ./body.txt
 ```
-Ideal for simple messages or debugging without using HTML templates.
 
----
+### `--to`
 
-#### `--dry-run`
-
-If enabled, Mailgrid **renders the emails but does not send them via SMTP**.
-
-- Print the fully rendered output for each recipient to the console.
-- Helpful for **debugging templates**, verifying CSV mapping, and checking final email content before a live sending.
-- Can be combined with `--concurrency` to speed up rendering.
-
-Example:
+Single recipient (mutually exclusive with --csv/--sheet-url).
 
 ```bash
-mailgrid \
-  --csv contacts.csv \
-  --template welcome.html \
-  --subject "Hi {{ .name }}" \
-  --dry-run
+mailgrid --env config.json --to user@example.com --subject "Hello" --text "Hi!"
+```
+
+### `--cc` / `--bcc`
+
+CC/BCC recipients (comma-separated or `@file.txt`).
+
+```bash
+--cc "team@example.com,manager@example.com"
+--bcc ./bcc_list.txt
+```
+
+### `--attach` / `-a`
+
+File attachments (repeat for multiple files, max 10MB total).
+
+```bash
+--attach invoice.pdf --attach terms.pdf
 ```
 
 ---
 
-### 📬 Email Preview Server
+## Performance Options
+
+### `--concurrency` / `-c`
+
+Number of parallel workers (default: 1).
 
 ```bash
-# Preview using default example CSV and HTML template
-mailgrid --preview
-
-# Shorthand flag with defaults
-mailgrid -p
-
-# Provide custom CSV and HTML template
-mailgrid --preview --csv example/test_contacts.csv --template example/welcome.html
-
-# Shorthand with custom port
-mailgrid -p --port 7070 --csv data/contacts.csv --template templates/offer.html
-
-
-
+--concurrency 5    # 5 parallel SMTP connections
 ```
 
-The preview server can be stopped by pressing Ctrl+C in your terminal.
+**Guidelines:**
+- Gmail: 1-2 workers
+- SendGrid/Mailgun: 5-10 workers
+- Amazon SES: 10-20 workers
 
----
+### `--retries` / `-r`
 
-#### `--concurrency` / `-c`
-
-Set the number of parallel SMTP workers to use when sending emails.
-
-- Each worker maintains a **persistent SMTP connection**.
-- Improves speed by sending multiple emails at once.
-- 🛑 **Recommended: Keep ≤ 5** unless you're confident about your SMTP provider's rate limits.
-- 📤 **Outputs:**
-    - `success.csv`: all emails sent successfully
-    - `failed.csv`: emails that failed after all retries
-
-**Example:**
+Retry attempts per failed email (default: 1).
 
 ```bash
-mailgrid \
-  --csv contacts.csv \
-  --template welcome.html \
-  --subject "Hi {{ .name }}" \
-  --concurrency 5
+--retries 3
 ```
 
-or using shorthand:
+Uses exponential backoff with jitter.
+
+### `--batch-size` / `-b`
+
+Emails per SMTP batch (default: 1).
 
 ```bash
-mailgrid \
-  --csv contacts.csv \
-  --template welcome.html \
-  --subject "Hi {{ .name }}" \
-  -c 5
+--batch-size 10
 ```
 
----
+**Best practices:**
+- Consumer inboxes (Gmail, Yahoo): use 1
+- Corporate/warmed IPs: 5-10
+- Test with `--dry-run` first
 
-#### `--retries` / `-r`
+### `--dry-run` / `-d`
 
-Set how many times a failed email will be retried before being marked as a failure.
-
-- Mailgrid performs **1 retry by default**, so each message gets the initial send plus one automatic follow-up attempt. Increase the limit with `--retries <n>` (or `-r <n>`) when you expect transient issues.
-- Set `--retries 0` if you want to disable automatic retries entirely.
-
-- Retries are spaced using **exponential backoff**:
-  Delay = `2^n seconds` between each retry attempt.
-- A small **jitter (random delay)** is added to each retry to avoid **thundering herd** problems when multiple failures
-  occur at once.
-- `total delay = 2^n + rand(0,1)`
-
-#### \* Retries help recover from:
-
-- 🔌 Temporary network drops
-- 🧱 SMTP 4xx soft errors (e.g. greylisting)
-- 🕒 Provider-imposed rate limits or slow responses
-
-### ⚠️ Best Practices
-
-- Use `--retries 2` or `3` for most production scenarios
-- Use alongside `--concurrency` and `--dry-run` for safe testing and debugging-
-- 🚫 Avoid exceeding `3` retries unless you're handling high-stakes or critical messages
-
-Example:
+Render emails without sending.
 
 ```bash
-mailgrid \
-  --csv contacts.csv \
-  --template welcome.html \
-  --subject "Hi {{ .name }}" \
-  --retries 3
+--dry-run
 ```
 
-or using shorthand:
+### `--preview` / `-p`
+
+Start preview server to view rendered emails in browser.
 
 ```bash
-mailgrid \
-  --csv contacts.csv \
-  --template welcome.html \
-  --subject "Hi {{ .name }}" \
-  -r 3
+--preview              # Default port 8080
+--preview --port 9000 # Custom port
 ```
 
 ---
 
-#### `--batch-size`
+## Scheduling
 
-Controls how many emails are grouped and sent together in one flush by each worker.
+Schedule emails for later or recurring delivery. Jobs persist in BoltDB.
 
-A higher batch size reduces SMTP overhead and improves throughput, especially for bulk sends to **enterprise or
-transactional mail providers**.  
-However, it comes with trade-offs depending on the target inbox provider.
-
----
-
-### 🚫 When Not to Use Large Batch Sizes
-
-Avoid large batch sizes when targeting **consumer inboxes** like:
-
-- 📬 Gmail
-- 📬 Yahoo
-- 📬 Outlook/Hotmail
-
-These providers:
-
-- Enforce **aggressive rate limits**
-- Detect batched emails as potential **spam bursts**
-- May delay, throttle, or **block SMTP sessions** that deliver too many messages in one shot
-
-### ⚠️ Best Practices
-
-- For Gmail/Yahoo/Outlook: use `--batch-size 1` <- **default**
-- For trusted corporate domains or warmed-up IPs: `--batch-size 5–10`
-- Always test with `--dry-run` before scaling batch sizes
-
----
-
-### 💡 Tip
-
-Each batch is flushed per worker.  
-So with `--concurrency 4` and `--batch-size 5`, up to **20 emails** can be processed and sent in parallel.
-
----
-
-### `--filter`
-
-- You can filter rows before sending emails using the `--filter` flag.
-- Want advanced filters like `contains`, `!=`, or grouped conditions?
-    - 👉 See [Filter Documentation](filter.md) for full syntax and supported operators.
-- For instance, to only email users who are **Pro tier** and **older than 25**:
+### One-time Scheduling
 
 ```bash
-mailgrid \
-  --env config.json \
-  --csv contacts.csv \
-  --template welcome.html \
-  --subject "Welcome!" \
-  --filter 'tier = "pro" and age > 25' \
-  --concurrency 5
+# Schedule at specific time (RFC3339)
+--schedule-at "2025-01-15T10:00:00Z"
+-A "2025-01-15T10:00:00Z"
 ```
 
----
-#### `--attach`
-
-- Include one or more file attachments with every email you send. Provide the flag multiple times for multiple files, e.g. `--attach brochure.pdf --attach terms.pdf`.
-- Max of 10 MB is allowed collectively.
-
-Example:
+### Recurring Scheduling
 
 ```bash
-mailgrid \
-  --csv contacts.csv \
-  --template invoice.html \
-  --attach invoice.pdf \
-  --attach receipt.pdf
+# Every 30 minutes
+--interval "30m"
+-i "30m"
+
+# Cron expression (daily at 9 AM)
+--cron "0 9 * * *"
+-C "0 9 * * *"
+```
+
+### Job Management
+
+```bash
+--jobs-list              # List all jobs
+-L
+
+--jobs-cancel "job-id"   # Cancel specific job
+-X "job-id"
+
+--scheduler-run          # Run scheduler daemon
+-R
+```
+
+### Scheduler Options
+
+```bash
+--scheduler-db "mailgrid.db"   # Database path (default)
+-D "custom.db"
+
+--job-retries 3                 # Scheduler-level retries (default: 3)
+-J 3
+
+--job-backoff "2s"             # Backoff between retries (default: 2s)
+-B "2s"
 ```
 
 ---
 
-#### `--webhook`
+## Monitoring
 
-Send HTTP POST notifications with campaign results after email completion.
+### `--monitor` / `-m`
 
-- **URL validation**: Only HTTP and HTTPS URLs are accepted
-- **Automatic notifications**: Sent after both bulk and single email campaigns
-- **Rich payload**: Includes metrics like total recipients, success/failure counts, duration, and file paths
-- **Non-blocking**: Webhook delivery runs asynchronously and won't delay email sending
+Enable real-time monitoring dashboard.
 
-The webhook payload structure:
+```bash
+--monitor              # Default port 9091
+-m
 
+--monitor-port 8080    # Custom port
+```
+
+Access at `http://localhost:9091`
+
+### Metrics Endpoint
+
+When scheduler is running:
+
+```bash
+curl http://localhost:8090/metrics   # Performance metrics
+curl http://localhost:8090/health    # Health check
+```
+
+---
+
+## Advanced Features
+
+### `--filter` / `-F`
+
+Filter recipients using expressions. See [Filter Documentation](filter.md) for full syntax.
+
+```bash
+--filter 'tier == "premium" and age > 25'
+-F 'company contains "Tech"'
+```
+
+### `--webhook` / `-w`
+
+Send HTTP POST notification when campaign completes.
+
+```bash
+--webhook "https://your-server.com/webhook"
+-w "https://your-server.com/webhook"
+```
+
+**Payload:**
 ```json
 {
   "job_id": "mailgrid-1633024800",
@@ -417,192 +285,95 @@ The webhook payload structure:
   "total_recipients": 150,
   "successful_deliveries": 148,
   "failed_deliveries": 2,
-  "start_time": "2023-10-01T10:00:00Z",
-  "end_time": "2023-10-01T10:05:30Z",
   "duration_seconds": 330,
-  "concurrent_workers": 5,
-  "csv_file": "subscribers.csv",
-  "template_file": "newsletter.html"
+  "csv_file": "recipients.csv"
 }
 ```
 
-**Examples:**
+### Resumable Delivery
 
 ```bash
-# Webhook with bulk email campaign
+--resume           # Resume from last offset
+--reset-offset    # Clear and start fresh
+```
+
+---
+
+## Examples
+
+### Single Email
+
+```bash
+mailgrid --env config.json --to user@example.com --subject "Hello" --text "Hi!"
+```
+
+### Bulk Email
+
+```bash
+mailgrid --env config.json \
+  --csv recipients.csv \
+  --template email.html \
+  --subject "Hi {{.name}}!" \
+  --concurrency 5 \
+  --retries 3
+```
+
+### With Monitoring
+
+```bash
+mailgrid --env config.json \
+  --csv recipients.csv \
+  --template email.html \
+  --monitor \
+  --concurrency 10
+```
+
+### Scheduled Newsletter
+
+```bash
 mailgrid --env config.json \
   --csv subscribers.csv \
   --template newsletter.html \
-  --subject "Newsletter {{.name}}" \
-  --webhook "https://api.example.com/webhooks/mailgrid"
+  --cron "0 9 * * 1" \
+  --concurrency 5
+```
 
-# Webhook with single email
+### Filtered Campaign
+
+```bash
 mailgrid --env config.json \
-  --to "user@example.com" \
-  --subject "Welcome" \
-  --text "Thanks for signing up!" \
-  --webhook "https://api.example.com/webhooks/mailgrid"
+  --csv recipients.csv \
+  --template email.html \
+  --filter 'tier == "premium" && location != "EU"'
 ```
 
 ---
 
-#### `--monitor` & `--monitor-port`
+## Quick Reference
 
-Enable real-time monitoring dashboard to track email sending progress with live metrics and recipient status.
-
-**Key Features:**
-
-- **Live Campaign Stats**: Total recipients, sent/failed counts, throughput (emails/sec), estimated time remaining
-- **Real-time Recipient Tracking**: Individual email status, retry attempts, duration, error messages
-- **SMTP Response Monitoring**: Track response codes (250, 421, 550, etc.) for debugging
-- **Domain Analytics**: Breakdown by email provider (Gmail, Outlook, etc.)
-- **Live Log Stream**: Real-time activity feed of send events
-- **Progress Visualization**: Progress bars and status indicators
-
-**Dashboard Interface:**
-
-The monitoring dashboard provides a modern, responsive web interface accessible at `http://localhost:<port>` (default port 9091). The dashboard includes:
-
-- **Campaign Overview**: Job ID, start time, configuration summary
-- **Statistics Grid**: Key metrics with progress visualization
-- **Recipients Table**: Live status updates for up to 20 recent recipients
-- **Activity Logs**: Rolling log of the latest send events
-
-**Examples:**
-
-```bash
-# Enable monitoring with default port (9091)
-mailgrid --env config.json \
-  --csv subscribers.csv \
-  --template newsletter.html \
-  --subject "Newsletter {{.name}}" \
-  --monitor
-
-# Use custom port for monitoring dashboard
-mailgrid --env config.json \
-  --to "user@example.com" \
-  --subject "Test Email" \
-  --text "Hello world!" \
-  --monitor --monitor-port 8080
-
-# Monitor high-throughput campaign
-mailgrid --env config.json \
-  --csv large_list.csv \
-  --template campaign.html \
-  --subject "Special Offer" \
-  --concurrency 10 \
-  --monitor --monitor-port 9092
-```
-
-**Notes:**
-- Dashboard automatically starts when `--monitor` is enabled
-- Server stops automatically 5 seconds after email sending completes
-- Works with both bulk campaigns and single email sending
-- Real-time updates via Server-Sent Events (no page refresh needed)
-- Compatible with all other CLI flags and features
-
----
-
-### 🧪 Example
-
-```bash
-mailgrid \
-  --csv contacts.csv \
-  --template invite.html \
-  --subject "You're Invited!" \
-  --batch-size 1 \
-  --concurrency 4 \
-  --retries 3 \
-  --batch-size 5 \
-  --filter 'name = ashutosh && email contains @gmail.com' \
-  --attach brochure.pdf
-```
-
----
-
-## ⏱️ Scheduling and Job Management
-
-You can schedule one-off or recurring sends. Schedules are persisted in a local BoltDB file (default: `mailgrid.db` in your current working directory). Use listing/cancel commands to manage jobs, and optionally run the dispatcher in the foreground.
-
-Short forms: -A (schedule-at), -i (interval), -C (cron), -J (job-retries), -B (job-backoff), -L (jobs-list), -X (jobs-cancel), -R (scheduler-run), -D (scheduler-db)
-
-### Short-form examples
-
-- One-off at specific time:
-```bash
-mailgrid -A 2025-09-08T09:00:00Z --env example/config.json --csv example/test_contacts.csv -t example/welcome.html -s "Welcome {{.name}}"
-```
-- Every 2 minutes:
-```bash
-mailgrid -i 2m --env example/config.json --csv example/test_contacts.csv -t example/welcome.html -s "Welcome {{.name}}"
-```
-- Cron daily 09:00:
-```bash
-mailgrid -C "0 9 * * *" --env example/config.json --csv example/test_contacts.csv -t example/welcome.html -s "Morning {{.name}}"
-```
-- List / cancel / run scheduler / custom DB:
-```bash
-mailgrid -L
-mailgrid -X <job_id>
-mailgrid -R -D mailgrid.db
-```
-
-- One-off scheduled CSV send (RFC3339 time):
-
-```bash
-mailgrid \
-  --env example/config.json \
-  --csv example/test_contacts.csv \
-  --template example/welcome.html \
-  --subject "Welcome {{.name}}" \
-  --schedule-at 2025-09-08T09:00:00Z
-```
-
-- Recurring by interval:
-
-```bash
-mailgrid \
-  --env example/config.json \
-  --csv example/test_contacts.csv \
-  --template example/welcome.html \
-  --subject "Welcome {{.name}}" \
-  --interval 1h
-```
-
-- Recurring by cron (every day at 09:00):
-
-```bash
-mailgrid \
-  --env example/config.json \
-  --csv example/test_contacts.csv \
-  --template example/welcome.html \
-  --subject "Welcome {{.name}}" \
-  --cron "0 9 * * *"
-```
-
-- Scheduler database path (optional):
-
-```bash
-# Uses mailgrid.db by default; override when needed
---scheduler-db custom-schedules.db
-```
-
-- Scheduler-level retry/backoff (separate from SMTP `--retries`):
-
-```bash
---job-retries 3 --job-backoff 2s
-```
-
-- List and cancel jobs:
-
-```bash
-mailgrid --jobs-list
-mailgrid --jobs-cancel <job_id>
-```
-
-- Run scheduler dispatcher in the foreground (reattaches handlers and processes due jobs):
-
-```bash
-mailgrid --scheduler-run
-# Press Ctrl+C to stop
-```
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--env` | `-e` | - | SMTP config file |
+| `--csv` | `-f` | - | CSV file path |
+| `--sheet-url` | `-u` | - | Google Sheet URL |
+| `--template` | `-t` | - | HTML template |
+| `--subject` | `-s` | "Test Email" | Subject line |
+| `--to` | - | - | Single recipient |
+| `--text` | - | - | Plain text body |
+| `--cc` | - | - | CC recipients |
+| `--bcc` | - | - | BCC recipients |
+| `--attach` | `-a` | [] | Attachments |
+| `--dry-run` | `-d` | false | Preview only |
+| `--preview` | `-p` | false | Preview server |
+| `--concurrency` | `-c` | 1 | Workers |
+| `--retries` | `-r` | 1 | Email retries |
+| `--batch-size` | `-b` | 1 | Batch size |
+| `--filter` | `-F` | - | Recipient filter |
+| `--webhook` | `-w` | - | Webhook URL |
+| `--monitor` | `-m` | false | Dashboard |
+| `--schedule-at` | `-A` | - | One-time schedule |
+| `--interval` | `-i` | - | Repeat interval |
+| `--cron` | `-C` | - | Cron schedule |
+| `--jobs-list` | `-L` | false | List jobs |
+| `--jobs-cancel` | `-X` | - | Cancel job |
+| `--scheduler-run` | `-R` | false | Run daemon |

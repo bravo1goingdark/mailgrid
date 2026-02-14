@@ -1,226 +1,146 @@
-# 📤 `--filter` Flag – Advanced Recipient Filtering
+# Filter Documentation
 
-Mailgrid supports advanced recipient filtering using logical expressions — enabling you to **target the right audience
-directly from your CSV or Sheet**, without any preprocessing.
+Filter recipients using logical expressions to target specific audiences.
 
-This feature uses a **mini expression engine** similar to SQL or logical formulas.
-
----
-
-## ✅ Basic Usage
-
-Use the `--filter` flag to apply a logical expression: \
-All are case-insensitive
+## Basic Usage
 
 ```bash
-mailgrid \
-  --csv contacts.csv \
-  --env config.json \
-  --template welcome.html \
-  --subject "Hi {{ .name }}" \
-  --concurrency 5 \
-  --batch-size 5
-  --filter 'tier = "pro" and subscribed = "true"'
+mailgrid --csv recipients.csv --template email.html --filter 'tier == "premium"'
 ```
 
----
+All comparisons are **case-insensitive**.
 
-## 🔧 Supported Filter Operators in Mailgrid
+## Operators
 
-| Operator     | Description                       | Example                                         |
-|--------------|-----------------------------------|-------------------------------------------------|
-| `=` / `==`   | Field equals value                | `company = "Gadgetry"`                          |
-| `!=`         | Field not equal to value          | `tier != "basic"`                               |
-| `contains`   | Field contains substring          | `name contains "ash"`                           |
-| `startswith` | Field starts with substring       | `email startswith "kumar"`                      |
-| `endswith`   | Field ends with substring         | `email endswith "@gmail.com"`                   |
-| `>` / `>=`   | Greater than (numeric comparison) | `score > 80`                                    |
-| `<` / `<=`   | Less than (numeric comparison)    | `age <= 30`                                     |
-| `..`         | Empty value                       | `company = ..`                                  |
-| `not`        | Negation of a condition           | `not email endswith "@example.com"`             |
-| `and`, `or`  | Logical AND / OR combinations     | `tier = "pro" and age > 25`                     |
-| `()`         | Group expressions for precedence  | `(score > 50 and tier = "pro") or company = ..` |
+### Comparison Operators
 
----
+| Operator | Alias | Description | Example |
+|----------|-------|-------------|---------|
+| `==` | `=` | Equals | `tier == "premium"` |
+| `!=` | | Not equals | `status != "inactive"` |
+| `contains` | | Contains substring | `email contains "@gmail"` |
+| `startsWith` | `startswith` | Starts with | `name startsWith "Dr."` |
+| `endsWith` | `endswith` | Ends with | `email endsWith "@corp.com"` |
+| `>` | | Greater than | `score > 80` |
+| `>=` | | Greater or equal | `age >= 18` |
+| `<` | | Less than | `visits < 10` |
+| `<=` | | Less or equal | `balance <= 0` |
 
-## 🔁 Logical Operators
+### Logical Operators
 
-| Operator | Alias                     | Description                             |
-|----------|---------------------------|-----------------------------------------|
-| `and`    | `&&`                      | Both conditions must be true            |
-| `or`     | <code>&#124;&#124;</code> | At least one condition must be true     |
-| `not`    | `!`                       | Inverts the result of the condition     |
-| `()`     | —                         | Groups conditions to control precedence |
+| Operator | Alias | Description |
+|----------|-------|-------------|
+| `and` | `&&` | Both conditions must be true |
+| `or` | `\|\|` | At least one must be true |
+| `not` | `!` | Inverts the condition |
+| `()` | | Groups conditions |
 
----
+### Special Values
 
-### ✅ `and` / `&&` — Logical AND
+| Value | Description |
+|--------|-------------|
+| `..` | Empty/null value |
+| `!..` | Non-empty value |
 
-Use this to match only when **both conditions are true**.
+## Examples
 
-#### Example:
+### Simple Filters
 
 ```bash
---filter 'company != mailgrid and email endswith "@gmail.com"'
+# Premium users only
+--filter 'tier == "premium"'
+
+# Exclude inactive users
+--filter 'status != "inactive"'
+
+# Gmail users
+--filter 'email contains "@gmail.com"'
+
+# Specific domain
+--filter 'email endsWith "@company.com"'
 ```
 
----
-
-### 🔁 `or` / `||` — Logical OR
-
-Use this to match when **at least one condition is true**.
-
-#### Example:
+### Combined Conditions
 
 ```bash
---filter 'tier = "vip" or tier = "premium"'
+# AND - both must match
+--filter 'tier == "premium" and age > 25'
+
+# OR - at least one matches
+--filter 'tier == "vip" or tier == "premium"'
+
+# NOT - exclude matches
+--filter 'not email contains "@test.com"'
 ```
 
---- 
-
-### 🚫 `not` / `!` — Logical NOT
-
-Use this to **invert** a condition — it matches when the condition is **false**.
-
-#### Example:
+### Grouped Expressions
 
 ```bash
---filter 'not email endswith "@example.com"'
+# Complex logic with parentheses
+--filter '(tier == "vip" or tier == "premium") and location == "US"'
+
+# Multiple AND/OR
+--filter '(country == "US" or country == "CA") and age >= 18 and subscribed == true'
 ```
 
-### 🧠 `()` — Grouped Expressions
-
-Use parentheses to **group conditions** and control the **order of evaluation**.
-
-#### Example:
+### Numeric Comparisons
 
 ```bash
---filter '(tier = "vip" or tier = "premium") and location = "India"'
+# Age filter
+--filter 'age >= 18'
 
-```
-
----
-
-## 🧮 Comparison Operators
-
-| Operator     | Alias | Description                                        | Example                         |
-|--------------|-------|----------------------------------------------------|---------------------------------|
-| `=`          | `==`  | Checks if the field **exactly equals** a value     | `name = "Aakash"`               |
-| `!=`         | —     | Checks if the field **does not equal** a value     | `company != "Google"`           |
-| `contains`   | —     | Case-insensitive match if field **contains** value | `email contains "gmail"`        |
-| `startswith` | —     | Checks if field **starts with** a value            | `name startswith "Aa"`          |
-| `endswith`   | —     | Checks if field **ends with** a value              | `email endswith "@example.com"` |
-| `>`          | —     | Checks if field is **greater than** value          | `score > 80`                    |
-| `<`          | —     | Checks if field is **less than** value             | `age < 60`                      |
-| `>=`         | —     | Checks if field is **greater than or equal**       | `salary >= 50000`               |
-| `<=`         | —     | Checks if field is **less than or equal**          | `visits <= 10`                  |
-| `!= ..`      | —     | Checks if field is **non-empty**                   | `company != ..`                 |
-
----
-
-### 🎯 `=` / `==` — Equals
-
-Use this to match when a field **exactly equals** the given value (case-insensitive).
-
-#### Example:
-
-```bash
---filter 'name = Aakash'
-```
-
----
-
-### ❌ `!=` — Not Equals
-
-Use this to match when a field **does not equal** the given value (case-insensitive).
-
-#### Example:
-
-```bash
---filter 'company != Google'
-
-```
----
-### 🔍 `contains` — Substring Match
-
-Use this to match when a field **contains** the given substring (case-insensitive).
-
-#### Example:
-
-```bash
---filter 'email contains gmail.com'
-```
-
----
-
-### 🔼 `startswith` — Prefix Match
-
-Use this to match when a field **starts with** the given value (case-insensitive).
-
-#### Example:
-
-```bash
---filter 'name startswith "Dr."'
-```
----
-### 🔽 `endswith` — Suffix Match
-
-Use this to match when a field **ends with** the given value (case-insensitive).
-
-#### Example:
-
-```bash
---filter 'email endswith "@example.com"'
-```
-
----
-
-### 🔼 `>` / `>=` — Greater Than / Greater Than or Equal
-
-Use these to match when a field is **numerically greater** than (or equal to) a given value.
-
-#### Examples:
-
-```bash
+# Score threshold
 --filter 'score > 80'
-```
-or
 
-```bash
---filter 'salary >= 50000'
+# Balance check
+--filter 'balance > 0'
 ```
 
----
-### 🔽 `<` / `<=` — Less Than / Less Than or Equal
-
-Use these to match when a field is **numerically less** than (or equal to) a given value.
-
-#### Examples:
-```bash
---filter 'age < 60'
-```
-
-or
+### Empty Value Checks
 
 ```bash
---filter 'visits <= 10'
-
-```
----
-### 📭 `!= ..` — Non-Empty Field
-
-Use this to match rows where a field is **not empty** or missing.
-
-#### Example:
-```bash
+# Has company field
 --filter 'company != ..'
+
+# No company field
+--filter 'company == ..'
 ```
 
----
+## Real-World Examples
 
-> 📝 **Note:** Comparison support for **dates and timestamps** (e.g., `created_at > "2024-01-01"` or `sent_at <= "2025-07-27T15:00:00"`) is **not yet implemented**.
->
-> This feature is planned for a future release of Mailgrid and will allow filtering using:
-> - Standard date formats (`YYYY-MM-DD`)
-> - Timestamps with time (`YYYY-MM-DDTHH:MM:SS`)
-> - Operators like `>`, `<`, `>=`, `<=` for temporal filtering
+### E-commerce
+
+```bash
+# Recent purchasers in US
+--filter 'purchase_count > 0 and country == "US"'
+
+# High-value customers
+--filter 'total_spent >= 1000 and status == "active"'
+```
+
+### SaaS
+
+```bash
+# Trial users about to expire
+--filter 'plan == "trial" and days_left <= 3'
+
+# Enterprise accounts
+--filter 'company_size > 100 and tier == "enterprise"'
+```
+
+### Newsletter
+
+```bash
+# Subscribed users excluding unsubscribed
+--filter 'subscribed == true and not email contains "@test.com"'
+
+# Premium newsletter subscribers
+--filter 'newsletter == "premium" or tier == "vip"'
+```
+
+## Tips
+
+- Use `--dry-run` with `--filter` to test your filter before sending
+- Filters are evaluated case-insensitively
+- Group complex expressions with parentheses for clarity
+- Combine with `--concurrency` for faster processing of filtered lists
