@@ -162,3 +162,69 @@ func TestParse_InvalidExpressions(t *testing.T) {
 		}
 	}
 }
+
+func TestExpression_OperatorStyle(t *testing.T) {
+	data := map[string]string{
+		"email":  "test@example.com",
+		"name":   "John Doe",
+		"status": "active",
+	}
+
+	tests := []struct {
+		name     string
+		expr     string
+		expected bool
+	}{
+		{
+			name:     "operator style contains",
+			expr:     `email contains "example"`,
+			expected: true,
+		},
+		{
+			name:     "operator style startsWith",
+			expr:     `name startsWith "John"`,
+			expected: true,
+		},
+		{
+			name:     "operator style endsWith",
+			expr:     `email endsWith "com"`,
+			expected: true,
+		},
+		{
+			name:     "operator style equals",
+			expr:     `status == "active"`,
+			expected: true,
+		},
+		{
+			name:     "operator style not equals",
+			expr:     `status != "inactive"`,
+			expected: true,
+		},
+		{
+			name:     "case insensitive value",
+			expr:     `status == "ACTIVE"`,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := expression.Parse(tt.expr)
+			if err != nil {
+				t.Fatalf("failed to parse expression %q: %v", tt.expr, err)
+			}
+
+			result := expr.Evaluate(data)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v for expression %q", tt.expected, result, tt.expr)
+			}
+		})
+	}
+}
+
+func TestMustParse(t *testing.T) {
+	expr := expression.MustParse(`name == "test"`)
+	if !expr.Evaluate(map[string]string{"name": "test"}) {
+		t.Error("MustParse should not panic for valid expression")
+	}
+}
