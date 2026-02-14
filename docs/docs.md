@@ -219,14 +219,8 @@ Schedule emails for later or recurring delivery. Jobs persist in BoltDB.
 ### Scheduler Options
 
 ```bash
---scheduler-db "mailgrid.db"   # Database path (default)
--D "custom.db"
-
 --job-retries 3                 # Scheduler-level retries (default: 3)
 -J 3
-
---job-backoff "2s"             # Backoff between retries (default: 2s)
--B "2s"
 ```
 
 ---

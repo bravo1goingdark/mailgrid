@@ -3,7 +3,6 @@ package cli
 import "github.com/spf13/pflag"
 
 // CLIArgs holds all configurable options passed via the command line.
-// This struct is used throughout the Mailgrid CLI flow.
 type CLIArgs struct {
 	EnvPath      string   // Path to an SMTP config JSON file
 	CSVPath      string   // Path to recipient CSV file
@@ -24,37 +23,29 @@ type CLIArgs struct {
 	Text         string   // Inline plain-text body or path to a text file
 	WebhookURL   string   // HTTP URL to send completion notification
 
-	// Monitoring options
+	// Monitoring
 	Monitor     bool // Enable real-time monitoring dashboard
-	MonitorPort int  // Port for monitoring dashboard
-	MetricsPort int  // Port for metrics server
+	MonitorPort int  // Port for monitoring dashboard (includes metrics)
 
-	// Scheduling options (if any of these are set, we schedule instead of immediate sending)
+	// Scheduling
 	ScheduleAt string // RFC3339 timestamp
 	Interval   string // Go duration, e.g. "1h", "30m"
 	Cron       string // Cron expression (5-field)
-
-	// Scheduler job-level retry/backoff (separate it from SMTP retries)
-	JobRetries int
-	JobBackoff string // duration
+	JobRetries int    // Scheduler retry attempts
 
 	// Job management
-	ListJobs     bool
-	CancelJobID  string
-	SchedulerRun bool // Run dispatcher in foreground
+	ListJobs     bool   // List scheduled jobs
+	CancelJobID  string // Cancel job by ID
+	SchedulerRun bool   // Run dispatcher in foreground
 
-	SchedulerDB string // Path to BoltDB file for persisted schedules
-
-	// Version flag
+	// Version
 	ShowVersion bool // Show version information and exit
 
-	// Offset tracking for resumable delivery
-	Resume      bool   // Resume from last saved offset
-	ResetOffset bool   // Clear offset file and start from beginning
-	OffsetFile  string // Custom path to offset file
+	// Offset tracking
+	Resume      bool // Resume from last saved offset
+	ResetOffset bool // Clear offset file and start from beginning
 }
 
-// ParseFlags reads command-line flags using spf13/pflag and returns a filled CLIArgs struct.
 func ParseFlags() CLIArgs {
 	var args CLIArgs
 
@@ -77,29 +68,21 @@ func ParseFlags() CLIArgs {
 	pflag.StringVar(&args.Text, "text", "", "Inline plain-text body or path to a .txt file (mutually exclusive with --template)")
 	pflag.StringVarP(&args.WebhookURL, "webhook", "w", "", "HTTP URL to send POST request with campaign results")
 
-	// Monitoring flags
 	pflag.BoolVarP(&args.Monitor, "monitor", "m", false, "Enable real-time monitoring dashboard")
-	pflag.IntVar(&args.MonitorPort, "monitor-port", 9091, "Port for monitoring dashboard")
-	pflag.IntVar(&args.MetricsPort, "metrics-port", 0, "Port for metrics server (0=auto, disables if conflict)")
+	pflag.IntVar(&args.MonitorPort, "monitor-port", 9091, "Port for monitoring dashboard and metrics")
 
-	// Scheduling flags (single-letter shorthands)
 	pflag.StringVarP(&args.ScheduleAt, "schedule-at", "A", "", "Schedule time in RFC3339 (e.g., 2025-09-08T09:00:00Z)")
 	pflag.StringVarP(&args.Interval, "interval", "i", "", "Repeat interval as Go duration (e.g., 1h, 30m)")
 	pflag.StringVarP(&args.Cron, "cron", "C", "", "Cron expression (5-field) for recurring schedules")
 	pflag.IntVarP(&args.JobRetries, "job-retries", "J", 3, "Scheduler-level retry attempts on handler failure")
-	pflag.StringVarP(&args.JobBackoff, "job-backoff", "B", "2s", "Base backoff for scheduler retries (Go duration)")
 	pflag.BoolVarP(&args.ListJobs, "jobs-list", "L", false, "List scheduled jobs")
 	pflag.StringVarP(&args.CancelJobID, "jobs-cancel", "X", "", "Cancel job by ID")
 	pflag.BoolVarP(&args.SchedulerRun, "scheduler-run", "R", false, "Run the scheduler dispatcher in the foreground")
-	pflag.StringVarP(&args.SchedulerDB, "scheduler-db", "D", "mailgrid.db", "Path to BoltDB file for schedules")
 
-	// Version flag
 	pflag.BoolVar(&args.ShowVersion, "version", false, "Show version information and exit")
 
-	// Offset tracking flags
 	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from last saved offset")
 	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Clear offset file and start from beginning")
-	pflag.StringVar(&args.OffsetFile, "offset-file", ".mailgrid.offset", "Custom path to offset file")
 
 	pflag.Parse()
 

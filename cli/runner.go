@@ -42,11 +42,8 @@ func Run(args CLIArgs) error {
 
 		// Configure optimized scheduler manager
 		config := scheduler.DefaultOptimizedConfig()
-		if args.MetricsPort != 0 {
-			config.MetricsPort = args.MetricsPort
-		}
 		managerConfig := scheduler.ManagerConfig{
-			DBPath:          args.SchedulerDB,
+			DBPath:          "mailgrid.db",
 			SMTPConfig:      smtpConfig.SMTP,
 			OptimizedConfig: config,
 			ShutdownDelay:   5 * time.Minute,
@@ -113,25 +110,24 @@ func Run(args CLIArgs) error {
 
 		// Create job payload
 		payload := types.CLIArgs{
-			EnvPath:       args.EnvPath,
-			To:            args.To,
-			Subject:       args.Subject,
-			Text:          args.Text,
-			Template:      args.TemplatePath,
-			CSVPath:       args.CSVPath,
-			SheetURL:      args.SheetURL,
-			Attachments:   args.Attachments,
-			Cc:            args.Cc,
-			Bcc:           args.Bcc,
-			Concurrency:   args.Concurrency,
-			RetryLimit:    args.RetryLimit,
-			BatchSize:     args.BatchSize,
-			Filter:        args.Filter,
-			ScheduleAt:    args.ScheduleAt,
-			Interval:      args.Interval,
-			Cron:          args.Cron,
-			JobRetries:    args.JobRetries,
-			JobBackoffDur: args.JobBackoff,
+			EnvPath:     args.EnvPath,
+			To:          args.To,
+			Subject:     args.Subject,
+			Text:        args.Text,
+			Template:    args.TemplatePath,
+			CSVPath:     args.CSVPath,
+			SheetURL:    args.SheetURL,
+			Attachments: args.Attachments,
+			Cc:          args.Cc,
+			Bcc:         args.Bcc,
+			Concurrency: args.Concurrency,
+			RetryLimit:  args.RetryLimit,
+			BatchSize:   args.BatchSize,
+			Filter:      args.Filter,
+			ScheduleAt:  args.ScheduleAt,
+			Interval:    args.Interval,
+			Cron:        args.Cron,
+			JobRetries:  args.JobRetries,
 		}
 
 		// Schedule the job (this will auto-start the scheduler)
@@ -151,7 +147,7 @@ func Run(args CLIArgs) error {
 		}
 
 		fmt.Printf("📅 Job scheduled successfully%s\n", scheduleInfo)
-		fmt.Printf("🗄️  Database: %s\n", args.SchedulerDB)
+		fmt.Printf("🗄️  Database: mailgrid.db\n")
 		fmt.Printf(" Metrics: http://localhost:8090/metrics\n")
 		fmt.Printf(" The scheduler will start automatically and run in the background\n")
 
@@ -283,7 +279,7 @@ func Run(args CLIArgs) error {
 
 	// Handle offset tracking (only for bulk operations, not single emails)
 	if len(tasks) > 1 {
-		tracker = offset.NewTracker(args.OffsetFile)
+		tracker = offset.NewTracker(".mailgrid.offset")
 
 		// Handle reset-offset flag
 		if args.ResetOffset {

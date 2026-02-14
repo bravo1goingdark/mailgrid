@@ -36,11 +36,8 @@ func TestParseFlags(t *testing.T) {
 				RetryLimit:   1,
 				BatchSize:    1,
 				JobRetries:   3,
-				JobBackoff:   "2s",
-				SchedulerDB:  "mailgrid.db",
-				MonitorPort:  9091,               // Default monitor port
-				Attachments:  []string{},         // Default empty slice, not nil
-				OffsetFile:   ".mailgrid.offset", // Default offset file
+				MonitorPort:  9091,
+				Attachments:  []string{},
 			},
 		},
 		{
@@ -50,23 +47,19 @@ func TestParseFlags(t *testing.T) {
 				"--interval", "1h",
 				"--cron", "0 9 * * 1",
 				"--job-retries", "5",
-				"--job-backoff", "5s",
 			},
 			expected: cli.CLIArgs{
-				Subject:     "Test Email from Mailgrid", // Default value
-				Concurrency: 1,                          // Default value
+				Subject:     "Test Email from Mailgrid",
+				Concurrency: 1,
 				ScheduleAt:  "2025-12-01T10:00:00Z",
 				Interval:    "1h",
 				Cron:        "0 9 * * 1",
 				JobRetries:  5,
-				JobBackoff:  "5s",
 				RetryLimit:  1,
 				BatchSize:   1,
 				PreviewPort: 8080,
-				SchedulerDB: "mailgrid.db",
-				MonitorPort: 9091,               // Default monitor port
-				Attachments: []string{},         // Default empty slice, not nil
-				OffsetFile:  ".mailgrid.offset", // Default offset file
+				MonitorPort: 9091,
+				Attachments: []string{},
 			},
 		},
 		{
@@ -78,8 +71,8 @@ func TestParseFlags(t *testing.T) {
 				"--scheduler-run",
 			},
 			expected: cli.CLIArgs{
-				Subject:      "Test Email from Mailgrid", // Default value
-				Concurrency:  1,                          // Default value
+				Subject:      "Test Email from Mailgrid",
+				Concurrency:  1,
 				DryRun:       true,
 				ShowPreview:  true,
 				ListJobs:     true,
@@ -88,11 +81,8 @@ func TestParseFlags(t *testing.T) {
 				BatchSize:    1,
 				PreviewPort:  8080,
 				JobRetries:   3,
-				JobBackoff:   "2s",
-				SchedulerDB:  "mailgrid.db",
-				MonitorPort:  9091,               // Default monitor port
-				Attachments:  []string{},         // Default empty slice, not nil
-				OffsetFile:   ".mailgrid.offset", // Default offset file
+				MonitorPort:  9091,
+				Attachments:  []string{},
 			},
 		},
 		{
@@ -106,8 +96,8 @@ func TestParseFlags(t *testing.T) {
 				"--text", "Hello world",
 			},
 			expected: cli.CLIArgs{
-				Subject:     "Test Email from Mailgrid", // Default value
-				Concurrency: 1,                          // Default value
+				Subject:     "Test Email from Mailgrid",
+				Concurrency: 1,
 				Attachments: []string{"file1.pdf", "file2.jpg"},
 				Cc:          "cc@example.com",
 				Bcc:         "bcc@example.com",
@@ -117,20 +107,15 @@ func TestParseFlags(t *testing.T) {
 				BatchSize:   1,
 				PreviewPort: 8080,
 				JobRetries:  3,
-				JobBackoff:  "2s",
-				SchedulerDB: "mailgrid.db",
-				MonitorPort: 9091,               // Default monitor port
-				OffsetFile:  ".mailgrid.offset", // Default offset file
+				MonitorPort: 9091,
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset pflag state
 			pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
 
-			// Set test args
 			oldArgs := os.Args
 			os.Args = append([]string{"mailgrid"}, tt.args...)
 			defer func() { os.Args = oldArgs }()
@@ -142,17 +127,14 @@ func TestParseFlags(t *testing.T) {
 }
 
 func TestCLIArgs_DefaultValues(t *testing.T) {
-	// Reset pflag state
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
 
-	// Test with no arguments
 	oldArgs := os.Args
 	os.Args = []string{"mailgrid"}
 	defer func() { os.Args = oldArgs }()
 
 	result := cli.ParseFlags()
 
-	// Test default values
 	assert.Equal(t, "", result.EnvPath)
 	assert.Equal(t, "", result.CSVPath)
 	assert.Equal(t, "", result.TemplatePath)
@@ -164,14 +146,11 @@ func TestCLIArgs_DefaultValues(t *testing.T) {
 	assert.Equal(t, 1, result.RetryLimit)
 	assert.Equal(t, 1, result.BatchSize)
 	assert.Equal(t, 3, result.JobRetries)
-	assert.Equal(t, "2s", result.JobBackoff)
-	assert.Equal(t, "mailgrid.db", result.SchedulerDB)
 	assert.Equal(t, false, result.Monitor)
 	assert.Equal(t, 9091, result.MonitorPort)
 }
 
 func TestCLIArgs_ShortFlags(t *testing.T) {
-	// Reset pflag state
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
 
 	oldArgs := os.Args
@@ -179,9 +158,9 @@ func TestCLIArgs_ShortFlags(t *testing.T) {
 		"mailgrid",
 		"-t", "template.html",
 		"-s", "Test Subject",
-		"-p",      // preview
-		"-c", "3", // concurrency
-		"-r", "2", // retries
+		"-p",
+		"-c", "3",
+		"-r", "2",
 	}
 	defer func() { os.Args = oldArgs }()
 

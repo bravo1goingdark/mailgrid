@@ -17,87 +17,98 @@
   </a>
 </p>
 
-**Mailgrid** is a high-performance, lightweight CLI tool written in Go for sending bulk emails via SMTP from CSV or Google Sheets. Built for speed, reliability, and minimalism — no bloated web UIs, just powerful automation.
+**Mailgrid** is a high-performance CLI tool written in Go for sending bulk emails via SMTP. Send to CSV, Google Sheets, or single recipients — with templating, scheduling, monitoring, and more.
 
 ---
 
 ## Table of Contents
 
-- [Key Features](#key-features)
+- [Features](#features)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Usage Examples](#usage-examples)
+- [Examples](#examples)
   - [Single Email](#single-email)
-  - [Bulk Emails from CSV](#bulk-emails-from-csv)
-  - [With Monitoring](#with-monitoring)
-  - [Preview Before Sending](#preview-before-sending)
-  - [Resumable Delivery](#resumable-delivery)
+  - [Bulk from CSV](#bulk-from-csv)
+  - [From Google Sheets](#from-google-sheets)
+  - [With CC/BCC](#with-ccbcc)
+  - [Preview Mode](#preview-mode)
+  - [Dry Run](#dry-run)
+  - [Monitoring Dashboard](#monitoring-dashboard)
+- [Performance](#performance)
+  - [Concurrency](#concurrency)
+  - [Retries](#retries)
+  - [Batch Size](#batch-size)
 - [Scheduling](#scheduling)
-  - [Schedule for Later](#schedule-for-later)
-  - [Recurring Emails](#recurring-emails)
+  - [One-time](#one-time-scheduling)
+  - [Recurring](#recurring-scheduling)
   - [Job Management](#job-management)
 - [Advanced Features](#advanced-features)
-  - [Filtering Recipients](#filtering-recipients)
+  - [Filtering](#filtering)
   - [Attachments](#attachments)
   - [Webhooks](#webhooks)
-- [CLI Flags Reference](#cli-flags-reference)
+  - [Resumable Delivery](#resumable-delivery)
+- [CLI Reference](#cli-reference)
 - [Documentation](#documentation)
-- [Contributing](#contributing)
-- [License](#license)
 
 ---
 
-## Key Features
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| **Bulk Email Sending** | Send emails to thousands of recipients from CSV or Google Sheets |
-| **Dynamic Templating** | Personalize content using Go's `text/template` with CSV columns |
-| **Real-time Monitoring** | Live dashboard showing delivery progress, success/failure rates |
-| **Resumable Delivery** | Resume interrupted campaigns from where they left off |
-| **Advanced Scheduling** | One-time, interval-based, or cron-based scheduling |
-| **High Performance** | Concurrent workers, connection pooling, and batch processing |
-| **Production Ready** | Retry logic, circuit breakers, and comprehensive error handling |
+| **Single Email** | Send to one recipient without CSV |
+| **Bulk CSV** | Send to thousands from CSV file |
+| **Google Sheets** | Fetch recipients from public Google Sheet |
+| **HTML Templates** | Personalized emails with Go templates |
+| **CC/BCC** | Add carbon copy recipients |
+| **Attachments** | Attach files to emails (max 10MB) |
+| **Preview** | Preview rendered emails in browser |
+| **Dry Run** | Test without sending |
+| **Monitoring** | Real-time dashboard with live stats |
+| **Scheduling** | One-time or recurring (cron/interval) |
+| **Filtering** | Filter recipients with expressions |
+| **Resumable** | Resume interrupted campaigns |
+| **Webhooks** | Get notified when campaigns complete |
+| **Concurrent** | Parallel SMTP workers |
+| **Retry** | Automatic retry with backoff |
+| **Circuit Breaker** | Built-in resilience |
 
 ---
 
 ## Quick Start
 
 ```bash
-# Send to a single recipient
-mailgrid --env config.json --to user@example.com --subject "Hello" --text "Welcome!"
+# Single email
+mailgrid -e config.json -to user@example.com -s "Hello" -text "Hi!"
 
-# Send bulk emails from CSV
-mailgrid --env config.json --csv recipients.csv --template email.html --subject "Hi {{.name}}!"
+# Bulk from CSV
+mailgrid -e config.json -f recipients.csv -t template.html -s "Hi {{.name}}!"
 
-# Preview and monitor
-mailgrid --env config.json --csv recipients.csv --template email.html --preview --monitor
+# With monitoring
+mailgrid -e config.json -f recipients.csv -t template.html -m -c 5
 ```
 
 ---
 
 ## Installation
 
-### Quick Install
-
 ```bash
-# Linux & macOS
+# Linux/macOS
 curl -sSL https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/install.sh | bash
 
 # Windows (PowerShell)
 iwr -useb https://raw.githubusercontent.com/bravo1goingdark/mailgrid/main/install.ps1 | iex
+
+# Or download from GitHub Releases
+https://github.com/bravo1goingdark/mailgrid/releases/latest
 ```
-
-### Download Binaries
-
-Get pre-built binaries from [GitHub Releases](https://github.com/bravo1goingdark/mailgrid/releases/latest)
 
 ---
 
 ## Configuration
 
-Create a `config.json` file with your SMTP settings:
+Create `config.json`:
 
 ```json
 {
@@ -111,167 +122,271 @@ Create a `config.json` file with your SMTP settings:
 }
 ```
 
-> **Note:** For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833). For other providers, use your regular SMTP credentials.
+> **Gmail:** Use an [App Password](https://support.google.com/accounts/answer/185833)
 
 ---
 
-## Usage Examples
+## Examples
 
 ### Single Email
 
 ```bash
-mailgrid --env config.json --to user@example.com --subject "Hello" --text "Welcome to our service!"
+mailgrid -e config.json -to user@example.com -s "Hello" -text "Welcome!"
 ```
 
-### Bulk Emails from CSV
+### Bulk from CSV
 
-Prepare a CSV file (`recipients.csv`):
 ```csv
+# recipients.csv
 email,name,company
-john@example.com,John,Acme Corp
+john@example.com,John,Acme
 jane@example.com,Jane,Tech Inc
 ```
 
-Send bulk emails:
 ```bash
-mailgrid --env config.json --csv recipients.csv --template email.html --subject "Hi {{.name}}!"
+mailgrid -e config.json -f recipients.csv -t template.html -s "Hi {{.name}}!"
 ```
 
-### With Monitoring
+### From Google Sheets
 
 ```bash
-mailgrid --env config.json --csv recipients.csv --template email.html --monitor --concurrency 5
+mailgrid -e config.json -u "https://docs.google.com/spreadsheets/d/abc123/edit?gid=0" \
+  -t template.html -s "Newsletter"
 ```
-Access the dashboard at `http://localhost:9091`
 
-### Preview Before Sending
+### With CC/BCC
 
 ```bash
-mailgrid --env config.json --csv recipients.csv --template email.html --preview
-```
-Opens a local server to preview rendered emails in your browser.
+# CC recipients (visible to all)
+mailgrid -e config.json -f recipients.csv -t template.html --cc "manager@example.com"
 
-### Resumable Delivery
+# BCC recipients (hidden)
+mailgrid -e config.json -f recipients.csv -t template.html --bcc "archive@example.com"
+
+# Both
+mailgrid -e config.json -f recipients.csv -t template.html \
+  --cc "team@example.com" --bcc "boss@example.com"
+```
+
+### Preview Mode
 
 ```bash
-# Start campaign (progress automatically tracked)
-mailgrid --env config.json --csv recipients.csv --template email.html
+# Preview at default port 8080
+mailgrid -e config.json -f recipients.csv -t template.html -p
 
-# Resume if interrupted
-mailgrid --env config.json --csv recipients.csv --template email.html --resume
-
-# Start fresh (clear offset)
-mailgrid --env config.json --csv recipients.csv --template email.html --reset-offset
+# Custom port
+mailgrid -e config.json -f recipients.csv -t template.html -p --port 9000
 ```
+
+Opens browser at `http://localhost:8080` to preview rendered emails.
+
+### Dry Run
+
+```bash
+# Render emails without sending
+mailgrid -e config.json -f recipients.csv -t template.html -d
+```
+
+### Monitoring Dashboard
+
+```bash
+# Enable with default port 9091
+mailgrid -e config.json -f recipients.csv -t template.html -m
+
+# Custom port
+mailgrid -e config.json -f recipients.csv -t template.html -m --monitor-port 8080
+```
+
+Access at `http://localhost:9091` — shows live stats, progress, and logs.
+
+---
+
+## Performance
+
+### Concurrency
+
+```bash
+# Multiple parallel workers
+mailgrid -e config.json -f recipients.csv -t template.html -c 5
+
+# Guidelines:
+#   Gmail: 1-2 workers
+#   SendGrid/Mailgun: 5-10
+#   Amazon SES: 10-20
+```
+
+### Retries
+
+```bash
+# Retry failed emails (default: 1)
+mailgrid -e config.json -f recipients.csv -t template.html -r 3
+```
+
+Uses exponential backoff with jitter.
+
+### Batch Size
+
+```bash
+# Emails per SMTP batch (default: 1)
+mailgrid -e config.json -f recipients.csv -t template.html -b 10
+```
+
+> Consumer inboxes (Gmail/Yahoo): use 1  
+> Corporate/warmed IPs: 5-10
 
 ---
 
 ## Scheduling
 
-### Schedule for Later
+### One-time Scheduling
 
 ```bash
-# One-time scheduling (RFC3339 format)
-mailgrid --env config.json --to user@example.com --subject "Reminder" \
-  --text "Meeting at 3pm" --schedule-at "2025-01-01T10:00:00Z"
+# At specific time (RFC3339)
+mailgrid -e config.json -f recipients.csv -t template.html \
+  -A "2025-01-15T10:00:00Z"
 ```
 
-### Recurring Emails
+### Recurring Scheduling
 
 ```bash
 # Every 30 minutes
-mailgrid --env config.json --csv subscribers.csv --template newsletter.html --interval "30m"
+mailgrid -e config.json -f recipients.csv -t template.html -i "30m"
 
 # Daily at 9 AM (cron)
-mailgrid --env config.json --csv recipients.csv --template report.html --cron "0 9 * * *"
+mailgrid -e config.json -f recipients.csv -t template.html -C "0 9 * * *"
+
+# Weekly on Monday
+mailgrid -e config.json -f recipients.csv -t template.html -C "0 9 * * 1"
 ```
 
 ### Job Management
 
 ```bash
-mailgrid --jobs-list                    # List all scheduled jobs
-mailgrid --jobs-cancel "job-id-123"     # Cancel a specific job
-mailgrid --scheduler-run                 # Run scheduler as daemon
+mailgrid -L                    # List scheduled jobs
+mailgrid -X "job-id-123"      # Cancel a job
+mailgrid -R                   # Run scheduler as daemon
 ```
 
 ---
 
 ## Advanced Features
 
-### Filtering Recipients
+### Filtering
 
-Filter recipients using expressions:
+Filter recipients with expressions:
 
 ```bash
-# Send only to premium users in New York
-mailgrid --env config.json --csv recipients.csv --template email.html \
-  --filter 'tier == "premium" && city == "New York"'
+# Premium users only
+--filter 'tier == "premium"'
+
+# Complex filter
+--filter '(tier == "vip" or tier == "premium") && location == "US"'
+
+# Email domain
+--filter 'email contains "@company.com"'
 ```
 
-Supported operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `contains`, `startsWith`, `endsWith`
+Operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `contains`, `startsWith`, `endsWith`, `and`, `or`, `not`
 
 ### Attachments
 
 ```bash
-mailgrid --env config.json --csv recipients.csv --template email.html \
-  --attach brochure.pdf --attach terms.pdf
+mailgrid -e config.json -f recipients.csv -t template.html \
+  -a invoice.pdf -a terms.pdf
 ```
+
+Max 10MB total.
 
 ### Webhooks
 
-Receive notifications when campaigns complete:
+Get notified when campaign completes:
 
 ```bash
-mailgrid --env config.json --csv recipients.csv --template email.html \
-  --webhook "https://your-server.com/webhook"
+mailgrid -e config.json -f recipients.csv -t template.html \
+  -w "https://your-server.com/webhook"
+```
+
+Payload:
+```json
+{
+  "job_id": "mailgrid-123",
+  "status": "completed",
+  "total_recipients": 150,
+  "successful_deliveries": 148,
+  "failed_deliveries": 2,
+  "duration_seconds": 330
+}
+```
+
+### Resumable Delivery
+
+```bash
+# Start campaign (tracked automatically)
+mailgrid -e config.json -f recipients.csv -t template.html
+
+# Resume if interrupted
+mailgrid -e config.json -f recipients.csv -t template.html --resume
+
+# Start fresh
+mailgrid -e config.json -f recipients.csv -t template.html --reset-offset
 ```
 
 ---
 
-## CLI Flags Reference
+## CLI Reference
 
-| Short | Long Flag | Description |
-|-------|-----------|-------------|
-| `-e` | `--env` | Path to SMTP config JSON |
-| `-f` | `--csv` | Path to recipient CSV file |
-| `-u` | `--sheet-url` | Public Google Sheet URL |
-| `-t` | `--template` | Path to HTML email template |
-| `-s` | `--subject` | Email subject line |
-| `-d` | `--dry-run` | Render emails without sending |
-| `-p` | `--preview` | Start preview server |
-| `-c` | `--concurrency` | Number of concurrent workers (default: 1) |
-| `-r` | `--retries` | Max retries per email (default: 1) |
-| `-b` | `--batch-size` | Emails per SMTP batch |
-| `-m` | `--monitor` | Enable monitoring dashboard |
-| `-a` | `--attach` | File attachments (repeatable) |
-| `-w` | `--webhook` | Webhook URL for notifications |
-| `-F` | `--filter` | Filter expression for recipients |
-| `-A` | `--schedule-at` | Schedule time (RFC3339) |
-| `-i` | `--interval` | Repeat interval (e.g., 30m, 1h) |
-| `-C` | `--cron` | Cron expression for scheduling |
-| `-L` | `--jobs-list` | List scheduled jobs |
-| `-X` | `--jobs-cancel` | Cancel job by ID |
-| `-R` | `--scheduler-run` | Run scheduler in foreground |
-| `-D` | `--scheduler-db` | Path to scheduler database |
-| | `--resume` | Resume from last offset |
-| | `--reset-offset` | Clear offset and start fresh |
+| Short | Flag | Description |
+|-------|------|-------------|
+| **Core** |||
+| `-e` | `--env` | SMTP config file |
+| `-f` | `--csv` | CSV file |
+| `-u` | `--sheet-url` | Google Sheet URL |
+| `-t` | `--template` | HTML template |
+| `-s` | `--subject` | Email subject |
+| **Content** |||
+| `-to` | `--to` | Single recipient |
+| `-text` | `--text` | Plain text body |
+| `-cc` | `--cc` | CC recipients |
+| `-bcc` | `--bcc` | BCC recipients |
+| `-a` | `--attach` | Attachments |
+| **Testing** |||
+| `-d` | `--dry-run` | Preview without sending |
+| `-p` | `--preview` | Browser preview server |
+| | `--port` | Preview server port (default: 8080) |
+| **Performance** |||
+| `-c` | `--concurrency` | Workers (default: 1) |
+| `-r` | `--retries` | Email retries (default: 1) |
+| `-b` | `--batch-size` | Batch size (default: 1) |
+| **Monitoring** |||
+| `-m` | `--monitor` | Enable dashboard |
+| | `--monitor-port` | Dashboard port (default: 9091) |
+| **Scheduling** |||
+| `-A` | `--schedule-at` | One-time (RFC3339) |
+| `-i` | `--interval` | Repeat interval |
+| `-C` | `--cron` | Cron expression |
+| `-J` | `--job-retries` | Scheduler retries (default: 3) |
+| **Jobs** |||
+| `-L` | `--jobs-list` | List jobs |
+| `-X` | `--jobs-cancel` | Cancel job |
+| `-R` | `--scheduler-run` | Run daemon |
+| **Advanced** |||
+| `-F` | `--filter` | Recipient filter |
+| `-w` | `--webhook` | Webhook URL |
+| | `--resume` | Resume from offset |
+| | `--reset-offset` | Clear offset |
+| | `--version` | Show version |
 
 ---
 
 ## Documentation
 
-- [CLI Reference](./docs/docs.md) - Complete flag documentation
-- [Filter Syntax](./docs/filter.md) - Advanced filtering options
-- [Installation Guide](./INSTALLATION.md) - Detailed setup instructions
-
----
-
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](./CONTRIBUTING.md) for details.
+- [Full CLI Docs](./docs/docs.md)
+- [Filter Syntax](./docs/filter.md)
+- [Installation](./INSTALLATION.md)
+- [Contributing](./CONTRIBUTING.md)
 
 ---
 
 ## License
 
-Licensed under BSD-3-Clause — see [LICENSE](./LICENSE)
+BSD-3-Clause — see [LICENSE](./LICENSE)
