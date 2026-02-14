@@ -3,6 +3,7 @@ module github.com/bravo1goingdark/mailgrid
 go 1.18
 
 require (
+	github.com/expr-lang/expr v1.17.8
 	github.com/mocktools/go-smtp-mock/v2 v2.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1

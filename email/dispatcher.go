@@ -9,7 +9,6 @@ import (
 	"github.com/bravo1goingdark/mailgrid/config"
 	"github.com/bravo1goingdark/mailgrid/monitor"
 	"github.com/bravo1goingdark/mailgrid/parser"
-	"github.com/bravo1goingdark/mailgrid/webhook"
 )
 
 // Task represents an email send job with recipient data.
@@ -24,6 +23,12 @@ type Task struct {
 	Index       int // Position in original task list for offset tracking
 }
 
+// OffsetTracker interface for tracking email delivery progress
+type OffsetTracker interface {
+	UpdateOffset(offset int)
+	Save() error
+}
+
 type worker struct {
 	ID          int
 	TaskQueue   <-chan Task
@@ -33,12 +38,12 @@ type worker struct {
 	RetryWg     *sync.WaitGroup
 	BatchSize   int
 	Monitor     monitor.Monitor
-	Tracker     OffsetTracker // For tracking successful sends
-	StartOffset int           // Base offset for this campaign
+	Tracker     OffsetTracker
+	StartOffset int
 	Ctx         context.Context
 }
 
-// maxInt returns the larger of two integers (helper for Go 1.18 compatibility)
+// maxInt returns the larger of two integers
 func maxInt(a, b int) int {
 	if a > b {
 		return a
@@ -46,35 +51,41 @@ func maxInt(a, b int) int {
 	return b
 }
 
-// StartDispatcher spawns workers and processes email tasks with retries and batch-mode dispatch.
-func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int) {
-	StartDispatcherWithMonitor(tasks, cfg, concurrency, batchSize, monitor.NewNoOpMonitor())
+// DispatchOptions contains optional parameters for email dispatching
+type DispatchOptions struct {
+	Context     context.Context
+	Monitor     monitor.Monitor
+	Tracker     OffsetTracker
+	StartOffset int
 }
 
-// OffsetTracker interface for tracking email delivery progress
-type OffsetTracker interface {
-	UpdateOffset(offset int)
-	Save() error
-}
+// StartDispatcher sends emails using worker pool with retries and monitoring.
+// This is the main dispatcher function that all variants should use.
+func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, opts *DispatchOptions) {
+	if opts == nil {
+		opts = &DispatchOptions{
+			Context: context.Background(),
+			Monitor: monitor.NewNoOpMonitor(),
+		}
+	}
+	if opts.Context == nil {
+		opts.Context = context.Background()
+	}
+	if opts.Monitor == nil {
+		opts.Monitor = monitor.NewNoOpMonitor()
+	}
 
-// StartDispatcherWithMonitor spawns workers with monitoring support.
-func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor) {
-	StartDispatcherWithContext(context.Background(), tasks, cfg, concurrency, batchSize, mon, nil, 0)
-}
+	ctx := opts.Context
+	mon := opts.Monitor
+	tracker := opts.Tracker
+	startOffset := opts.StartOffset
 
-// StartDispatcherWithOffset spawns workers with offset tracking support for resumable delivery.
-func StartDispatcherWithOffset(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor, tracker OffsetTracker, startOffset int) {
-	StartDispatcherWithContext(context.Background(), tasks, cfg, concurrency, batchSize, mon, tracker, startOffset)
-}
-
-// StartDispatcherWithContext spawns workers with context support for graceful shutdown and offset tracking.
-func StartDispatcherWithContext(ctx context.Context, tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor, tracker OffsetTracker, startOffset int) {
-	// Optimize buffer sizes based on workload - prevent over-allocation
+	// Calculate buffer sizes based on workload
 	taskBufSize := maxInt(len(tasks)/2, concurrency*batchSize*2)
 	if taskBufSize > 2000 {
-		taskBufSize = 2000 // Cap to avoid excessive memory
+		taskBufSize = 2000
 	} else if taskBufSize < concurrency {
-		taskBufSize = concurrency // Ensure minimum buffer
+		taskBufSize = concurrency
 	}
 	retryBufSize := maxInt(len(tasks)/10, concurrency*5)
 	if retryBufSize > 1000 {
@@ -112,34 +123,31 @@ func StartDispatcherWithContext(ctx context.Context, tasks []Task, cfg config.SM
 		})
 	}
 
-	// Dispatch initial tasks - check for context cancellation
+	// Dispatch initial tasks
 	go func() {
-		dispatchLoop:
 		for _, task := range tasks {
 			select {
 			case taskChan <- task:
 			case <-ctx.Done():
-				log.Printf(" Context cancelled, stopping task dispatch")
-				break dispatchLoop
+				log.Printf("Context cancelled, stopping task dispatch")
+				break
 			}
 		}
 		close(taskChan)
 	}()
 
-	// Handle retries efficiently without spawning excessive goroutines
+	// Handle retries
 	go func() {
-	retryLoop:
 		for task := range retryChan {
 			if task.Retries > 0 {
 				retryWg.Add(1)
-				// Process retry directly without additional goroutine
 				select {
 				case taskChan <- task:
 					retryWg.Done()
 				case <-ctx.Done():
 					retryWg.Done()
-					log.Printf(" Context cancelled, stopping retry processing")
-					break retryLoop
+					log.Printf("Context cancelled, stopping retry processing")
+					return
 				default:
 					// Channel full, try with timeout
 					go func(t Task) {
@@ -163,157 +171,20 @@ func StartDispatcherWithContext(ctx context.Context, tasks []Task, cfg config.SM
 	retryWg.Wait()
 }
 
-// CampaignConfig represents configuration for a campaign dispatcher
-type CampaignConfig struct {
-	JobID             string
-	TotalRecipients   int
-	CSVFile           string
-	SheetURL          string
-	TemplateFile      string
-	ConcurrentWorkers int
-	WebhookURL        string
-	Monitor           monitor.Monitor
+// StartDispatcherWithMonitor is a convenience wrapper for backward compatibility.
+// Deprecated: Use StartDispatcher with DispatchOptions instead.
+func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor) {
+	StartDispatcher(tasks, cfg, concurrency, batchSize, &DispatchOptions{
+		Monitor: mon,
+	})
 }
 
-// CampaignMetrics tracks email campaign statistics
-type CampaignMetrics struct {
-	jobID                string
-	totalRecipients      int
-	csvFile              string
-	sheetURL             string
-	templateFile         string
-	webhookURL           string
-	successfulDeliveries int
-	failedDeliveries     int
-	retryCount           int
-	startTime            time.Time
-	endTime              time.Time
-	mu                   sync.RWMutex
-}
-
-// PooledDispatcher manages email dispatching with connection pooling
-type PooledDispatcher struct {
-	pool      *SMTPPool
-	processor *BatchProcessor
-	webhook   *webhook.Client
-	monitor   monitor.Monitor
-	metrics   *CampaignMetrics
-	mu        sync.RWMutex
-}
-
-// NewPooledDispatcher creates a new pooled dispatcher
-func NewPooledDispatcher(cfg config.SMTPConfig, poolSize int, batchSize int) (*PooledDispatcher, error) {
-	poolConfig := PoolConfig{
-		InitialSize:         poolSize,
-		MaxSize:             poolSize * 2,
-		MaxIdleTime:         5 * time.Minute,
-		MaxWaitTime:         30 * time.Second,
-		HealthCheckInterval: 30 * time.Second,
-	}
-
-	pool, err := NewSMTPPool(cfg, poolConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	batchConfig := BatchConfig{
-		MinBatchSize:     batchSize,
-		MaxBatchSize:     batchSize * 10,
-		TargetLatency:    500 * time.Millisecond,
-		AdaptationPeriod: 1 * time.Minute,
-	}
-
-	processor := NewBatchProcessor(pool, batchConfig)
-	webhookClient := webhook.NewClient()
-	mon := monitor.NewNoOpMonitor()
-
-	metrics := &CampaignMetrics{
-		startTime: time.Now(),
-	}
-
-	return &PooledDispatcher{
-		pool:      pool,
-		processor: processor,
-		webhook:   webhookClient,
-		monitor:   mon,
-		metrics:   metrics,
-	}, nil
-}
-
-// NewPooledDispatcherWithCampaign creates a new pooled dispatcher with campaign configuration
-func NewPooledDispatcherWithCampaign(cfg config.SMTPConfig, poolSize int, batchSize int, campaign CampaignConfig) (*PooledDispatcher, error) {
-	dispatcher, err := NewPooledDispatcher(cfg, poolSize, batchSize)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set campaign configuration
-	dispatcher.metrics.jobID = campaign.JobID
-	dispatcher.metrics.totalRecipients = campaign.TotalRecipients
-	dispatcher.metrics.csvFile = campaign.CSVFile
-	dispatcher.metrics.sheetURL = campaign.SheetURL
-	dispatcher.metrics.templateFile = campaign.TemplateFile
-	dispatcher.metrics.webhookURL = campaign.WebhookURL
-
-	if campaign.Monitor != nil {
-		dispatcher.monitor = campaign.Monitor
-	}
-
-	return dispatcher, nil
-}
-
-// Close closes the dispatcher and its resources
-func (d *PooledDispatcher) Close() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	if d.metrics != nil {
-		d.metrics.endTime = time.Now()
-	}
-
-	if d.pool != nil {
-		return d.pool.Close()
-	}
-	return nil
-}
-
-// GetMetrics returns the current campaign metrics
-func (d *PooledDispatcher) GetMetrics() *CampaignMetrics {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.metrics
-}
-
-// RecordSuccess increments the successful delivery counter
-func (d *PooledDispatcher) RecordSuccess() {
-	d.metrics.mu.Lock()
-	defer d.metrics.mu.Unlock()
-	d.metrics.successfulDeliveries++
-}
-
-// RecordFailure increments the failed delivery counter
-func (d *PooledDispatcher) RecordFailure() {
-	d.metrics.mu.Lock()
-	defer d.metrics.mu.Unlock()
-	d.metrics.failedDeliveries++
-}
-
-// RecordSuccessWithDetails records a successful delivery with details
-func (d *PooledDispatcher) RecordSuccessWithDetails(email string, duration time.Duration) {
-	d.RecordSuccess()
-	d.monitor.UpdateRecipientStatus(email, monitor.StatusSent, duration, "")
-}
-
-// RecordFailureWithDetails records a failed delivery with details
-func (d *PooledDispatcher) RecordFailureWithDetails(email string, duration time.Duration, errorMsg string) {
-	d.RecordFailure()
-	d.monitor.UpdateRecipientStatus(email, monitor.StatusFailed, duration, errorMsg)
-}
-
-// RecordRetryWithDetails records a retry attempt with details
-func (d *PooledDispatcher) RecordRetryWithDetails(email string, duration time.Duration, reason string) {
-	d.metrics.mu.Lock()
-	defer d.metrics.mu.Unlock()
-	d.metrics.retryCount++
-	d.monitor.UpdateRecipientStatus(email, monitor.StatusRetry, duration, reason)
+// StartDispatcherWithOffset is a convenience wrapper for backward compatibility.
+// Deprecated: Use StartDispatcher with DispatchOptions instead.
+func StartDispatcherWithOffset(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor, tracker OffsetTracker, startOffset int) {
+	StartDispatcher(tasks, cfg, concurrency, batchSize, &DispatchOptions{
+		Monitor:     mon,
+		Tracker:     tracker,
+		StartOffset: startOffset,
+	})
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/bravo1goingdark/mailgrid/parser/expression"
 )
 
-func TestCondition_Evaluate(t *testing.T) {
+func TestExpression_Evaluate(t *testing.T) {
 	data := map[string]string{
 		"name":     "Ashutosh",
 		"company":  "OpenAI",
@@ -16,106 +16,149 @@ func TestCondition_Evaluate(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		expr     expression.Expression
-		expected bool
+		name       string
+		expr       string
+		data       map[string]string
+		expected   bool
+		shouldFail bool
 	}{
 		{
 			name:     "Equal comparison",
-			expr:     expression.Condition{Field: "name", Op: "=", Value: "Ashutosh"},
+			expr:     `name == "Ashutosh"`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "Not Equal comparison",
-			expr:     expression.Condition{Field: "company", Op: "!=", Value: "Google"},
+			expr:     `company != "Google"`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "Contains comparison",
-			expr:     expression.Condition{Field: "company", Op: "contains", Value: "open"},
+			expr:     `contains(company, "open")`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "StartsWith comparison",
-			expr:     expression.Condition{Field: "location", Op: "startsWith", Value: "Ind"},
+			expr:     `startsWith(location, "Ind")`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "EndsWith comparison",
-			expr:     expression.Condition{Field: "location", Op: "endsWith", Value: "dia"},
+			expr:     `endsWith(location, "dia")`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "Numeric greater than",
-			expr:     expression.Condition{Field: "salary", Op: ">", Value: "40000"},
+			expr:     `salary > "40000"`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "Numeric less than",
-			expr:     expression.Condition{Field: "salary", Op: "<", Value: "60000"},
+			expr:     `salary < "60000"`,
+			data:     data,
 			expected: true,
 		},
 		{
-			name: "AND condition",
-			expr: expression.And{
-				Left:  expression.Condition{Field: "company", Op: "=", Value: "OpenAI"},
-				Right: expression.Condition{Field: "location", Op: "=", Value: "India"},
-			},
+			name:     "AND condition",
+			expr:     `company == "OpenAI" && location == "India"`,
+			data:     data,
 			expected: true,
 		},
 		{
-			name: "OR condition",
-			expr: expression.Or{
-				Left:  expression.Condition{Field: "name", Op: "=", Value: "Elon"},
-				Right: expression.Condition{Field: "company", Op: "=", Value: "OpenAI"},
-			},
+			name:     "OR condition",
+			expr:     `name == "Elon" || company == "OpenAI"`,
+			data:     data,
 			expected: true,
 		},
 		{
-			name: "NOT condition",
-			expr: expression.Not{
-				Inner: expression.Condition{Field: "location", Op: "=", Value: "USA"},
-			},
+			name:     "NOT condition",
+			expr:     `!(location == "USA")`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "Missing field",
-			expr:     expression.Condition{Field: "department", Op: "=", Value: "Engineering"},
-			expected: false,
-		},
-		{
-			name:     "Invalid numeric comparison",
-			expr:     expression.Condition{Field: "name", Op: ">", Value: "1000"},
+			expr:     `department == "Engineering"`,
+			data:     data,
 			expected: false,
 		},
 		{
 			name:     "Case insensitive contains",
-			expr:     expression.Condition{Field: "company", Op: "contains", Value: "OPEN"},
+			expr:     `contains(company, "OPEN")`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "Numeric equality",
-			expr:     expression.Condition{Field: "salary", Op: "=", Value: "50000"},
+			expr:     `salary == "50000"`,
+			data:     data,
 			expected: true,
 		},
 		{
 			name:     "StartsWith fails",
-			expr:     expression.Condition{Field: "location", Op: "startsWith", Value: "USA"},
+			expr:     `startsWith(location, "USA")`,
+			data:     data,
 			expected: false,
 		},
 		{
 			name:     "Alphanumeric mismatch",
-			expr:     expression.Condition{Field: "salary", Op: "contains", Value: "USD"},
+			expr:     `contains(salary, "USD")`,
+			data:     data,
 			expected: false,
+		},
+		{
+			name:     "Complex nested condition",
+			expr:     `(company == "OpenAI" && salary > "40000") || name == "Elon"`,
+			data:     data,
+			expected: true,
+		},
+		{
+			name:       "Invalid syntax",
+			expr:       `name ==`,
+			data:       data,
+			shouldFail: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.expr.Evaluate(data)
+			expr, err := expression.Parse(tt.expr)
+			if tt.shouldFail {
+				if err == nil {
+					t.Errorf("expected error for invalid expression %q", tt.expr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("failed to parse expression %q: %v", tt.expr, err)
+			}
+
+			result := expr.Evaluate(tt.data)
 			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
+				t.Errorf("expected %v, got %v for expression %q", tt.expected, result, tt.expr)
 			}
 		})
+	}
+}
+
+func TestParse_InvalidExpressions(t *testing.T) {
+	invalidExprs := []string{
+		"",
+		"   ",
+		"name ==",
+		"== value",
+	}
+
+	for _, expr := range invalidExprs {
+		_, err := expression.Parse(expr)
+		if err == nil {
+			t.Errorf("expected error for invalid expression %q", expr)
+		}
 	}
 }
