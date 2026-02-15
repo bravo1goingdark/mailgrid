@@ -377,7 +377,7 @@ func (s *Server) broadcastUpdate() {
 			// Client channel is full, remove stale client
 			delete(s.clients, clientID)
 			close(client.Chan)
-			log.Printf("🔌 Removed stale SSE client: %s", clientID)
+			log.Printf("[DISCONNECT] Removed stale SSE client: %s", clientID)
 		}
 	}
 }
@@ -406,7 +406,7 @@ func (s *Server) cleanupInactiveClients() {
 			if client, ok := s.clients[clientID]; ok {
 				close(client.Chan)
 				delete(s.clients, clientID)
-				log.Printf("🔌 Removed inactive SSE client: %s", clientID)
+				log.Printf("[DISCONNECT] Removed inactive SSE client: %s", clientID)
 			}
 		}
 

@@ -1,4 +1,4 @@
-name: 🚀 Multi-Platform Release
+name: [RELEASE] Multi-Platform Release
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: 🔨 Build Binaries
+    name: [BUILD] Build Binaries
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -58,19 +58,19 @@ jobs:
             compress: tar.gz
 
     steps:
-    - name: 📥 Checkout code
+    - name: [DOWNLOAD] Checkout code
       uses: actions/checkout@v4
 
-    - name: 🔧 Set up Go
+    - name: [SETUP] Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.21'
 
-    - name: 📊 Get version
+    - name: [METRICS] Get version
       id: version
       run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-    - name: 🏗️ Build optimized binary
+    - name: [BUILD] Build optimized binary
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
@@ -91,7 +91,7 @@ jobs:
           strip ${{ matrix.name }} || true
         fi
 
-    - name: 🗜️ Compress binary
+    - name: [COMPRESS] Compress binary
       run: |
         mkdir -p dist
         if [[ "${{ matrix.compress }}" == "zip" ]]; then
@@ -104,7 +104,7 @@ jobs:
           echo "ASSET_NAME=${{ matrix.name }}.tar.gz" >> $GITHUB_ENV
         fi
 
-    - name: 📤 Upload artifacts
+    - name: [UPLOAD] Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.name }}
@@ -112,27 +112,27 @@ jobs:
         retention-days: 1
 
   docker:
-    name: 🐳 Build Docker Images
+    name: [DOCKER] Build Docker Images
     runs-on: ubuntu-latest
     needs: build
     steps:
-    - name: 📥 Checkout code
+    - name: [DOWNLOAD] Checkout code
       uses: actions/checkout@v4
 
-    - name: 🔧 Set up QEMU
+    - name: [SETUP] Set up QEMU
       uses: docker/setup-qemu-action@v3
 
-    - name: 🔧 Set up Docker Buildx
+    - name: [SETUP] Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: 🔑 Login to GitHub Container Registry
+    - name: [LOGIN] Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: 📊 Extract metadata
+    - name: [METRICS] Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
@@ -141,7 +141,7 @@ jobs:
           type=ref,event=tag
           type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: 🏗️ Build and push Docker images
+    - name: [BUILD] Build and push Docker images
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -153,19 +153,19 @@ jobs:
         cache-to: type=gha,mode=max
 
   release:
-    name: 🎉 Create GitHub Release
+    name: [RELEASE] Create GitHub Release
     runs-on: ubuntu-latest
     needs: [build, docker]
     steps:
-    - name: 📥 Checkout code
+    - name: [DOWNLOAD] Checkout code
       uses: actions/checkout@v4
 
-    - name: 📥 Download all artifacts
+    - name: [DOWNLOAD] Download all artifacts
       uses: actions/download-artifact@v4
       with:
         path: ./artifacts
 
-    - name: 📋 Prepare release assets
+    - name: [LIST] Prepare release assets
       run: |
         mkdir -p release-assets
         find ./artifacts -name "*.zip" -o -name "*.tar.gz" | xargs -I {} cp {} ./release-assets/
@@ -175,7 +175,7 @@ jobs:
         sha256sum * > checksums.txt
         ls -lah
 
-    - name: 📊 Get version and release notes
+    - name: [METRICS] Get version and release notes
       id: version
       run: |
         echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
@@ -185,7 +185,7 @@ jobs:
           echo "release_notes=RELEASE_NOTES_v1.0.0.md" >> $GITHUB_OUTPUT
         fi
 
-    - name: 🎉 Create GitHub Release
+    - name: [RELEASE] Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.version.outputs.version }}
@@ -198,12 +198,12 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
 
   update-homebrew:
-    name: 🍺 Update Homebrew Formula
+    name: [HOMEBREW] Update Homebrew Formula
     runs-on: ubuntu-latest
     needs: release
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-    - name: 🍺 Update Homebrew Formula
+    - name: [HOMEBREW] Update Homebrew Formula
       uses: mislav/bump-homebrew-formula-action@v3
       with:
         formula-name: mailgrid

@@ -21,25 +21,25 @@ VERSION="${VERSION:-latest}"
 
 # Print functions
 print_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    echo -e "${BLUE}[INFO] $1${NC}"
 }
 
 print_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN}[SUCCESS] $1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED}[ERROR] $1${NC}"
     exit 1
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}[WARNING] $1${NC}"
 }
 
 print_header() {
     echo
-    echo -e "${BLUE}📬 MailGrid Installation Script${NC}"
+    echo -e "${BLUE}MailGrid Installation Script${NC}"
     echo -e "${BLUE}================================${NC}"
     echo
 }
@@ -197,17 +197,17 @@ show_usage() {
     echo
     print_info "MailGrid has been successfully installed!"
     echo
-    echo "📚 Quick Start:"
+    echo "Quick Start:"
     echo "  1. Create a config.json file with your SMTP settings"
     echo "  2. Send a test email: $BINARY_NAME --to you@example.com --subject 'Test' --text 'Hello!' --env config.json"
     echo "  3. View all options: $BINARY_NAME --help"
     echo
-    echo "🔗 Documentation:"
+    echo "Documentation:"
     echo "  • GitHub: https://github.com/$REPO"
     echo "  • CLI Reference: https://github.com/$REPO/blob/main/docs/CLI_REFERENCE.md"
     echo "  • Examples: https://github.com/$REPO/tree/main/example"
     echo
-    echo "🚀 Example commands:"
+    echo "Example commands:"
     echo "  # Send single email"
     echo "  $BINARY_NAME --to user@example.com --subject 'Welcome' --text 'Hello!' --env config.json"
     echo

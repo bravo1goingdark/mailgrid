@@ -32,12 +32,12 @@ if ($extractedExe) {
     
     Write-Host "MailGrid has been installed successfully!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "📚 Quick Start:" -ForegroundColor Yellow
+    Write-Host "Quick Start:" -ForegroundColor Yellow
     Write-Host "  1. Create a config.json file with your SMTP settings"
     Write-Host "  2. Test: mailgrid --to user@example.com --subject 'Test' --text 'Hello!' --env config.json"
     Write-Host "  3. Get help: mailgrid --help"
     Write-Host ""
-    Write-Host "📖 Documentation: https://github.com/bravo1goingdark/mailgrid" -ForegroundColor Cyan
+    Write-Host "Documentation: https://github.com/bravo1goingdark/mailgrid" -ForegroundColor Cyan
     Write-Host ""
 }
 else {

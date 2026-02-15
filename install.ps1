@@ -55,14 +55,14 @@ function Write-ColorOutput {
     $Host.UI.RawUI.ForegroundColor = $originalColor
 }
 
-function Write-Info { param([string]$Message) Write-ColorOutput "ℹ️  $Message" -ForegroundColor Blue }
-function Write-Success { param([string]$Message) Write-ColorOutput "✅ $Message" -ForegroundColor Green }
-function Write-Error { param([string]$Message) Write-ColorOutput "❌ $Message" -ForegroundColor Red }
-function Write-Warning { param([string]$Message) Write-ColorOutput "⚠️  $Message" -ForegroundColor Yellow }
+function Write-Info { param([string]$Message) Write-ColorOutput "[INFO] $Message" -ForegroundColor Blue }
+function Write-Success { param([string]$Message) Write-ColorOutput "[SUCCESS] $Message" -ForegroundColor Green }
+function Write-Error { param([string]$Message) Write-ColorOutput "[ERROR] $Message" -ForegroundColor Red }
+function Write-Warning { param([string]$Message) Write-ColorOutput "[WARNING] $Message" -ForegroundColor Yellow }
 
 function Write-Header {
     Write-Host ""
-    Write-ColorOutput "📬 MailGrid Windows Installation Script" -ForegroundColor Blue
+    Write-ColorOutput "MailGrid Windows Installation Script" -ForegroundColor Blue
     Write-ColorOutput "=======================================" -ForegroundColor Blue
     Write-Host ""
 }
@@ -220,7 +220,7 @@ function Show-Usage {
     $binaryPath = Join-Path $InstallDir "$BinaryName.exe"
     $inPath = ($env:PATH -split ';') -contains $InstallDir
     
-    Write-Host "📚 Quick Start:"
+    Write-Host "Quick Start:"
     Write-Host "  1. Create a config.json file with your SMTP settings"
     if ($inPath) {
         Write-Host "  2. Send a test email: mailgrid --to you@example.com --subject 'Test' --text 'Hello!' --env config.json"
@@ -239,13 +239,13 @@ function Show-Usage {
         Write-Host ""
     }
     
-    Write-Host "🔗 Documentation:"
+    Write-Host "Documentation:"
     Write-Host "  • GitHub: https://github.com/$Repo"
     Write-Host "  • CLI Reference: https://github.com/$Repo/blob/main/docs/CLI_REFERENCE.md"
     Write-Host "  • Examples: https://github.com/$Repo/tree/main/example"
     Write-Host ""
     
-    Write-Host "🚀 Example commands:"
+    Write-Host "Example commands:"
     $cmd = if ($inPath) { "mailgrid" } else { "`"$binaryPath`"" }
     
     Write-Host "  # Send single email"

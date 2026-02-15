@@ -34,7 +34,7 @@ func main() {
 
 	// Run the mailgrid workflow (load config, parse CSV, render/send emails)
 	if err := cli.Run(args); err != nil {
-		log.Fatalf("❌ %v", err)
+		log.Fatalf("[ERROR] %v", err)
 	}
 }
 
