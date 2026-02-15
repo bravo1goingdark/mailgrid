@@ -1,6 +1,9 @@
 package cli
 
-import "github.com/spf13/pflag"
+import (
+	"fmt"
+	"github.com/spf13/pflag"
+)
 
 // CLIArgs holds all configurable options passed via the command line.
 type CLIArgs struct {
@@ -41,13 +44,79 @@ type CLIArgs struct {
 	// Version
 	ShowVersion bool // Show version information and exit
 
+	// Help
+	ShowHelp bool // Show help message
+
 	// Offset tracking
 	Resume      bool // Resume from last saved offset
 	ResetOffset bool // Clear offset file and start from beginning
 }
 
+// printHelp prints a custom formatted help message with grouped flags
+func printHelp() {
+	fmt.Println("MailGrid - A production-ready email orchestrator for bulk email campaigns")
+	fmt.Println()
+	fmt.Println("Usage: mailgrid [flags]")
+	fmt.Println()
+	fmt.Println("RECIPIENT SOURCE (provide one):")
+	fmt.Println("  -f, --csv              string   Path to recipient CSV file")
+	fmt.Println("  -u, --sheet-url        string   Public Google Sheet URL (replaces --csv)")
+	fmt.Println("      --to               string   Email address for single-recipient sending")
+	fmt.Println()
+	fmt.Println("EMAIL CONTENT:")
+	fmt.Println("  -t, --template         string   Path to email HTML template")
+	fmt.Println("      --text             string   Inline plain-text body or path to a .txt file")
+	fmt.Println("  -s, --subject          string   Email subject (templated with {{ .field }})")
+	fmt.Println("  -a, --attach           strings  File attachments (repeat flag to add multiple)")
+	fmt.Println("      --cc               string   Comma-separated emails or file path for CC")
+	fmt.Println("      --bcc              string   Comma-separated emails or file path for BCC")
+	fmt.Println()
+	fmt.Println("RECIPIENT FILTERING:")
+	fmt.Println("  -F, --filter           string   Logical filter for recipients")
+	fmt.Println()
+	fmt.Println("SMTP CONFIGURATION:")
+	fmt.Println("  -e, --env              string   Path to SMTP config JSON")
+	fmt.Println("  -c, --concurrency      int      Number of concurrent SMTP workers")
+	fmt.Println("  -b, --batch-size       int      Number of emails per SMTP batch")
+	fmt.Println("  -r, --retries          int      Retry attempts per failed email")
+	fmt.Println()
+	fmt.Println("RESUMABLE SENDING:")
+	fmt.Println("      --resume                    Resume sending from last saved offset")
+	fmt.Println("      --reset-offset              Clear offset file and start from beginning")
+	fmt.Println()
+	fmt.Println("SCHEDULING:")
+	fmt.Println("  -R, --scheduler-run             Run the scheduler dispatcher in the foreground")
+	fmt.Println("  -A, --schedule-at      string   Schedule time in RFC3339 format")
+	fmt.Println("  -i, --interval         string   Repeat interval as Go duration (e.g., 1h, 30m)")
+	fmt.Println("  -C, --cron             string   Cron expression (5-field) for recurring schedules")
+	fmt.Println("  -J, --job-retries      int      Scheduler-level retry attempts on handler failure")
+	fmt.Println("  -L, --jobs-list               List scheduled jobs")
+	fmt.Println("  -X, --jobs-cancel      string   Cancel job by ID")
+	fmt.Println()
+	fmt.Println("MONITORING:")
+	fmt.Println("  -m, --monitor                   Enable real-time monitoring dashboard")
+	fmt.Println("      --monitor-port     int      Port for monitoring dashboard and metrics")
+	fmt.Println()
+	fmt.Println("TESTING & DEBUG:")
+	fmt.Println("  -d, --dry-run                   Render emails to console without sending")
+	fmt.Println("  -p, --preview                   Start a local preview server to view rendered email")
+	fmt.Println("      --port             int      Port for preview server")
+	fmt.Println()
+	fmt.Println("NOTIFICATIONS:")
+	fmt.Println("  -w, --webhook          string   HTTP URL to send POST request with campaign results")
+	fmt.Println()
+	fmt.Println("INFO:")
+	fmt.Println("      --version                   Show version information and exit")
+	fmt.Println("  -h, --help                      Show this help message")
+	fmt.Println()
+	fmt.Println("DEFAULTS:")
+	fmt.Println("  --concurrency 1, --batch-size 1, --retries 1, --monitor-port 9091, --port 8080")
+	fmt.Println("  --subject \"Test Email from Mailgrid\", --job-retries 3")
+}
+
 func ParseFlags() CLIArgs {
 	var args CLIArgs
+	var showHelp bool
 
 	pflag.StringVarP(&args.EnvPath, "env", "e", "", "Path to SMTP config JSON")
 	pflag.StringVarP(&args.CSVPath, "csv", "f", "", "Path to recipient CSV file")
@@ -84,7 +153,16 @@ func ParseFlags() CLIArgs {
 	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from last saved offset")
 	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Clear offset file and start from beginning")
 
+	// Add help flag manually to control behavior
+	pflag.BoolVarP(&showHelp, "help", "h", false, "Show this help message")
+
 	pflag.Parse()
+
+	if showHelp {
+		printHelp()
+		args.ShowHelp = true
+		return args
+	}
 
 	return args
 }

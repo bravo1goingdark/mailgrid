@@ -21,6 +21,11 @@ func main() {
 	// Parse CLI flags into a structured config
 	args := cli.ParseFlags()
 
+	// Handle help flag (help shown by ParseFlags, just exit)
+	if args.ShowHelp {
+		return
+	}
+
 	// Handle version flag
 	if args.ShowVersion {
 		showVersion()
@@ -29,7 +34,7 @@ func main() {
 
 	// Run the mailgrid workflow (load config, parse CSV, render/send emails)
 	if err := cli.Run(args); err != nil {
-		log.Fatalf("\u274c %v", err)
+		log.Fatalf("❌ %v", err)
 	}
 }
 
