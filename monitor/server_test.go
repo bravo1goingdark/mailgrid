@@ -20,10 +20,6 @@ func TestNewServer(t *testing.T) {
 		t.Fatal("Server clients map is nil")
 	}
 
-	if server.dashboard == nil {
-		t.Fatal("Server dashboard is nil")
-	}
-
 	if server.server == nil {
 		t.Fatal("HTTP server is nil")
 	}

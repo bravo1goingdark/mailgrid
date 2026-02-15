@@ -73,22 +73,22 @@ type LogEntry struct {
 
 // SSEClient represents a connected SSE client with activity tracking
 type SSEClient struct {
-	Chan        chan CampaignStats
-	LastActive  time.Time
-	RemoteAddr  string
+	Chan       chan CampaignStats
+	LastActive time.Time
+	RemoteAddr string
 }
 
 // Server provides real-time monitoring dashboard
 type Server struct {
-	mu        sync.RWMutex
-	stats     *CampaignStats
-	server    *http.Server
-	dashboard *DashboardServer
-	clients   map[string]*SSEClient // Map client ID to client
-	clientID  uint64 // Counter for generating unique client IDs
-	stopping  bool
+	mu            sync.RWMutex
+	stats         *CampaignStats
+	server        *http.Server
+	clients       map[string]*SSEClient // Map client ID to client
+	clientID      uint64                // Counter for generating unique client IDs
+	stopping      bool
 	clientTimeout time.Duration
 	cleanupTicker *time.Ticker
+	startTime     time.Time
 }
 
 // NewServer creates a new monitoring server
@@ -105,21 +105,60 @@ func NewServer(port int) *Server {
 		clients:       make(map[string]*SSEClient),
 		clientTimeout: 5 * time.Minute,
 		cleanupTicker: time.NewTicker(1 * time.Minute),
+		startTime:     time.Now(),
 	}
 
-	// Create dashboard
-	server.dashboard = NewDashboardServer(server)
-
-	// Set up HTTP server
+	// Set up HTTP server with custom handler
 	server.server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: server.dashboard,
+		Handler: http.HandlerFunc(server.serveHTTP),
 	}
 
 	// Start cleanup goroutine
 	go server.cleanupInactiveClients()
 
 	return server
+}
+
+// serveHTTP routes requests to appropriate handlers
+func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/":
+		s.handleDashboard(w, r)
+	case "/api/status":
+		s.handleStatusAPI(w, r)
+	case "/api/stream":
+		s.handleStatusStream(w, r)
+	case "/health":
+		s.handleHealth(w, r)
+	case "/ready":
+		s.handleReady(w, r)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+// handleHealth returns a basic health check
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "OK")
+}
+
+// handleReady checks if the system is ready to handle traffic
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Check uptime
+	uptime := time.Since(s.startTime)
+	if uptime < 5*time.Second {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, "System still starting up (uptime: %v)", uptime)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "Ready")
 }
 
 // Start starts the monitoring server
