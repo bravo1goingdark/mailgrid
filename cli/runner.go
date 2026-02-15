@@ -363,14 +363,18 @@ func Run(args CLIArgs) error {
 	}
 
 	// Use offset-aware dispatcher if tracker is available
+	opts := &email.DispatchOptions{
+		Context:     context.Background(),
+		Monitor:     mon,
+		Tracker:     tracker,
+		StartOffset: startOffset,
+	}
+	email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, opts)
+	// Save final offset after campaign completion
 	if tracker != nil {
-		email.StartDispatcherWithOffset(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon, tracker, startOffset)
-		// Save final offset after campaign completion
 		if err := tracker.Save(); err != nil {
 			log.Printf("️ Warning: Failed to save final offset: %v", err)
 		}
-	} else {
-		email.StartDispatcherWithMonitor(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, mon)
 	}
 	duration := time.Since(start)
 

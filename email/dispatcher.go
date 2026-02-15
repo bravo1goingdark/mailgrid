@@ -170,21 +170,3 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 	close(retryChan)
 	retryWg.Wait()
 }
-
-// StartDispatcherWithMonitor is a convenience wrapper for backward compatibility.
-// Deprecated: Use StartDispatcher with DispatchOptions instead.
-func StartDispatcherWithMonitor(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor) {
-	StartDispatcher(tasks, cfg, concurrency, batchSize, &DispatchOptions{
-		Monitor: mon,
-	})
-}
-
-// StartDispatcherWithOffset is a convenience wrapper for backward compatibility.
-// Deprecated: Use StartDispatcher with DispatchOptions instead.
-func StartDispatcherWithOffset(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, mon monitor.Monitor, tracker OffsetTracker, startOffset int) {
-	StartDispatcher(tasks, cfg, concurrency, batchSize, &DispatchOptions{
-		Monitor:     mon,
-		Tracker:     tracker,
-		StartOffset: startOffset,
-	})
-}
