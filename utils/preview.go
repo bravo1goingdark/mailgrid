@@ -1,4 +1,4 @@
-package preview
+package utils
 
 import (
 	"context"
@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// StartServer starts a local HTTP server to preview the rendered email.
+// StartPreviewServer starts a local HTTP server to preview the rendered email.
 // Returns an error if the server fails to start or serve.
-func StartServer(rendered string, port int) error {
+func StartPreviewServer(rendered string, port int) error {
 	addr := fmt.Sprintf(":%d", port)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

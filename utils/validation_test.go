@@ -1,4 +1,4 @@
-package valid
+package utils
 
 import (
 	"os"
@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/bravo1goingdark/mailgrid/parser"
-	"github.com/bravo1goingdark/mailgrid/parser/expression"
 )
 
 func TestParseAddressInput(t *testing.T) {
@@ -143,9 +142,9 @@ func TestValidateFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a simple expression
-			expr, _ := expression.Parse(`name == "Test"`)
+			expr, _ := parser.ParseExpression(`name == "Test"`)
 
-			err := ValidateFields(expr, tt.recipients)
+			err := parser.ValidateFields(expr, tt.recipients)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateFields() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -206,7 +205,7 @@ func TestExtractFieldNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ExtractFieldNames(tt.exprStr)
+			result := parser.ExtractFieldNames(tt.exprStr)
 
 			// Check that all expected fields are present
 			for _, field := range tt.shouldContain {
@@ -226,7 +225,7 @@ func TestExtractFieldNames(t *testing.T) {
 			for _, field := range tt.shouldNotContain {
 				for _, r := range result {
 					if r == field {
-						t.Errorf("ExtractFieldNames(%q) should not contain %q, got %v", tt.exprStr, field, result)
+						t.Errorf("ExtractFieldNames(%q) should not contain %q", tt.exprStr, field)
 					}
 				}
 			}
@@ -238,7 +237,7 @@ func TestExtractFieldNamesFiltersKeywords(t *testing.T) {
 	keywords := []string{"contains", "startsWith", "endsWith", "and", "or", "not", "true", "false"}
 
 	for _, keyword := range keywords {
-		result := ExtractFieldNames(keyword)
+		result := parser.ExtractFieldNames(keyword)
 		for _, r := range result {
 			if r == keyword {
 				t.Errorf("ExtractFieldNames(%q) should filter out keyword %q", keyword, keyword)

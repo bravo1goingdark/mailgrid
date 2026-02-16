@@ -1,10 +1,9 @@
-// tests/parser/expression/eval_test.go
-package expression_test
+package parser_test
 
 import (
 	"testing"
 
-	"github.com/bravo1goingdark/mailgrid/parser/expression"
+	"github.com/bravo1goingdark/mailgrid/parser"
 )
 
 func TestExpression_Evaluate(t *testing.T) {
@@ -128,7 +127,7 @@ func TestExpression_Evaluate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expr, err := expression.Parse(tt.expr)
+			expr, err := parser.ParseExpression(tt.expr)
 			if tt.shouldFail {
 				if err == nil {
 					t.Errorf("expected error for invalid expression %q", tt.expr)
@@ -156,7 +155,7 @@ func TestParse_InvalidExpressions(t *testing.T) {
 	}
 
 	for _, expr := range invalidExprs {
-		_, err := expression.Parse(expr)
+		_, err := parser.ParseExpression(expr)
 		if err == nil {
 			t.Errorf("expected error for invalid expression %q", expr)
 		}
@@ -209,7 +208,7 @@ func TestExpression_OperatorStyle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expr, err := expression.Parse(tt.expr)
+			expr, err := parser.ParseExpression(tt.expr)
 			if err != nil {
 				t.Fatalf("failed to parse expression %q: %v", tt.expr, err)
 			}
@@ -223,8 +222,8 @@ func TestExpression_OperatorStyle(t *testing.T) {
 }
 
 func TestMustParse(t *testing.T) {
-	expr := expression.MustParse(`name == "test"`)
+	expr := parser.MustParseExpression(`name == "test"`)
 	if !expr.Evaluate(map[string]string{"name": "test"}) {
-		t.Error("MustParse should not panic for valid expression")
+		t.Error("MustParseExpression should not panic for valid expression")
 	}
 }

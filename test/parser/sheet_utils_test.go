@@ -1,9 +1,9 @@
-package utils_test
+package parser_test
 
 import (
 	"testing"
 
-	"github.com/bravo1goingdark/mailgrid/utils"
+	"github.com/bravo1goingdark/mailgrid/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +48,7 @@ func TestExtractSheetInfo_ValidURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			id, gid, err := utils.ExtractSheetInfo(tt.url)
+			id, gid, err := parser.ExtractSheetInfo(tt.url)
 
 			if tt.expectedErr {
 				assert.Error(t, err)
@@ -86,7 +86,7 @@ func TestExtractSheetInfo_InvalidURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := utils.ExtractSheetInfo(tt.url)
+			_, _, err := parser.ExtractSheetInfo(tt.url)
 			assert.Error(t, err)
 		})
 	}
@@ -100,19 +100,19 @@ func TestExtractSheetInfo_EdgeCases(t *testing.T) {
 	}
 
 	url := "https://docs.google.com/spreadsheets/d/" + longID + "/edit"
-	id, _, err := utils.ExtractSheetInfo(url)
+	id, _, err := parser.ExtractSheetInfo(url)
 	require.NoError(t, err)
 	assert.Equal(t, longID, id)
 
 	// Test with GID that's not numeric (should still work)
 	url = "https://docs.google.com/spreadsheets/d/1ABC123/edit#gid=abc123"
-	_, gid, err := utils.ExtractSheetInfo(url)
+	_, gid, err := parser.ExtractSheetInfo(url)
 	require.NoError(t, err)
 	assert.Equal(t, "abc123", gid)
 
 	// Test with multiple query parameters
 	url = "https://docs.google.com/spreadsheets/d/1ABC123/export?format=csv&gid=123&other=value"
-	_, gid, err = utils.ExtractSheetInfo(url)
+	_, gid, err = parser.ExtractSheetInfo(url)
 	require.NoError(t, err)
 	assert.Equal(t, "123", gid)
 }

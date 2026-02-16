@@ -14,7 +14,6 @@ import (
 	"github.com/bravo1goingdark/mailgrid/monitor"
 	"github.com/bravo1goingdark/mailgrid/parser"
 	"github.com/bravo1goingdark/mailgrid/utils"
-	"github.com/bravo1goingdark/mailgrid/utils/preview"
 	"github.com/bravo1goingdark/mailgrid/webhook"
 )
 
@@ -37,7 +36,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 		var body string
 		if templatePath != "" {
 			var err error
-			body, err = preview.RenderTemplate(r, templatePath)
+			body, err = utils.RenderTemplate(r, templatePath)
 			if err != nil {
 				log.Printf("️ Skipping %s: template rendering failed (%v)", r.Email, err)
 				continue

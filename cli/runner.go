@@ -16,11 +16,8 @@ import (
 	"github.com/bravo1goingdark/mailgrid/monitor"
 	"github.com/bravo1goingdark/mailgrid/offset"
 	"github.com/bravo1goingdark/mailgrid/parser"
-	"github.com/bravo1goingdark/mailgrid/parser/expression"
 	"github.com/bravo1goingdark/mailgrid/scheduler"
 	"github.com/bravo1goingdark/mailgrid/utils"
-	"github.com/bravo1goingdark/mailgrid/utils/preview"
-	"github.com/bravo1goingdark/mailgrid/utils/valid"
 	"github.com/bravo1goingdark/mailgrid/webhook"
 )
 
@@ -192,11 +189,11 @@ func Run(args CLIArgs) error {
 	}
 
 	// Parse CC and BCC addresses from inline or file input
-	ccList, err := valid.ParseAddressInput(args.Cc)
+	ccList, err := utils.ParseAddressInput(args.Cc)
 	if err != nil {
 		return fmt.Errorf("failed to parse CC: %w", err)
 	}
-	bccList, err := valid.ParseAddressInput(args.Bcc)
+	bccList, err := utils.ParseAddressInput(args.Bcc)
 	if err != nil {
 		return fmt.Errorf("failed to parse BCC: %w", err)
 	}
@@ -220,7 +217,7 @@ func Run(args CLIArgs) error {
 			return fmt.Errorf("failed to parse Google Sheet as CSV: %w", err)
 		}
 
-		id, gid, _ := utils.ExtractSheetInfo(args.SheetURL)
+		id, gid, _ := parser.ExtractSheetInfo(args.SheetURL)
 		fmt.Printf(" Loaded Google Sheet: Spreadsheet ID = %s, GID = %s\n", id, gid)
 
 	} else {
@@ -236,12 +233,12 @@ func Run(args CLIArgs) error {
 			return fmt.Errorf("no recipients found in CSV for filtering")
 		}
 
-		expr, err := expression.Parse(args.Filter)
+		expr, err := parser.ParseExpression(args.Filter)
 		if err != nil {
 			return fmt.Errorf("invalid filter: %w", err)
 		}
 
-		if err := valid.ValidateFields(expr, recipients); err != nil {
+		if err := parser.ValidateFields(expr, recipients); err != nil {
 			return fmt.Errorf("invalid filter field: %w", err)
 		}
 
@@ -260,11 +257,11 @@ func Run(args CLIArgs) error {
 		if len(recipients) == 0 {
 			return fmt.Errorf("no recipients found in CSV for preview")
 		}
-		rendered, err := preview.RenderTemplate(recipients[0], args.TemplatePath)
+		rendered, err := utils.RenderTemplate(recipients[0], args.TemplatePath)
 		if err != nil {
 			return fmt.Errorf("failed to render template: %w", err)
 		}
-		return preview.StartServer(rendered, args.PreviewPort)
+		return utils.StartPreviewServer(rendered, args.PreviewPort)
 	}
 
 	// Render subject & body for each recipient and build email.Task list

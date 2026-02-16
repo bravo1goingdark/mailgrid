@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"github.com/bravo1goingdark/mailgrid/utils"
 	"io"
 	"net/http"
 	"time"
@@ -13,7 +12,7 @@ const sheetTimeout = 30 * time.Second
 // GetSheetCSVStream fetches a Google Sheet as a CSV stream.
 // It extracts of sheet ID and GID from provided URL and constructs export URL.
 func GetSheetCSVStream(sheetURL string) (io.ReadCloser, error) {
-	id, gid, err := utils.ExtractSheetInfo(sheetURL)
+	id, gid, err := ExtractSheetInfo(sheetURL)
 	if err != nil {
 		return nil, err
 	}

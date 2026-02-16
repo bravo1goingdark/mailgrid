@@ -1,10 +1,10 @@
-package expression
+package parser
 
 import (
 	"testing"
 )
 
-func TestParse(t *testing.T) {
+func TestParseExpression(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -109,40 +109,40 @@ func TestParse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expr, err := Parse(tt.input)
+			expr, err := ParseExpression(tt.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Parse(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				t.Errorf("ParseExpression(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr && expr == nil {
-				t.Errorf("Parse(%q) returned nil expression without error", tt.input)
+				t.Errorf("ParseExpression(%q) returned nil expression without error", tt.input)
 			}
 		})
 	}
 }
 
-func TestMustParse(t *testing.T) {
+func TestMustParseExpression(t *testing.T) {
 	t.Run("valid expression", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				t.Errorf("MustParse() panicked on valid expression: %v", r)
+				t.Errorf("MustParseExpression() panicked on valid expression: %v", r)
 			}
 		}()
 
-		expr := MustParse(`name == "John"`)
+		expr := MustParseExpression(`name == "John"`)
 		if expr == nil {
-			t.Error("MustParse() returned nil")
+			t.Error("MustParseExpression() returned nil")
 		}
 	})
 
 	t.Run("invalid expression panics", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r == nil {
-				t.Error("MustParse() should panic on invalid expression")
+				t.Error("MustParseExpression() should panic on invalid expression")
 			}
 		}()
 
-		MustParse("")
+		MustParseExpression("")
 	})
 }
 
@@ -243,7 +243,6 @@ func TestEvaluate(t *testing.T) {
 			data:     map[string]string{"name": "Bob"},
 			expected: false,
 		},
-
 		{
 			name:     "complex expression",
 			input:    `(tier == "vip" || tier == "premium") && location == "us"`,
@@ -266,7 +265,7 @@ func TestEvaluate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expr, err := Parse(tt.input)
+			expr, err := ParseExpression(tt.input)
 			if err != nil {
 				t.Fatalf("Failed to parse expression %q: %v", tt.input, err)
 			}

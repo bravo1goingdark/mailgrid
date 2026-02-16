@@ -2,8 +2,6 @@ package parser
 
 import (
 	"testing"
-
-	"github.com/bravo1goingdark/mailgrid/parser/expression"
 )
 
 func TestFilter(t *testing.T) {
@@ -112,7 +110,7 @@ func TestFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expr, err := expression.Parse(tt.exprInput)
+			expr, err := ParseExpression(tt.exprInput)
 			if err != nil {
 				t.Fatalf("Failed to parse expression %q: %v", tt.exprInput, err)
 			}
@@ -130,7 +128,7 @@ func TestFilterPreservesEmail(t *testing.T) {
 		{Email: "test@example.com", Data: map[string]string{"name": "Test"}},
 	}
 
-	expr, err := expression.Parse(`email == "test@example.com"`)
+	expr, err := ParseExpression(`email == "test@example.com"`)
 	if err != nil {
 		t.Fatalf("Failed to parse expression: %v", err)
 	}
@@ -155,7 +153,7 @@ func TestFilterCaseInsensitivity(t *testing.T) {
 		{Email: "TEST@EXAMPLE.COM", Data: map[string]string{"name": "Test"}},
 	}
 
-	expr, err := expression.Parse(`email == "test@example.com"`)
+	expr, err := ParseExpression(`email == "test@example.com"`)
 	if err != nil {
 		t.Fatalf("Failed to parse expression: %v", err)
 	}

@@ -73,7 +73,8 @@ Validation       & Scheduler    & Metrics
 - `sheet.go`: Google Sheets integration
 - `types.go`: Data structures for recipients
 - `filter.go`: Logical filtering of recipients
-- `expression/`: Expression parsing for filters
+- `expr.go`: Expression parsing for filters
+- `sheet_utils.go`: Google Sheets URL parsing
  
 **Key Types**:
 - `Recipient`: Represents an email recipient with template data
@@ -143,9 +144,10 @@ Validation       & Scheduler    & Metrics
 **Purpose**: Utility functions
 - `strings.go`: String manipulation helpers
 - `input.go`: Input validation and parsing
-- `sheet_utils.go`: Google Sheets URL parsing
-- `valid/`: Validation utilities
-- `preview/`: Email preview functionality
+- `address.go`: Address parsing (CC/BCC)
+- `validation.go`: Validation utilities
+- `preview.go`: Email preview server
+- `template.go`: Template rendering utilities
  
 #### `internal/types/`
 **Purpose**: Shared type definitions
@@ -282,10 +284,9 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 test/
 ├── cli/           # CLI integration tests
 ├── config/        # Configuration tests
-├── parser/        # Data parsing tests
-├── preview/       # Preview functionality tests
-├── scheduler/     # Scheduler tests
-└── utils/         # Utility function tests
+├── parser/        # Data parsing and validation tests
+├── preview/       # Preview server test helpers
+└── scheduler/     # Scheduler tests
 ```
  
 ### Running Tests

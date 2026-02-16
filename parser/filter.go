@@ -6,17 +6,13 @@
 // - Supports email fallback field
 package parser
 
-import (
-	"strings"
-
-	"github.com/bravo1goingdark/mailgrid/parser/expression"
-)
+import "strings"
 
 // Filter applies the provided logical EXPRESSION to a slice of recipients.
 // It returns only those recipients for whom the expression evaluates to true.
 //
 // The expression is evaluated case-insensitively, and field names are normalized to lowercase.
-func Filter(recipients []Recipient, exp expression.Expression) []Recipient {
+func Filter(recipients []Recipient, exp Expression) []Recipient {
 	var out []Recipient
 
 	for _, r := range recipients {
