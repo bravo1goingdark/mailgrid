@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/Tests-passing-brightgreen?style=for-the-badge" alt="CI Status"/>
   </a>
   <a href="https://github.com/bravo1goingdark/mailgrid/releases/latest">
-    <img src="https://img.shields.io/badge/Release-v0.1.0-blue?style=for-the-badge" alt="Latest Release"/>
+    <img src="https://img.shields.io/badge/Release-v1.0.0-blue?style=for-the-badge" alt="Latest Release"/>
   </a>
   <a href="https://github.com/bravo1goingdark/mailgrid/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-BSD--3--Clause-green?style=for-the-badge" alt="License"/>
