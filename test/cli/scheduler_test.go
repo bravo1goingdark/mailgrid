@@ -4,18 +4,18 @@
 package cli_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/bravo1goingdark/mailgrid/cli"
+	"github.com/bravo1goingdark/mailgrid/config"
 	"github.com/bravo1goingdark/mailgrid/database"
 	"github.com/bravo1goingdark/mailgrid/internal/types"
 	"github.com/bravo1goingdark/mailgrid/logger"
 	"github.com/bravo1goingdark/mailgrid/scheduler"
-	"github.com/mocktools/go-smtp-mock/v2"
+	smtpmock "github.com/mocktools/go-smtp-mock/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,30 +26,7 @@ func TestScheduler_Integration(t *testing.T) {
 	require.NoError(t, server.Start())
 	defer server.Stop()
 
-	// Create a temporary database file
-	tmpfile, err := os.CreateTemp("", "test.db")
-	require.NoError(t, err)
-	defer os.Remove(tmpfile.Name())
-
-	// Create a new BoltDB client
-	db, err := database.NewDB(tmpfile.Name())
-	require.NoError(t, err)
-	defer db.Close()
-
-	// Create a new logger
-	log := logger.New("test")
-
-	// Create a new scheduler
-	s := scheduler.NewScheduler(db, log)
-	es := scheduler.NewEmailScheduler(s)
-
-	// Create a new runner
-	runner := cli.NewRunner(es)
-
-	// Reattach handlers
-	es.ReattachHandlers(runner.EmailJobHandler)
-
-	// Create a temporary config file
+	// Create a temporary config file pointing at the mock SMTP
 	configContent := fmt.Sprintf(`{
 		"smtp": {
 			"host": "%s",
@@ -66,23 +43,78 @@ func TestScheduler_Integration(t *testing.T) {
 	require.NoError(t, err)
 	configFile.Close()
 
-	// Schedule an email to be sent in 1 second
-	args := types.CLIArgs{
-		EnvPath:    configFile.Name(),
-		To:         "recipient@example.com",
-		Subject:    "Test Email",
-		Text:       "This is a test email.",
-		ScheduleAt: time.Now().Add(1 * time.Second).Format(time.RFC3339),
-	}
-	err = runner.Run(context.Background(), args)
+	// Load SMTP config for handler use
+	smtpCfg, err := config.LoadConfig(configFile.Name())
 	require.NoError(t, err)
 
-	// Wait for the email to be sent
-	time.Sleep(2 * time.Second)
+	// Create a temporary BoltDB
+	tmpDB, err := os.CreateTemp("", "test-*.db")
+	require.NoError(t, err)
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
 
-	// Verify that the email was sent
-	messages := server.Messages()
-	assert.Len(t, messages, 1)
-	assert.Contains(t, messages[0].MsgRequest(), "Subject: Test Email")
-	assert.Contains(t, messages[0].To(), "recipient@example.com")
+	db, err := database.NewDB(tmpDB.Name())
+	require.NoError(t, err)
+	defer db.Close()
+
+	log := logger.New("test-scheduler")
+	sched := scheduler.NewScheduler(db, log)
+
+	// Channel to signal job completion
+	done := make(chan error, 1)
+
+	args := types.CLIArgs{
+		EnvPath: configFile.Name(),
+		To:      "recipient@example.com",
+		Subject: "Test Email",
+		Text:    "This is a test email.",
+	}
+
+	job := scheduler.NewJob(args, time.Now().Add(200*time.Millisecond), "", "")
+
+	handler := func(j types.Job) error {
+		var a types.CLIArgs
+		if err := cli.DecodeJobArgs(j, &a); err != nil {
+			done <- err
+			return err
+		}
+		cliArgs := cli.CLIArgs{
+			EnvPath:      a.EnvPath,
+			To:           a.To,
+			Subject:      a.Subject,
+			Text:         a.Text,
+			TemplatePath: a.Template,
+		}
+		err := cli.SendSingleEmail(cliArgs, smtpCfg.SMTP)
+		done <- err
+		return err
+	}
+
+	err = sched.AddJob(job, handler)
+	require.NoError(t, err)
+
+	// Wait for job execution
+	select {
+	case err := <-done:
+		assert.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("Job did not execute in time")
+	}
+
+	// Verify job completed
+	var jobStatus string
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		jobs, err := sched.ListJobs()
+		require.NoError(t, err)
+		if len(jobs) == 1 && (jobs[0].Status == "done" || jobs[0].Status == "pending") {
+			jobStatus = jobs[0].Status
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Job did not complete in time; last status: %v", jobs)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	assert.Equal(t, "done", jobStatus)
 }

@@ -145,7 +145,6 @@ func Run(args CLIArgs) error {
 
 		fmt.Printf("[SCHEDULE] Job scheduled successfully%s\n", scheduleInfo)
 		fmt.Printf("[DATABASE]  Database: mailgrid.db\n")
-		fmt.Printf(" Metrics: http://localhost:8090/metrics\n")
 		fmt.Printf(" The scheduler will start automatically and run in the background\n")
 
 		return nil

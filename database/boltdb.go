@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	jobsBucket      = "jobs"
+	jobsBucket     = "jobs"
 	lockBucket     = "locks"
 	lockExpiryTime = 5 * time.Minute
 )

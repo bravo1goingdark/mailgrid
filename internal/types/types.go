@@ -29,6 +29,11 @@ type CLIArgs struct {
 	JobBackoffDur string `json:"job_backoff,omitempty"` // Go duration, base backoff
 }
 
+// DecodeJobArgs unmarshals the job's Args field into the provided CLIArgs struct.
+func DecodeJobArgs(job Job, args *CLIArgs) error {
+	return json.Unmarshal(job.Args, args)
+}
+
 // Job represents a scheduled unit of work persisted by the scheduler.
 // Args contains a JSON-encoded CLIArgs payload.
 type Job struct {

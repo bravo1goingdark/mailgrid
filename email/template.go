@@ -42,12 +42,12 @@ func NewTemplateCache(maxAge time.Duration, maxSize int) *TemplateCache {
 	}
 
 	c := &TemplateCache{
-		templates:  make(map[string]*template.Template),
-		lastAccess: make(map[string]time.Time),
-		maxAge:     maxAge,
-		maxSize:    maxSize,
+		templates:   make(map[string]*template.Template),
+		lastAccess:  make(map[string]time.Time),
+		maxAge:      maxAge,
+		maxSize:     maxSize,
 		currentSize: 0,
-		stopCh:     make(chan struct{}),
+		stopCh:      make(chan struct{}),
 	}
 
 	// Start cleanup goroutine

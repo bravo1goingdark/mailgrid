@@ -2,26 +2,49 @@ package email
 
 import (
 	"crypto/rand"
-	"github.com/bravo1goingdark/mailgrid/logger"
-	"github.com/bravo1goingdark/mailgrid/monitor"
 	"log"
 	"math/big"
 	"net/smtp"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/bravo1goingdark/mailgrid/logger"
+	"github.com/bravo1goingdark/mailgrid/monitor"
 )
 
-var retryLimit = 2
-var maxBackoff = 10 * time.Second // maximum wait before retry
+var (
+	retryLimit = 2
+	maxBackoff = 10 * time.Second // maximum wait before retry
+	retryMu    sync.RWMutex
+)
 
 // SetRetryLimit sets the max retry attempts per failed email, with exponential backoff.
 func SetRetryLimit(limit int) {
+	retryMu.Lock()
+	defer retryMu.Unlock()
 	retryLimit = limit
 }
 
 // SetMaxBackoff sets the maximum backoff delay for retries
 func SetMaxBackoff(d time.Duration) {
+	retryMu.Lock()
+	defer retryMu.Unlock()
 	maxBackoff = d
+}
+
+// GetRetryLimit returns the current retry limit (thread-safe)
+func GetRetryLimit() int {
+	retryMu.RLock()
+	defer retryMu.RUnlock()
+	return retryLimit
+}
+
+// GetMaxBackoff returns the current max backoff duration (thread-safe)
+func GetMaxBackoff() time.Duration {
+	retryMu.RLock()
+	defer retryMu.RUnlock()
+	return maxBackoff
 }
 
 // extractSMTPCode attempts to extract SMTP response code from error message
@@ -131,12 +154,15 @@ func processBatch(w worker, client *smtp.Client, batch []Task) {
 				w.Monitor.AddSMTPResponse("error")
 			}
 
-			if task.Retries < retryLimit {
+			currentLimit := GetRetryLimit()
+			currentMaxBackoff := GetMaxBackoff()
+
+			if task.Retries < currentLimit {
 				task.Retries++
 
 				backoff := time.Duration(1<<uint(task.Retries)) * time.Second
-				if backoff > maxBackoff {
-					backoff = maxBackoff
+				if backoff > currentMaxBackoff {
+					backoff = currentMaxBackoff
 				}
 				jitterMs, _ := rand.Int(rand.Reader, big.NewInt(1000))
 				jitter := time.Duration(jitterMs.Int64()) * time.Millisecond

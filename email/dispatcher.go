@@ -149,16 +149,28 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 					log.Printf("Context cancelled, stopping retry processing")
 					return
 				default:
-					// Channel full, try with timeout
+					// Channel full, use a non-blocking approach with proper cleanup
+					scheduled := make(chan struct{})
 					go func(t Task) {
-						defer retryWg.Done()
+						defer func() {
+							retryWg.Done()
+							close(scheduled)
+						}()
 						select {
 						case taskChan <- t:
 						case <-ctx.Done():
+							log.Printf("Retry cancelled for %s due to context", t.Recipient.Email)
 						case <-time.After(5 * time.Second):
 							log.Printf("Retry timeout for %s", t.Recipient.Email)
 						}
 					}(task)
+					// Wait briefly for the goroutine to start, then continue
+					select {
+					case <-scheduled:
+					case <-ctx.Done():
+						// If context cancelled while waiting, don't block
+					default:
+					}
 				}
 			} else {
 				log.Printf("Permanent failure: %s", task.Recipient.Email)

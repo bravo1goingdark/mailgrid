@@ -14,3 +14,4 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test ./...
+      - run: gofmt -l .

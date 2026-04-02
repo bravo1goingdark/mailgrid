@@ -16,8 +16,7 @@ type SMTPConfig struct {
 
 type AppConfig struct {
 	SMTP      SMTPConfig `json:"smtp"`
-	RateLimit int        `json:"rate_limit"` // emails you can send per second
-	TimeoutMs int        `json:"timeout_ms"` // smtp timeout
+	TimeoutMs int        `json:"timeout_ms"` // smtp timeout in milliseconds
 }
 
 // LoadConfig reads JSON config from disk and returns a parsed AppConfig.

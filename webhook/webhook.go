@@ -31,9 +31,9 @@ type CampaignResult struct {
 // Client handles webhook HTTP requests with goroutine tracking
 type Client struct {
 	httpClient *http.Client
-	wg          sync.WaitGroup
-	mu          sync.RWMutex
-	closed      bool
+	wg         sync.WaitGroup
+	mu         sync.RWMutex
+	closed     bool
 }
 
 // NewClient creates a new webhook client with timeout configuration

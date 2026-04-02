@@ -2,7 +2,10 @@ package scheduler
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/bravo1goingdark/mailgrid/config"
@@ -169,11 +172,15 @@ func (sm *SchedulerManager) RunDaemon() error {
 		return fmt.Errorf("failed to start scheduler daemon: %w", err)
 	}
 
-	sm.logger.Infof("Scheduler daemon running...")
+	sm.logger.Infof("Scheduler daemon running... Press Ctrl+C to stop")
 
-	// Wait for context cancellation or stop signal
-	// This is a blocking call that keeps the daemon running
-	select {}
+	// Wait for interrupt signal for graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	sm.logger.Infof("Shutting down scheduler daemon...")
+	return sm.Stop()
 }
 
 // Global manager instance for singleton access

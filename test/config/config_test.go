@@ -9,7 +9,7 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	cfg := config.AppConfig{SMTP: config.SMTPConfig{Host: "smtp", Port: 25, Username: "u", Password: "p", From: "me@test"}, RateLimit: 1, TimeoutMs: 1000}
+	cfg := config.AppConfig{SMTP: config.SMTPConfig{Host: "smtp", Port: 25, Username: "u", Password: "p", From: "me@test"}, TimeoutMs: 1000}
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func TestLoadConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig error: %v", err)
 	}
-	if loaded.SMTP.Host != "smtp" || loaded.RateLimit != 1 {
+	if loaded.SMTP.Host != "smtp" || loaded.TimeoutMs != 1000 {
 		t.Errorf("unexpected config: %+v", loaded)
 	}
 }
