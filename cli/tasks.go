@@ -20,7 +20,7 @@ import (
 // PrepareEmailTasks renders the subject and body templates for each recipient
 // and returns a list of email.Task objects ready for sending.
 func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl string, attachments []string, ccList []string, bccList []string) ([]email.Task, error) {
-	tmpl, err := template.New("subject").Parse(subjectTpl)
+	tmpl, err := template.New("subject").Option("missingkey=error").Parse(subjectTpl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid subject template: %w", err)
 	}

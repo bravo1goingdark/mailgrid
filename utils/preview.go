@@ -14,7 +14,7 @@ import (
 // StartPreviewServer starts a local HTTP server to preview the rendered email.
 // Returns an error if the server fails to start or serve.
 func StartPreviewServer(rendered string, port int) error {
-	addr := fmt.Sprintf(":%d", port)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

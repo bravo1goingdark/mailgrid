@@ -70,7 +70,8 @@ func TestScheduler_Integration(t *testing.T) {
 		Text:    "This is a test email.",
 	}
 
-	job := scheduler.NewJob(args, time.Now().Add(200*time.Millisecond), "", "")
+	job, err := scheduler.NewJob(args, time.Now().Add(200*time.Millisecond), "", "")
+	require.NoError(t, err)
 
 	handler := func(j types.Job) error {
 		var a types.CLIArgs

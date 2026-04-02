@@ -53,6 +53,8 @@ func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 	}
 
 	var recipients []Recipient
+	var skippedCount int
+	var totalRows int
 
 	// Read the remaining rows (one recipient per row)
 	for {
@@ -60,8 +62,10 @@ func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 		if err == io.EOF {
 			break // end of file reached
 		}
+		totalRows++
 		if err != nil || len(record) != len(headers) {
-			log.Printf("Warning: Skipping malformed CSV row (expected %d fields, got %d): %v", len(headers), len(record), record)
+			skippedCount++
+			log.Printf("Warning: Skipping malformed CSV row (expected %d fields, got %d)", len(headers), len(record))
 			continue // skip malformed or mismatched rows
 		}
 
@@ -73,7 +77,8 @@ func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 
 		// Validate email address
 		if !IsValidEmail(email) {
-			log.Printf("Warning: Skipping row with invalid email: %s", email)
+			skippedCount++
+			log.Printf("Warning: Skipping row with invalid email")
 			continue
 		}
 
@@ -92,6 +97,10 @@ func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 			Email: email,
 			Data:  data,
 		})
+	}
+
+	if skippedCount > 0 {
+		log.Printf("CSV parsing: %d recipients loaded, %d rows skipped out of %d total", len(recipients), skippedCount, totalRows)
 	}
 
 	// Return the full list of recipients

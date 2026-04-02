@@ -72,11 +72,14 @@ func newInstanceID() string {
 }
 
 // NewJob constructs a Job from CLI args and desired schedule.
-func NewJob(args types.CLIArgs, runAt time.Time, cronExpr, interval string) types.Job {
+func NewJob(args types.CLIArgs, runAt time.Time, cronExpr, interval string) (types.Job, error) {
 	if runAt.IsZero() {
 		runAt = time.Now()
 	}
-	payload, _ := json.Marshal(args)
+	payload, err := json.Marshal(args)
+	if err != nil {
+		return types.Job{}, fmt.Errorf("marshal job args: %w", err)
+	}
 	now := time.Now()
 	maxAttempts := args.JobRetries
 	if maxAttempts <= 0 {
@@ -98,7 +101,7 @@ func NewJob(args types.CLIArgs, runAt time.Time, cronExpr, interval string) type
 		Backoff:     backoff,
 		CreatedAt:   now,
 		UpdatedAt:   now,
-	}
+	}, nil
 }
 
 // AddJob registers a job and its handler, persists it, and schedules execution.

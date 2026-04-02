@@ -24,6 +24,27 @@ import (
 	"time"
 )
 
+// isASCII checks if a string contains only printable ASCII characters.
+func isASCII(s string) bool {
+	for _, r := range s {
+		if r > 127 || r < 32 {
+			return false
+		}
+	}
+	return true
+}
+
+// sanitizeFilename removes quotes, backslashes, and newlines from
+// attachment filenames to prevent header injection.
+func sanitizeFilename(name string) string {
+	name = filepath.Base(name)
+	name = strings.ReplaceAll(name, "\"", "")
+	name = strings.ReplaceAll(name, "\\", "")
+	name = strings.ReplaceAll(name, "\r", "")
+	name = strings.ReplaceAll(name, "\n", "")
+	return name
+}
+
 var bufWriterPool = sync.Pool{New: func() any { return bufio.NewWriterSize(io.Discard, 64*1024) }}
 var copyBufPool = sync.Pool{New: func() any { b := make([]byte, 32*1024); return &b }}
 
@@ -127,10 +148,17 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 	}()
 
 	boundary := "mixed_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	// Encode subject with RFC 2047 if it contains non-ASCII characters
+	subject := task.Subject
+	if !isASCII(subject) {
+		subject = mime.BEncoding.Encode("UTF-8", subject)
+	}
+
 	headers := map[string]string{
 		"From":         fmt.Sprintf("Mailgrid <%s>", from),
 		"To":           to,
-		"Subject":      task.Subject,
+		"Subject":      subject,
 		"MIME-Version": "1.0",
 	}
 	if len(uniqueCC) > 0 {
@@ -175,7 +203,8 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 			if _, err = bw.WriteString("Content-Type: " + mt + "\r\n"); err != nil {
 				return fmt.Errorf("write content type: %w", err)
 			}
-			if _, err = bw.WriteString("Content-Disposition: attachment; filename=\"" + filepath.Base(path) + "\"\r\n"); err != nil {
+			safeName := sanitizeFilename(path)
+			if _, err = bw.WriteString("Content-Disposition: attachment; filename=\"" + safeName + "\"\r\n"); err != nil {
 				return fmt.Errorf("write content disposition: %w", err)
 			}
 			if _, err = bw.WriteString("Content-Transfer-Encoding: base64\r\n\r\n"); err != nil {

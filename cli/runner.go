@@ -136,6 +136,9 @@ func Run(args CLIArgs) error {
 			if err != nil {
 				return fmt.Errorf("parse schedule_at: %w", err)
 			}
+			if runAt.Before(time.Now()) {
+				log.Printf("Warning: --schedule-at is in the past; job will run immediately")
+			}
 		} else {
 			runAt = time.Now()
 		}
@@ -184,10 +187,19 @@ func Run(args CLIArgs) error {
 
 		return nil
 	}
+	if args.EnvPath == "" {
+		return fmt.Errorf("SMTP config required: set --env path/to/config.json")
+	}
 	// Load SMTP configuration from a file
 	cfg, err := config.LoadConfig(args.EnvPath)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
+	}
+	if args.Concurrency < 1 {
+		return fmt.Errorf("--concurrency must be at least 1")
+	}
+	if args.BatchSize < 1 {
+		args.BatchSize = 1
 	}
 	if args.To != "" {
 		if args.CSVPath != "" || args.SheetURL != "" {
@@ -213,8 +225,8 @@ func Run(args CLIArgs) error {
 		}
 	}
 
-	if args.TemplatePath == "" && len(args.Attachments) == 0 {
-		return fmt.Errorf("provide --template, --attach, or both")
+	if args.TemplatePath == "" && args.Text == "" && len(args.Attachments) == 0 {
+		return fmt.Errorf("provide --template, --text, or --attach (at least one is required)")
 	}
 
 	// Validate webhook URL if provided
@@ -259,6 +271,10 @@ func Run(args CLIArgs) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse CSV: %w", err)
 		}
+	}
+
+	if len(recipients) == 0 && !args.DryRun {
+		return fmt.Errorf("no recipients found (CSV/Sheet is empty or all rows were skipped)")
 	}
 
 	// Optional logical filtering
@@ -472,10 +488,6 @@ func Run(args CLIArgs) error {
 
 // listScheduledJobs lists all scheduled jobs from the database
 func listScheduledJobs(dbPath, envPath string) error {
-	if envPath == "" {
-		return fmt.Errorf("config file required (--env)")
-	}
-
 	db, err := database.NewDB(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -510,9 +522,6 @@ func listScheduledJobs(dbPath, envPath string) error {
 
 // cancelScheduledJob cancels a scheduled job by ID
 func cancelScheduledJob(dbPath, envPath, jobID string) error {
-	if envPath == "" {
-		return fmt.Errorf("config file required (--env)")
-	}
 	if jobID == "" {
 		return fmt.Errorf("job ID required (--jobs-cancel)")
 	}

@@ -18,7 +18,10 @@ func NewEmailScheduler(s *Scheduler) *EmailScheduler {
 
 // AddEmailJob creates a new job and adds it to the scheduler.
 func (es *EmailScheduler) AddEmailJob(args types.CLIArgs, runAt time.Time, cronExpr, interval string, handler func(types.Job) error) error {
-	job := NewJob(args, runAt, cronExpr, interval)
+	job, err := NewJob(args, runAt, cronExpr, interval)
+	if err != nil {
+		return err
+	}
 	return es.AddJob(job, handler)
 }
 

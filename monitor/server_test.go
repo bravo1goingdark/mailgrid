@@ -25,7 +25,7 @@ func TestNewServer(t *testing.T) {
 	}
 
 	// Check server address
-	expectedAddr := ":9091"
+	expectedAddr := "127.0.0.1:9091"
 	if server.server.Addr != expectedAddr {
 		t.Errorf("Expected server address '%s', got '%s'", expectedAddr, server.server.Addr)
 	}

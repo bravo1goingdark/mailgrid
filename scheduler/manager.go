@@ -100,7 +100,10 @@ func (sm *SchedulerManager) ScheduleJob(args types.CLIArgs, runAt time.Time, cro
 	}
 
 	// Create and schedule the job
-	job := NewJob(args, runAt, cronExpr, interval)
+	job, err := NewJob(args, runAt, cronExpr, interval)
+	if err != nil {
+		return fmt.Errorf("failed to create job: %w", err)
+	}
 
 	scheduler := sm.scheduler
 	if err := scheduler.AddJob(job, handler); err != nil {

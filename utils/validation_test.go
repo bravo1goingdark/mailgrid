@@ -104,10 +104,15 @@ func TestParseAddressInputFromFile(t *testing.T) {
 }
 
 func TestParseAddressInputFromNonExistentFile(t *testing.T) {
+	// Non-existent file is treated as inline (comma-separated) input
 	nonExistentFile := "/path/that/does/not/exist.txt"
-	_, err := ParseAddressInput(nonExistentFile)
-	if err == nil {
-		t.Error("ParseAddressInput() should return error for non-existent file")
+	result, err := ParseAddressInput(nonExistentFile)
+	if err != nil {
+		t.Errorf("ParseAddressInput() returned unexpected error: %v", err)
+	}
+	// Should be treated as a single inline value
+	if len(result) != 1 || result[0] != nonExistentFile {
+		t.Errorf("ParseAddressInput() = %v, expected [%s]", result, nonExistentFile)
 	}
 }
 

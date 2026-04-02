@@ -110,7 +110,7 @@ func NewServer(port int) *Server {
 
 	// Set up HTTP server with custom handler
 	server.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
+		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
 		Handler: http.HandlerFunc(server.serveHTTP),
 	}
 
@@ -364,8 +364,25 @@ func (s *Server) broadcastUpdate() {
 		return
 	}
 
-	// Create a copy of stats for broadcasting
+	// Create a deep copy of stats for broadcasting to avoid data races
 	statsCopy := *s.stats
+	statsCopy.Recipients = make(map[string]*RecipientStatus, len(s.stats.Recipients))
+	for k, v := range s.stats.Recipients {
+		cp := *v
+		statsCopy.Recipients[k] = &cp
+	}
+	statsCopy.DomainBreakdown = make(map[string]int, len(s.stats.DomainBreakdown))
+	for k, v := range s.stats.DomainBreakdown {
+		statsCopy.DomainBreakdown[k] = v
+	}
+	statsCopy.SMTPResponseCodes = make(map[string]int, len(s.stats.SMTPResponseCodes))
+	for k, v := range s.stats.SMTPResponseCodes {
+		statsCopy.SMTPResponseCodes[k] = v
+	}
+	if len(s.stats.LogEntries) > 0 {
+		statsCopy.LogEntries = make([]LogEntry, len(s.stats.LogEntries))
+		copy(statsCopy.LogEntries, s.stats.LogEntries)
+	}
 
 	// Broadcast to all connected clients
 	for clientID, client := range s.clients {
