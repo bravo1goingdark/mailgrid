@@ -416,7 +416,7 @@ func Run(args CLIArgs) error {
 		Tracker:     tracker,
 		StartOffset: startOffset,
 	}
-	email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, opts)
+	dispatchResult := email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, opts)
 	// Save final offset after campaign completion
 	if tracker != nil {
 		if err := tracker.Save(); err != nil {
@@ -440,11 +440,14 @@ func Run(args CLIArgs) error {
 	if args.WebhookURL != "" {
 		endTime := time.Now()
 
-		// Get actual delivery statistics from monitor
-		var successfulDeliveries, failedDeliveries int
+		// Use dispatch result for stats (works with or without monitor)
+		successfulDeliveries := dispatchResult.Sent
+		failedDeliveries := dispatchResult.Failed
+
+		// If monitor is enabled, prefer its counts (includes retries)
 		if monitorServer != nil {
 			stats := monitorServer.GetStats()
-			if stats != nil {
+			if stats != nil && (stats.SentCount > 0 || stats.FailedCount > 0) {
 				successfulDeliveries = stats.SentCount
 				failedDeliveries = stats.FailedCount
 			}

@@ -244,12 +244,14 @@ func processBatch(w worker, client *smtp.Client, batch []Task) {
 				logger.LogFailure(task.Recipient.Email, task.Subject)
 				// Update status to failed
 				w.Monitor.UpdateRecipientStatus(task.Recipient.Email, monitor.StatusFailed, duration, err.Error())
+				w.Failed.Add(1)
 			}
 		} else {
 			logger.LogSuccess(task.Recipient.Email, task.Subject)
 			// Update status to sent
 			w.Monitor.UpdateRecipientStatus(task.Recipient.Email, monitor.StatusSent, duration, "")
 			w.Monitor.AddSMTPResponse("250") // Standard success code
+			w.Sent.Add(1)
 
 			// Update offset tracker if available
 			if w.Tracker != nil {

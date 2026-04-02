@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bravo1goingdark/mailgrid/config"
@@ -41,6 +42,8 @@ type worker struct {
 	Tracker     OffsetTracker
 	StartOffset int
 	Ctx         context.Context
+	Sent        *atomic.Int64
+	Failed      *atomic.Int64
 }
 
 // maxInt returns the larger of two integers
@@ -59,9 +62,18 @@ type DispatchOptions struct {
 	StartOffset int
 }
 
+// DispatchResult holds summary statistics from a dispatch run.
+type DispatchResult struct {
+	Sent   int
+	Failed int
+}
+
 // StartDispatcher sends emails using worker pool with retries and monitoring.
 // This is the main dispatcher function that all variants should use.
-func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, opts *DispatchOptions) {
+func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batchSize int, opts *DispatchOptions) DispatchResult {
+	var sent atomic.Int64
+	var failed atomic.Int64
+
 	if opts == nil {
 		opts = &DispatchOptions{
 			Context: context.Background(),
@@ -120,6 +132,8 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 			Tracker:     tracker,
 			StartOffset: startOffset,
 			Ctx:         ctx,
+			Sent:        &sent,
+			Failed:      &failed,
 		})
 	}
 
@@ -181,4 +195,9 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 	wg.Wait()
 	close(retryChan)
 	retryWg.Wait()
+
+	return DispatchResult{
+		Sent:   int(sent.Load()),
+		Failed: int(failed.Load()),
+	}
 }
