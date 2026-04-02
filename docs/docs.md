@@ -17,9 +17,9 @@ Complete CLI reference for Mailgrid email automation tool.
 
 ## Configuration
 
-### `--env` / `-e`
+### SMTP Config File (`--env` / `-e`)
 
-Path to SMTP configuration file (required for sending).
+Path to SMTP configuration JSON file (required for sending).
 
 ```json
 {
@@ -28,10 +28,23 @@ Path to SMTP configuration file (required for sending).
     "port": 587,
     "username": "your-email@gmail.com",
     "password": "your-app-password",
-    "from": "Your Name <your-email@gmail.com>"
-  }
+    "from": "Your Name <your-email@gmail.com>",
+    "tls_cert_file": "/path/to/ca-cert.pem",
+    "tls_key_file": "/path/to/client-cert.pem",
+    "insecure_tls": false
+  },
+  "timeout_ms": 5000
 }
 ```
+
+### TLS Options
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tls_cert_file` | string | Path to custom CA certificate (PEM) |
+| `tls_key_file` | string | Path to client certificate (PEM) |
+| `insecure_tls` | bool | Skip TLS verification (use with caution) |
+| `timeout_ms` | int | SMTP timeout in milliseconds |
 
 ---
 
@@ -50,6 +63,8 @@ jane@example.com,Jane,Tech Inc
 ```bash
 mailgrid --env config.json --csv recipients.csv --template email.html
 ```
+
+> **Note:** Invalid email addresses are automatically skipped with a warning.
 
 ### `--sheet-url` / `-u`
 
@@ -75,6 +90,10 @@ HTML email template using Go templates.
 <p>Welcome to {{ .company }}!</p>
 ```
 
+Access fields:
+- `{{ .email }}` — recipient email
+- `{{ .name }}` — any CSV column
+
 ### `--subject` / `-s`
 
 Subject line with template support.
@@ -85,7 +104,7 @@ Subject line with template support.
 
 ### `--text`
 
-Plain text body (inline or file path).
+Plain text body (inline or `.txt` file).
 
 ```bash
 # Inline
@@ -240,14 +259,14 @@ Enable real-time monitoring dashboard.
 
 Access at `http://localhost:9091`
 
-### Metrics Endpoint
+### Features
 
-When scheduler is running:
-
-```bash
-curl http://localhost:8090/metrics   # Performance metrics
-curl http://localhost:8090/health    # Health check
-```
+- Live recipient status (pending, sending, sent, failed, retry)
+- Domain breakdown
+- SMTP response codes
+- Emails per second
+- Estimated time remaining
+- Live log entries
 
 ---
 
@@ -341,6 +360,25 @@ mailgrid --env config.json \
   --filter 'tier == "premium" && location != "EU"'
 ```
 
+### Custom TLS
+
+```bash
+# Using custom CA certificate
+mailgrid --env config.json \
+  --csv recipients.csv \
+  --template email.html
+
+# config.json:
+# {
+#   "smtp": {
+#     "host": "smtp.company.com",
+#     "port": 587,
+#     "tls_cert_file": "/etc/mailgrid/ca.pem",
+#     ...
+#   }
+# }
+```
+
 ---
 
 ## Quick Reference
@@ -371,3 +409,5 @@ mailgrid --env config.json \
 | `--jobs-list` | `-L` | false | List jobs |
 | `--jobs-cancel` | `-X` | - | Cancel job |
 | `--scheduler-run` | `-R` | false | Run daemon |
+| `--resume` | - | false | Resume campaign |
+| `--reset-offset` | - | false | Clear offset |

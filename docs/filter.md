@@ -14,17 +14,17 @@ All comparisons are **case-insensitive**.
 
 ### Comparison Operators
 
-| Operator | Alias | Description | Example |
-|----------|-------|-------------|---------|
-| `==` | `=` | Equals | `tier == "premium"` |
-| `!=` | | Not equals | `status != "inactive"` |
-| `contains` | | Contains substring | `email contains "@gmail"` |
-| `startsWith` | `startswith` | Starts with | `name startsWith "Dr."` |
-| `endsWith` | `endswith` | Ends with | `email endsWith "@corp.com"` |
-| `>` | | Greater than | `score > 80` |
-| `>=` | | Greater or equal | `age >= 18` |
-| `<` | | Less than | `visits < 10` |
-| `<=` | | Less or equal | `balance <= 0` |
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `==` | Equals | `tier == "premium"` |
+| `!=` | Not equals | `status != "inactive"` |
+| `contains` | Contains substring | `email contains "@gmail"` |
+| `startsWith` | Starts with | `name startsWith "Dr."` |
+| `endsWith` | Ends with | `email endsWith "@corp.com"` |
+| `>` | Greater than | `score > 80` |
+| `>=` | Greater or equal | `age >= 18` |
+| `<` | Less than | `visits < 10` |
+| `<=` | Less or equal | `balance <= 0` |
 
 ### Logical Operators
 
@@ -38,7 +38,7 @@ All comparisons are **case-insensitive**.
 ### Special Values
 
 | Value | Description |
-|--------|-------------|
+|-------|-------------|
 | `..` | Empty/null value |
 | `!..` | Non-empty value |
 
@@ -80,7 +80,7 @@ All comparisons are **case-insensitive**.
 --filter '(tier == "vip" or tier == "premium") and location == "US"'
 
 # Multiple AND/OR
---filter '(country == "US" or country == "CA") and age >= 18 and subscribed == true'
+--filter '(country == "US" or country == "CA") and age >= 18'
 ```
 
 ### Numeric Comparisons
@@ -131,7 +131,7 @@ All comparisons are **case-insensitive**.
 ### Newsletter
 
 ```bash
-# Subscribed users excluding unsubscribed
+# Subscribed users excluding test emails
 --filter 'subscribed == true and not email contains "@test.com"'
 
 # Premium newsletter subscribers
@@ -144,3 +144,4 @@ All comparisons are **case-insensitive**.
 - Filters are evaluated case-insensitively
 - Group complex expressions with parentheses for clarity
 - Combine with `--concurrency` for faster processing of filtered lists
+- The `email` field is always available for filtering (even if not in CSV)

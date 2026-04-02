@@ -8,6 +8,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/bravo1goingdark/mailgrid/config"
@@ -29,6 +32,25 @@ const maxAttachSize = 10 << 20 // 10 MB
 // 3. Apply optional filter
 // 4. Preview or send emails
 func Run(args CLIArgs) error {
+	// Create context with signal cancellation for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle graceful shutdown on Ctrl+C / SIGTERM
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	go func() {
+		select {
+		case <-sigChan:
+			fmt.Println("\n Received interrupt signal, shutting down gracefully...")
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	// Run scheduler dispatcher in foreground
 	if args.SchedulerRun {
 		// Load SMTP config for the scheduler
@@ -360,7 +382,7 @@ func Run(args CLIArgs) error {
 
 	// Use offset-aware dispatcher if tracker is available
 	opts := &email.DispatchOptions{
-		Context:     context.Background(),
+		Context:     ctx,
 		Monitor:     mon,
 		Tracker:     tracker,
 		StartOffset: startOffset,

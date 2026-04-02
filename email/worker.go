@@ -74,6 +74,44 @@ func extractSMTPCode(errMsg string) string {
 	return ""
 }
 
+// isConnectionError checks if the error indicates a connection issue that may require reconnection.
+// This includes EOF, connection reset, network errors, and certain SMTP status codes.
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+
+	// Check for common connection-related errors
+	connectionErrors := []string{
+		"EOF",
+		"connection reset",
+		"use of closed network connection",
+		"broken pipe",
+		"network is unreachable",
+		"no route to host",
+		"i/o timeout",
+		"temporary failure",
+	}
+
+	for _, pattern := range connectionErrors {
+		if strings.Contains(strings.ToLower(errStr), strings.ToLower(pattern)) {
+			return true
+		}
+	}
+
+	// Check for SMTP status codes that indicate connection issues
+	code := extractSMTPCode(errStr)
+	connectionCodes := []string{"421", "451", "554"} // Service not available, temporary failure, transaction failed
+	for _, c := range connectionCodes {
+		if code == c {
+			return true
+		}
+	}
+
+	return false
+}
+
 // startWorker handles email sending using persistent SMTP connection and batch-mode dispatch.
 func startWorker(w worker) {
 	defer w.Wg.Done()
@@ -143,6 +181,22 @@ func processBatch(w worker, client *smtp.Client, batch []Task) {
 
 		err := SendWithClient(client, w.Config, task)
 		duration := time.Since(start)
+
+		// Check if we need to reconnect (connection lost or auth error)
+		if isConnectionError(err) {
+			log.Printf("[Worker %d] Connection error, attempting reconnection...", w.ID)
+			newClient, reconnErr := ConnectSMTPWithContext(w.Ctx, w.Config)
+			if reconnErr != nil {
+				log.Printf("[Worker %d] Reconnection failed: %v", w.ID, reconnErr)
+				// Fall through to handle as regular error
+			} else {
+				client = newClient
+				// Retry the send with new connection
+				start = time.Now()
+				err = SendWithClient(client, w.Config, task)
+				duration = time.Since(start)
+			}
+		}
 
 		if err != nil {
 			log.Printf("[Worker %d] Failed to send to %s: %v", w.ID, task.Recipient.Email, err)

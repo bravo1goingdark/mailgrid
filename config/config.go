@@ -7,11 +7,14 @@ import (
 )
 
 type SMTPConfig struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	From     string `json:"from"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	From        string `json:"from"`
+	TLSCertFile string `json:"tls_cert_file,omitempty"` // Path to custom CA certificate
+	TLSKeyFile  string `json:"tls_key_file,omitempty"`  // Path to client certificate
+	InsecureTLS bool   `json:"insecure_tls,omitempty"`  // Skip TLS verification (use with caution)
 }
 
 type AppConfig struct {

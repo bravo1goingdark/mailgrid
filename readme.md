@@ -17,7 +17,7 @@
   </a>
 </p>
 
-**Mailgrid** is a high-performance CLI tool written in Go for sending bulk emails via SMTP. Send to CSV, Google Sheets, or single recipients — with templating, scheduling, monitoring, and more.
+**Mailgrid** is a production-ready CLI tool for sending bulk emails via SMTP. Features include CSV/Google Sheets recipients, HTML templating, scheduling, monitoring, filtering, and resumable delivery.
 
 ---
 
@@ -48,6 +48,7 @@
   - [Attachments](#attachments)
   - [Webhooks](#webhooks)
   - [Resumable Delivery](#resumable-delivery)
+  - [TLS Configuration](#tls-configuration)
 - [CLI Reference](#cli-reference)
 - [Documentation](#documentation)
 
@@ -71,8 +72,9 @@
 | **Resumable** | Resume interrupted campaigns |
 | **Webhooks** | Get notified when campaigns complete |
 | **Concurrent** | Parallel SMTP workers |
-| **Retry** | Automatic retry with backoff |
-| **Circuit Breaker** | Built-in resilience |
+| **Retry** | Automatic retry with exponential backoff |
+| **SMTP Reconnect** | Auto-reconnect on connection failure |
+| **Graceful Shutdown** | Ctrl+C stops cleanly |
 
 ---
 
@@ -118,11 +120,29 @@ Create `config.json`:
     "username": "your-email@gmail.com",
     "password": "your-app-password",
     "from": "Your Name <your-email@gmail.com>"
-  }
+  },
+  "timeout_ms": 5000
 }
 ```
 
 > **Gmail:** Use an [App Password](https://support.google.com/accounts/answer/185833)
+
+### TLS Options (Enterprise)
+
+```json
+{
+  "smtp": {
+    "host": "smtp.company.com",
+    "port": 587,
+    "username": "user@company.com",
+    "password": "password",
+    "from": "Mailer <noreply@company.com>",
+    "tls_cert_file": "/path/to/ca-cert.pem",
+    "tls_key_file": "/path/to/client-cert.pem",
+    "insecure_tls": false
+  }
+}
+```
 
 ---
 
@@ -145,6 +165,15 @@ jane@example.com,Jane,Tech Inc
 
 ```bash
 mailgrid -e config.json -f recipients.csv -t template.html -s "Hi {{.name}}!"
+```
+
+### Template Example
+
+```html
+<!-- template.html -->
+<p>Hello {{ .name }},</p>
+<p>Welcome to {{ .company }}!</p>
+<p>Your email: {{ .email }}</p>
 ```
 
 ### From Google Sheets
@@ -222,7 +251,7 @@ mailgrid -e config.json -f recipients.csv -t template.html -c 5
 mailgrid -e config.json -f recipients.csv -t template.html -r 3
 ```
 
-Uses exponential backoff with jitter.
+Uses exponential backoff with jitter. Automatically reconnects on SMTP failure.
 
 ### Batch Size
 
@@ -264,7 +293,7 @@ mailgrid -e config.json -f recipients.csv -t template.html -C "0 9 * * 1"
 ```bash
 mailgrid -L                    # List scheduled jobs
 mailgrid -X "job-id-123"      # Cancel a job
-mailgrid -R                   # Run scheduler as daemon
+mailgrid -R                   # Run scheduler as daemon (press Ctrl+C to stop)
 ```
 
 ---
@@ -329,6 +358,22 @@ mailgrid -e config.json -f recipients.csv -t template.html --resume
 
 # Start fresh
 mailgrid -e config.json -f recipients.csv -t template.html --reset-offset
+```
+
+### TLS Configuration
+
+For enterprise SMTP servers with custom certificates:
+
+```json
+{
+  "smtp": {
+    "host": "smtp.company.com",
+    "port": 587,
+    "tls_cert_file": "/etc/mailgrid/ca.pem",
+    "tls_key_file": "/etc/mailgrid/client.pem",
+    "insecure_tls": false
+  }
+}
 ```
 
 ---

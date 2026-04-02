@@ -3,11 +3,14 @@ package email
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
-	"github.com/bravo1goingdark/mailgrid/config"
 	"net"
 	"net/smtp"
+	"os"
 	"time"
+
+	"github.com/bravo1goingdark/mailgrid/config"
 )
 
 // ConnectSMTP establishes a persistent, authenticated SMTP client with TLS and context support.
@@ -40,12 +43,8 @@ func ConnectSMTPWithContext(ctx context.Context, cfg config.SMTPConfig) (*smtp.C
 	}
 
 	if ok, _ := client.Extension("STARTTLS"); ok {
-		tlsconfig := &tls.Config{
-			ServerName:         cfg.Host,
-			InsecureSkipVerify: false,
-			MinVersion:         tls.VersionTLS12,
-		}
-		if err = client.StartTLS(tlsconfig); err != nil {
+		tlsConfig := buildTLSConfig(cfg)
+		if err = client.StartTLS(tlsConfig); err != nil {
 			client.Close()
 			return nil, fmt.Errorf("STARTTLS error: %w", err)
 		}
@@ -64,4 +63,31 @@ func ConnectSMTPWithContext(ctx context.Context, cfg config.SMTPConfig) (*smtp.C
 	}
 
 	return client, nil
+}
+
+// buildTLSConfig builds TLS configuration based on SMTP config options.
+func buildTLSConfig(cfg config.SMTPConfig) *tls.Config {
+	tlsConfig := &tls.Config{
+		ServerName:         cfg.Host,
+		InsecureSkipVerify: cfg.InsecureTLS,
+		MinVersion:         tls.VersionTLS12,
+	}
+
+	// Load custom CA certificate if provided
+	if cfg.TLSCertFile != "" {
+		if cert, err := os.ReadFile(cfg.TLSCertFile); err == nil {
+			certPool := x509.NewCertPool()
+			certPool.AppendCertsFromPEM(cert)
+			tlsConfig.RootCAs = certPool
+		}
+	}
+
+	// Load client certificate if provided
+	if cfg.TLSKeyFile != "" && cfg.TLSCertFile != "" {
+		if cert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile); err == nil {
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+	}
+
+	return tlsConfig
 }

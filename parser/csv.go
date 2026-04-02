@@ -5,12 +5,26 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net/mail"
 	"os"
 	"strings"
 )
 
+// ValidateEmail checks if an email address is valid using net/mail.
+// Returns nil if valid, error otherwise.
+func ValidateEmail(email string) error {
+	_, err := mail.ParseAddress(email)
+	return err
+}
+
+// IsValidEmail returns true if the email address is valid.
+func IsValidEmail(email string) bool {
+	return ValidateEmail(email) == nil
+}
+
 // ParseCSVFromReader reads a CSV from any io.Reader and returns a list of Recipients.
 // It expects one column to be named 'email' and uses other columns as dynamic data.
+// Invalid email addresses are skipped with a warning.
 func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 	// create a new CSV reader instance
 	csvReader := csv.NewReader(reader)
@@ -54,6 +68,12 @@ func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 		email := strings.TrimSpace(record[emailIdx])
 		if email == "" {
 			continue // skip blank emails
+		}
+
+		// Validate email address
+		if !IsValidEmail(email) {
+			log.Printf("Warning: Skipping row with invalid email: %s", email)
+			continue
 		}
 
 		// Collect all the other data fields (except email)
