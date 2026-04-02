@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/bravo1goingdark/mailgrid/config"
+	"github.com/bravo1goingdark/mailgrid/database"
 	"github.com/bravo1goingdark/mailgrid/email"
 	"github.com/bravo1goingdark/mailgrid/internal/types"
+	"github.com/bravo1goingdark/mailgrid/logger"
 	"github.com/bravo1goingdark/mailgrid/monitor"
 	"github.com/bravo1goingdark/mailgrid/offset"
 	"github.com/bravo1goingdark/mailgrid/parser"
@@ -50,6 +52,16 @@ func Run(args CLIArgs) error {
 		case <-ctx.Done():
 		}
 	}()
+
+	// Handle --jobs-list flag
+	if args.ListJobs {
+		return listScheduledJobs(args.EnvPath)
+	}
+
+	// Handle --jobs-cancel flag
+	if args.CancelJobID != "" {
+		return cancelScheduledJob(args.EnvPath, args.CancelJobID)
+	}
 
 	// Run scheduler dispatcher in foreground
 	if args.SchedulerRun {
@@ -458,5 +470,70 @@ func Run(args CLIArgs) error {
 		}
 	}
 
+	return nil
+}
+
+// listScheduledJobs lists all scheduled jobs from the database
+func listScheduledJobs(envPath string) error {
+	if envPath == "" {
+		return fmt.Errorf("config file required (--env)")
+	}
+
+	db, err := database.NewDB("mailgrid.db")
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	log := logger.New("scheduler")
+	sched := scheduler.NewScheduler(db, log)
+
+	jobs, err := sched.ListJobs()
+	if err != nil {
+		return fmt.Errorf("failed to list jobs: %w", err)
+	}
+
+	if len(jobs) == 0 {
+		fmt.Println("No scheduled jobs found.")
+		return nil
+	}
+
+	fmt.Printf("Found %d job(s):\n\n", len(jobs))
+	fmt.Printf("%-30s %-15s %-20s %s\n", "JOB ID", "STATUS", "RUN AT", "CREATED AT")
+	fmt.Println("--------------------------------------------------------------------")
+
+	for _, job := range jobs {
+		runAt := job.RunAt.Format("2006-01-02 15:04:05")
+		createdAt := job.CreatedAt.Format("2006-01-02 15:04:05")
+		fmt.Printf("%-30s %-15s %-20s %s\n", job.ID, job.Status, runAt, createdAt)
+	}
+
+	return nil
+}
+
+// cancelScheduledJob cancels a scheduled job by ID
+func cancelScheduledJob(envPath, jobID string) error {
+	if envPath == "" {
+		return fmt.Errorf("config file required (--env)")
+	}
+	if jobID == "" {
+		return fmt.Errorf("job ID required (--jobs-cancel)")
+	}
+
+	db, err := database.NewDB("mailgrid.db")
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	log := logger.New("scheduler")
+	sched := scheduler.NewScheduler(db, log)
+
+	success := sched.CancelJob(jobID)
+	if !success {
+		return fmt.Errorf("job not found or could not be cancelled: %s", jobID)
+	}
+
+	fmt.Printf("Job %s cancelled successfully.\n", jobID)
 	return nil
 }
