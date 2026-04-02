@@ -61,6 +61,7 @@ func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 			break // end of file reached
 		}
 		if err != nil || len(record) != len(headers) {
+			log.Printf("Warning: Skipping malformed CSV row (expected %d fields, got %d): %v", len(headers), len(record), record)
 			continue // skip malformed or mismatched rows
 		}
 

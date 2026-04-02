@@ -41,6 +41,7 @@ func Run(args CLIArgs) error {
 	// Handle graceful shutdown on Ctrl+C / SIGTERM
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
@@ -55,12 +56,12 @@ func Run(args CLIArgs) error {
 
 	// Handle --jobs-list flag
 	if args.ListJobs {
-		return listScheduledJobs(args.EnvPath)
+		return listScheduledJobs(args.DBPath, args.EnvPath)
 	}
 
 	// Handle --jobs-cancel flag
 	if args.CancelJobID != "" {
-		return cancelScheduledJob(args.EnvPath, args.CancelJobID)
+		return cancelScheduledJob(args.DBPath, args.EnvPath, args.CancelJobID)
 	}
 
 	// Run scheduler dispatcher in foreground
@@ -74,7 +75,7 @@ func Run(args CLIArgs) error {
 		// Configure optimized scheduler manager
 		config := scheduler.DefaultOptimizedConfig()
 		managerConfig := scheduler.ManagerConfig{
-			DBPath:          "mailgrid.db",
+			DBPath:          args.DBPath,
 			SMTPConfig:      smtpConfig.SMTP,
 			OptimizedConfig: config,
 			ShutdownDelay:   5 * time.Minute,
@@ -178,7 +179,7 @@ func Run(args CLIArgs) error {
 		}
 
 		fmt.Printf("[SCHEDULE] Job scheduled successfully%s\n", scheduleInfo)
-		fmt.Printf("[DATABASE]  Database: mailgrid.db\n")
+		fmt.Printf("[DATABASE]  Database: %s\n", args.DBPath)
 		fmt.Printf(" The scheduler will start automatically and run in the background\n")
 
 		return nil
@@ -411,12 +412,8 @@ func Run(args CLIArgs) error {
 	// Cleanup monitoring server if it was started
 	if monitorServer != nil {
 		go func() {
-			// Use context with timeout instead of sleep for cleaner shutdown
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			<-ctx.Done() // Give users time to see final results
 			if err := monitorServer.Stop(); err != nil {
-				log.Printf("️ Failed to stop monitor server: %v", err)
+				log.Printf("Failed to stop monitor server: %v", err)
 			}
 		}()
 	}
@@ -474,12 +471,12 @@ func Run(args CLIArgs) error {
 }
 
 // listScheduledJobs lists all scheduled jobs from the database
-func listScheduledJobs(envPath string) error {
+func listScheduledJobs(dbPath, envPath string) error {
 	if envPath == "" {
 		return fmt.Errorf("config file required (--env)")
 	}
 
-	db, err := database.NewDB("mailgrid.db")
+	db, err := database.NewDB(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
@@ -512,7 +509,7 @@ func listScheduledJobs(envPath string) error {
 }
 
 // cancelScheduledJob cancels a scheduled job by ID
-func cancelScheduledJob(envPath, jobID string) error {
+func cancelScheduledJob(dbPath, envPath, jobID string) error {
 	if envPath == "" {
 		return fmt.Errorf("config file required (--env)")
 	}
@@ -520,7 +517,7 @@ func cancelScheduledJob(envPath, jobID string) error {
 		return fmt.Errorf("job ID required (--jobs-cancel)")
 	}
 
-	db, err := database.NewDB("mailgrid.db")
+	db, err := database.NewDB(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}

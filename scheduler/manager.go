@@ -199,10 +199,20 @@ func InitGlobalManager(config ManagerConfig) {
 	globalManager = NewSchedulerManager(config)
 }
 
-// GetGlobalManager returns the global scheduler manager singleton
-// Returns nil if not initialized
+// GetGlobalManager returns the global scheduler manager singleton.
+// Returns nil if not initialized.
 func GetGlobalManager() *SchedulerManager {
 	globalManagerMu.Lock()
 	defer globalManagerMu.Unlock()
 	return globalManager
+}
+
+// MustGetGlobalManager returns the global scheduler manager singleton.
+// Panics if not initialized.
+func MustGetGlobalManager() *SchedulerManager {
+	m := GetGlobalManager()
+	if m == nil {
+		panic("scheduler global manager not initialized; call InitGlobalManager first")
+	}
+	return m
 }

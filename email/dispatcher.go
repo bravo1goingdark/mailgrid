@@ -130,7 +130,7 @@ func StartDispatcher(tasks []Task, cfg config.SMTPConfig, concurrency int, batch
 			case taskChan <- task:
 			case <-ctx.Done():
 				log.Printf("Context cancelled, stopping task dispatch")
-				break
+				return // return instead of break to exit the goroutine
 			}
 		}
 		close(taskChan)

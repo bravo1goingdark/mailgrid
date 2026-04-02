@@ -31,8 +31,8 @@ func LoadConfig(path string) (*AppConfig, error) {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			// Log error but don't override main function error
-			// This ensures we don't mask the main error if JSON decoding fails
+			// Log to stderr since callers may override the returned error
+			fmt.Fprintf(os.Stderr, "Warning: failed to close config file: %v\n", closeErr)
 		}
 	}()
 

@@ -277,12 +277,21 @@ func computeBackoff(job types.Job) time.Duration {
 			base = d
 		}
 	}
-	delay := base * time.Duration(1<<uint(job.Attempts-1))
+	// Safeguard: Attempts should always be >= 1 when this is called,
+	// but protect against underflow just in case.
+	shift := 0
+	if job.Attempts > 0 {
+		shift = job.Attempts - 1
+	}
+	delay := base * time.Duration(1<<uint(shift))
 	if delay > 5*time.Minute {
 		delay = 5 * time.Minute
 	}
 	// jitter up to 500ms
-	jitterMs, _ := rand.Int(rand.Reader, big.NewInt(500))
+	jitterMs, err := rand.Int(rand.Reader, big.NewInt(500))
+	if err != nil {
+		return delay // fallback to no jitter if crypto/rand fails
+	}
 	jitter := time.Duration(jitterMs.Int64()) * time.Millisecond
 	return delay + jitter
 }

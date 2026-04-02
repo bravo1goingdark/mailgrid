@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/bravo1goingdark/mailgrid/cli"
 	"log"
-	"os"
 )
 
 // Version information (set at build time)
@@ -45,5 +44,4 @@ func showVersion() {
 	fmt.Printf("Commit: %s\n", commit)
 	fmt.Printf("\nMailGrid is a production-ready email orchestrator for bulk email campaigns.\n")
 	fmt.Printf("Documentation: https://github.com/bravo1goingdark/mailgrid\n")
-	os.Exit(0)
 }

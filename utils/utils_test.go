@@ -108,11 +108,15 @@ func TestReadTextInput(t *testing.T) {
 		}
 	})
 
-	t.Run("non-existent file", func(t *testing.T) {
+	t.Run("non-existent file treated as inline text", func(t *testing.T) {
+		// When a path doesn't exist, it's treated as inline text
 		nonExistentFile := "/path/that/does/not/exist.txt"
-		_, err := ReadTextInput(nonExistentFile)
-		if err == nil {
-			t.Error("ReadTextInput() should return error for non-existent file")
+		result, err := ReadTextInput(nonExistentFile)
+		if err != nil {
+			t.Errorf("ReadTextInput(%q) returned unexpected error: %v", nonExistentFile, err)
+		}
+		if result != nonExistentFile {
+			t.Errorf("ReadTextInput(%q) = %q, expected %q", nonExistentFile, result, nonExistentFile)
 		}
 	})
 

@@ -38,6 +38,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				MonitorPort:  9091,
 				Attachments:  []string{},
+				DBPath:       "mailgrid.db",
 			},
 		},
 		{
@@ -60,6 +61,7 @@ func TestParseFlags(t *testing.T) {
 				PreviewPort: 8080,
 				MonitorPort: 9091,
 				Attachments: []string{},
+				DBPath:      "mailgrid.db",
 			},
 		},
 		{
@@ -83,6 +85,7 @@ func TestParseFlags(t *testing.T) {
 				JobRetries:   3,
 				MonitorPort:  9091,
 				Attachments:  []string{},
+				DBPath:       "mailgrid.db",
 			},
 		},
 		{
@@ -108,6 +111,7 @@ func TestParseFlags(t *testing.T) {
 				PreviewPort: 8080,
 				JobRetries:  3,
 				MonitorPort: 9091,
+				DBPath:      "mailgrid.db",
 			},
 		},
 	}
@@ -148,6 +152,7 @@ func TestCLIArgs_DefaultValues(t *testing.T) {
 	assert.Equal(t, 3, result.JobRetries)
 	assert.Equal(t, false, result.Monitor)
 	assert.Equal(t, 9091, result.MonitorPort)
+	assert.Equal(t, "mailgrid.db", result.DBPath)
 }
 
 func TestCLIArgs_ShortFlags(t *testing.T) {

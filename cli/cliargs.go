@@ -48,8 +48,9 @@ type CLIArgs struct {
 	ShowHelp bool // Show help message
 
 	// Offset tracking
-	Resume      bool // Resume from last saved offset
-	ResetOffset bool // Clear offset file and start from beginning
+	Resume      bool   // Resume from last saved offset
+	ResetOffset bool   // Clear offset file and start from beginning
+	DBPath      string // Path to the BoltDB database file
 }
 
 // printHelp prints a custom formatted help message with grouped flags
@@ -152,6 +153,7 @@ func ParseFlags() CLIArgs {
 
 	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from last saved offset")
 	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Clear offset file and start from beginning")
+	pflag.StringVar(&args.DBPath, "db-path", "mailgrid.db", "Path to BoltDB database file for job persistence")
 
 	// Add help flag manually to control behavior
 	pflag.BoolVarP(&showHelp, "help", "h", false, "Show this help message")

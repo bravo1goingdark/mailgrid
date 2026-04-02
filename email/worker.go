@@ -185,6 +185,10 @@ func processBatch(w worker, client *smtp.Client, batch []Task) {
 		// Check if we need to reconnect (connection lost or auth error)
 		if isConnectionError(err) {
 			log.Printf("[Worker %d] Connection error, attempting reconnection...", w.ID)
+			// Close old client before creating a new one to prevent resource leak
+			if quitErr := client.Quit(); quitErr != nil {
+				log.Printf("[Worker %d] Failed to quit old SMTP session: %v", w.ID, quitErr)
+			}
 			newClient, reconnErr := ConnectSMTPWithContext(w.Ctx, w.Config)
 			if reconnErr != nil {
 				log.Printf("[Worker %d] Reconnection failed: %v", w.ID, reconnErr)

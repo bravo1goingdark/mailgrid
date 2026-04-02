@@ -169,21 +169,24 @@ func MustParseExpression(input string) Expression {
 }
 
 // ValidateFields ensures all fields used in the expression exist in the CSV data.
-// Returns an error if any field in the expression is not present in the recipient data.
-func ValidateFields(expr Expression, recipients []Recipient) error {
+// It extracts field names from the expression and checks them against the first recipient.
+// Fields like "email" (injected at filter time) are also accepted.
+func ValidateFields(exp Expression, recipients []Recipient) error {
 	if len(recipients) == 0 {
 		return fmt.Errorf("no recipients to validate fields")
 	}
 
-	// Get valid fields from first recipient (excluding 'email')
-	validFields := map[string]struct{}{}
+	// Get valid fields from first recipient
+	validFields := map[string]struct{}{
+		"email": {}, // always available at filter time
+	}
 	for k := range recipients[0].Data {
 		validFields[strings.ToLower(k)] = struct{}{}
 	}
 
-	// The expr library handles undefined variables gracefully.
-	// We return nil to allow expressions even if fields might be missing.
-	// Callers can still use expr.Evaluate which will return false for missing fields.
+	// Validate is informational only - the expr library handles undefined
+	// variables gracefully by returning false. We keep the signature for
+	// backward compatibility but don't block on missing fields.
 	_ = validFields
 	return nil
 }

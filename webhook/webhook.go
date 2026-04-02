@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -146,18 +147,18 @@ func (c *Client) SendNotificationSync(webhookURL string, result CampaignResult) 
 	return nil
 }
 
-// ValidateURL performs basic validation on webhook URL
-func ValidateURL(url string) error {
-	if url == "" {
+// ValidateURL performs basic validation on webhook URL without making a network request.
+func ValidateURL(rawURL string) error {
+	if rawURL == "" {
 		return nil // Empty URL is valid (no webhook)
 	}
 
-	req, err := http.NewRequest("HEAD", url, nil)
+	parsed, err := url.ParseRequestURI(rawURL)
 	if err != nil {
 		return fmt.Errorf("invalid webhook URL: %w", err)
 	}
 
-	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return fmt.Errorf("webhook URL must use http or https scheme")
 	}
 

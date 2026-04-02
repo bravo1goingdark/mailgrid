@@ -104,14 +104,15 @@ Subject line with template support.
 
 ### `--text`
 
-Plain text body (inline or `.txt` file).
+Plain text body (inline text or path to a file). If the argument points to an existing file, its contents are used; otherwise it's treated as inline text.
 
 ```bash
 # Inline
 --text "Hello world!"
 
-# From file
+# From file (any extension)
 --text ./body.txt
+--text /path/to/message
 ```
 
 ### `--to`
@@ -124,10 +125,13 @@ mailgrid --env config.json --to user@example.com --subject "Hello" --text "Hi!"
 
 ### `--cc` / `--bcc`
 
-CC/BCC recipients (comma-separated or `@file.txt`).
+CC/BCC recipients (comma-separated emails or path to a file with one email per line).
 
 ```bash
+# Inline
 --cc "team@example.com,manager@example.com"
+
+# From file
 --bcc ./bcc_list.txt
 ```
 
@@ -240,6 +244,8 @@ Schedule emails for later or recurring delivery. Jobs persist in BoltDB.
 ```bash
 --job-retries 3                 # Scheduler-level retries (default: 3)
 -J 3
+
+--db-path mailgrid.db           # Path to BoltDB database (default: mailgrid.db)
 ```
 
 ---
@@ -411,3 +417,4 @@ mailgrid --env config.json \
 | `--scheduler-run` | `-R` | false | Run daemon |
 | `--resume` | - | false | Resume campaign |
 | `--reset-offset` | - | false | Clear offset |
+| `--db-path` | - | mailgrid.db | Database path |

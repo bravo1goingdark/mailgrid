@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"mime"
@@ -227,7 +228,8 @@ func NewAttachmentProcessor(maxSize int64) *AttachmentProcessor {
 	}
 }
 
-// ProcessAttachment handles a single attachment efficiently
+// ProcessAttachment handles a single attachment efficiently.
+// It opens the file only once and reuses the handle for both MIME detection and reading.
 func (p *AttachmentProcessor) ProcessAttachment(path string) (io.Reader, string, error) {
 	// Get file info
 	info, err := os.Stat(path)
@@ -240,33 +242,34 @@ func (p *AttachmentProcessor) ProcessAttachment(path string) (io.Reader, string,
 		return nil, "", ErrAttachmentTooLarge
 	}
 
-	// Check MIME type
-	mimeType := mime.TypeByExtension(filepath.Ext(path))
-	if mimeType == "" {
-		// Try to detect type
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, "", err
-		}
-		defer file.Close()
-
-		// Read first 512 bytes for MIME detection
-		buffer := make([]byte, 512)
-		_, err = file.Read(buffer)
-		if err != nil && err != io.EOF {
-			return nil, "", err
-		}
-		mimeType = http.DetectContentType(buffer)
-	}
-
-	if _, ok := p.allowedTypes[mimeType]; !ok {
-		return nil, "", ErrUnsupportedAttachmentType
-	}
-
-	// Create efficient reader
+	// Open file once
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, "", err
+	}
+
+	// Check MIME type by extension first
+	mimeType := mime.TypeByExtension(filepath.Ext(path))
+	if mimeType == "" {
+		// Try to detect type from file content
+		buffer := make([]byte, 512)
+		n, readErr := file.Read(buffer)
+		if readErr != nil && readErr != io.EOF {
+			file.Close()
+			return nil, "", readErr
+		}
+		mimeType = http.DetectContentType(buffer[:n])
+
+		// Seek back to beginning for actual reading
+		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
+			file.Close()
+			return nil, "", fmt.Errorf("failed to seek file: %w", seekErr)
+		}
+	}
+
+	if _, ok := p.allowedTypes[mimeType]; !ok {
+		file.Close()
+		return nil, "", ErrUnsupportedAttachmentType
 	}
 
 	// Use buffered reader from pool

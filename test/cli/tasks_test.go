@@ -16,9 +16,14 @@ func TestHasMissingFields(t *testing.T) {
 	if cli.HasMissingFields(r1) {
 		t.Errorf("expected no missing fields")
 	}
-	r2 := parser.Recipient{Email: "b@b.com", Data: map[string]string{"name": ""}}
+	r2 := parser.Recipient{Email: "", Data: map[string]string{"name": "Bob"}}
 	if !cli.HasMissingFields(r2) {
-		t.Errorf("expected missing fields")
+		t.Errorf("expected missing fields (empty email)")
+	}
+	// Empty data fields are OK - only email is required
+	r3 := parser.Recipient{Email: "c@b.com", Data: map[string]string{"name": ""}}
+	if cli.HasMissingFields(r3) {
+		t.Errorf("expected no missing fields (empty data field is OK)")
 	}
 }
 
@@ -38,7 +43,7 @@ func TestPrepareEmailTasks(t *testing.T) {
 
 	recipients := []parser.Recipient{
 		{Email: "a@b.com", Data: map[string]string{"name": "Alice"}},
-		{Email: "b@b.com", Data: map[string]string{"name": ""}}, // should be skipped
+		{Email: "", Data: map[string]string{"name": "Nobody"}}, // empty email, should be skipped
 	}
 
 	a, err := os.CreateTemp(t.TempDir(), "a*.txt")
@@ -57,7 +62,7 @@ func TestPrepareEmailTasks(t *testing.T) {
 		t.Fatalf("prepareEmailTasks error: %v", err)
 	}
 	if len(tasks) != 1 {
-		t.Fatalf("expected 1 task, got %d", len(tasks))
+		t.Fatalf("expected 1 task (empty email should be skipped), got %d", len(tasks))
 	}
 	if tasks[0].Subject != "Hello Alice" {
 		t.Errorf("unexpected subject: %s", tasks[0].Subject)

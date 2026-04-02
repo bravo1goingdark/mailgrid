@@ -5,7 +5,7 @@
 BINARY_NAME=mailgrid
 VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD)
 BUILD_TIME=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-LDFLAGS=-s -w -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME)
+LDFLAGS=-s -w -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.commit=$(VERSION)
 
 # Optimization flags for minimal binary size
 BUILD_FLAGS=-ldflags="$(LDFLAGS)" -trimpath

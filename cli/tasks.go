@@ -64,14 +64,11 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 	return tasks, nil
 }
 
-// HasMissingFields returns true if any field in recipient data is empty.
+// HasMissingFields returns true if the recipient email is empty.
+// Other data fields may be optional depending on the template, so only
+// the email field is required.
 func HasMissingFields(r parser.Recipient) bool {
-	for _, val := range r.Data {
-		if val == "" {
-			return true
-		}
-	}
-	return false
+	return r.Email == ""
 }
 
 // printDryRun logs rendered email content to the console instead of sending.
@@ -179,14 +176,11 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 
 		fmt.Printf("  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
 
-		// Cleanup monitor after completion with context timeout instead of sleep
+		// Cleanup monitor after completion
 		defer func() {
 			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				<-ctx.Done() // Wait for timeout or cancellation
 				if err := monitorServer.Stop(); err != nil {
-					log.Printf("️ Failed to stop monitor server: %v", err)
+					log.Printf("Failed to stop monitor server: %v", err)
 				}
 			}()
 		}()
