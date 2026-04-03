@@ -1,6 +1,6 @@
 module github.com/bravo1goingdark/mailgrid
 
-go 1.18
+go 1.19
 
 require (
 	github.com/expr-lang/expr v1.17.8
