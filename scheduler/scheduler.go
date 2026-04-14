@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	mrand "math/rand"
 	"sync"
 	"time"
 
@@ -45,7 +46,9 @@ func NewScheduler(db *database.BoltDBClient, log Logger) *Scheduler {
 		instanceID: newInstanceID(),
 	}
 	// Warm cache from DB
-	if jobs, err := db.LoadJobs(); err == nil {
+	if jobs, err := db.LoadJobs(); err != nil {
+		s.log.Warnf("Failed to load jobs from database: %v", err)
+	} else {
 		for _, j := range jobs {
 			s.jobsCache[j.ID] = j
 		}
@@ -140,15 +143,10 @@ func (s *Scheduler) CancelJob(jobID string) bool {
 	return true
 }
 
-// ListJobs returns all stored jobs from the in-memory cache for up-to-date state.
+// ListJobs returns all stored jobs, always reading from the DB so external
+// modifications (e.g. from another process or test) are reflected immediately.
 func (s *Scheduler) ListJobs() ([]types.Job, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	res := make([]types.Job, 0, len(s.jobsCache))
-	for _, j := range s.jobsCache {
-		res = append(res, j)
-	}
-	return res, nil
+	return s.db.LoadJobs()
 }
 
 // ReattachHandlers sets a default handler for all existing jobs that do not have one in-memory.
@@ -168,15 +166,22 @@ func (s *Scheduler) ReattachHandlers(handler JobHandler) {
 }
 
 // dispatchLoop periodically scans persistent jobs and executes due ones with distributed locking.
+// Jitter (±500ms) is added to the ticker so multiple instances don't thunder-herd.
 func (s *Scheduler) dispatchLoop() {
 	defer s.wg.Done()
-	ticker := time.NewTicker(200 * time.Millisecond)
+
+	// ±200ms jitter prevents thundering herd when multiple instances run.
+	// 1s base interval is responsive while remaining cheap (BoltDB reads are fast).
+	jitterMs := time.Duration(mrand.Int63n(400)) * time.Millisecond
+	ticker := time.NewTicker(1*time.Second + jitterMs)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-s.quit:
 			return
 		case <-ticker.C:
+			// Always query the DB for the authoritative job list (never the stale in-memory cache).
 			jobs, err := s.db.LoadJobs()
 			if err != nil {
 				s.log.Errorf("load jobs: %v", err)
@@ -190,23 +195,46 @@ func (s *Scheduler) dispatchLoop() {
 				if now.Before(j.RunAt) {
 					continue
 				}
-				// Acquire distributed lock
+				// Acquire distributed lock before execution so only one instance runs a job.
 				locked, err := s.db.AcquireLock(j.ID, s.instanceID)
 				if err != nil || !locked {
 					continue
 				}
-				// Execute synchronously to guarantee state persistence before observers check it
-				s.execute(j)
-				if err := s.db.ReleaseLock(j.ID, s.instanceID); err != nil {
-					s.log.Errorf("release lock for job %s: %v", j.ID, err)
-				}
+				// Release lock unconditionally (even on panic) via defer inside execute wrapper.
+				s.executeWithLock(j)
 			}
 		}
 	}
 }
 
+// executeWithLock runs the job and ensures the distributed lock is always released,
+// even if the handler panics. This prevents jobs from being permanently stuck in
+// a "running" state when the process crashes mid-execution.
+func (s *Scheduler) executeWithLock(job types.Job) {
+	defer func() {
+		if err := s.db.ReleaseLock(job.ID, s.instanceID); err != nil {
+			s.log.Errorf("release lock for job %s: %v", job.ID, err)
+		}
+	}()
+	s.execute(job)
+}
+
 func (s *Scheduler) execute(job types.Job) {
-	// Mark running (in-memory) but do not persist intermediate state to avoid race in tests
+	// Recover from handler panics so a bad job doesn't crash the entire dispatch loop.
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Errorf("job %s panicked: %v", job.ID, r)
+			job.Status = "failed"
+			job.UpdatedAt = time.Now()
+			if err := s.db.SaveJob(&job); err != nil {
+				s.log.Errorf("save panicked job state %s: %v", job.ID, err)
+			}
+			s.mu.Lock()
+			s.jobsCache[job.ID] = job
+			s.mu.Unlock()
+		}
+	}()
+
 	job.Status = "running"
 	job.UpdatedAt = time.Now()
 
@@ -214,7 +242,12 @@ func (s *Scheduler) execute(job types.Job) {
 	handler := s.handlers[job.ID]
 	s.mu.RUnlock()
 	if handler == nil {
-		s.log.Warnf("no handler for job %s", job.ID)
+		s.log.Warnf("no handler for job %s — marking failed", job.ID)
+		job.Status = "failed"
+		job.UpdatedAt = time.Now()
+		if err := s.db.SaveJob(&job); err != nil {
+			s.log.Errorf("save no-handler job state %s: %v", job.ID, err)
+		}
 		return
 	}
 	if err := handler(job); err != nil {
@@ -303,4 +336,8 @@ func computeBackoff(job types.Job) time.Duration {
 func (s *Scheduler) Stop() {
 	close(s.quit)
 	s.wg.Wait()
+	// Close database to ensure all data is persisted
+	if s.db != nil {
+		s.db.Close()
+	}
 }
