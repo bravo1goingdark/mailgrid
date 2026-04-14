@@ -23,8 +23,12 @@ func ConnectSMTP(cfg config.SMTPConfig) (*smtp.Client, error) {
 func ConnectSMTPWithContext(ctx context.Context, cfg config.SMTPConfig) (*smtp.Client, error) {
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 
-	// Use context-aware dial with timeout
-	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	// Use context-aware dial with configurable timeout (default 10s)
+	dialTimeout := cfg.DialTimeout
+	if dialTimeout <= 0 {
+		dialTimeout = 10 * time.Second
+	}
+	dialer := &net.Dialer{Timeout: dialTimeout}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("SMTP dial error: %w", err)
@@ -43,7 +47,11 @@ func ConnectSMTPWithContext(ctx context.Context, cfg config.SMTPConfig) (*smtp.C
 	}
 
 	if ok, _ := client.Extension("STARTTLS"); ok {
-		tlsConfig := buildTLSConfig(cfg)
+		tlsConfig, err := buildTLSConfig(cfg)
+		if err != nil {
+			client.Close()
+			return nil, err
+		}
 		if err = client.StartTLS(tlsConfig); err != nil {
 			client.Close()
 			return nil, fmt.Errorf("STARTTLS error: %w", err)
@@ -66,28 +74,39 @@ func ConnectSMTPWithContext(ctx context.Context, cfg config.SMTPConfig) (*smtp.C
 }
 
 // buildTLSConfig builds TLS configuration based on SMTP config options.
-func buildTLSConfig(cfg config.SMTPConfig) *tls.Config {
+// Returns an error if explicitly configured cert/key files fail to load
+// (previously these errors were silently swallowed).
+func buildTLSConfig(cfg config.SMTPConfig) (*tls.Config, error) {
+	if cfg.InsecureTLS {
+		fmt.Println("SECURITY WARNING: TLS certificate verification is disabled (insecure_tls=true). " +
+			"This connection is vulnerable to man-in-the-middle attacks.")
+	}
+
 	tlsConfig := &tls.Config{
 		ServerName:         cfg.Host,
-		InsecureSkipVerify: cfg.InsecureTLS,
+		InsecureSkipVerify: cfg.InsecureTLS, //nolint:gosec // user explicitly set this
 		MinVersion:         tls.VersionTLS12,
 	}
 
-	// Load custom CA certificate if provided
+	// Load custom CA certificate if provided.
 	if cfg.TLSCertFile != "" {
-		if cert, err := os.ReadFile(cfg.TLSCertFile); err == nil {
-			certPool := x509.NewCertPool()
-			certPool.AppendCertsFromPEM(cert)
-			tlsConfig.RootCAs = certPool
+		cert, err := os.ReadFile(cfg.TLSCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("load TLS CA cert %q: %w", cfg.TLSCertFile, err)
 		}
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(cert)
+		tlsConfig.RootCAs = certPool
 	}
 
-	// Load client certificate if provided
+	// Load client certificate/key pair if both are provided.
 	if cfg.TLSKeyFile != "" && cfg.TLSCertFile != "" {
-		if cert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile); err == nil {
-			tlsConfig.Certificates = []tls.Certificate{cert}
+		cert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load TLS client cert/key (%q / %q): %w", cfg.TLSCertFile, cfg.TLSKeyFile, err)
 		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
-	return tlsConfig
+	return tlsConfig, nil
 }

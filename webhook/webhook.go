@@ -3,6 +3,9 @@ package webhook
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -32,6 +35,7 @@ type CampaignResult struct {
 // Client handles webhook HTTP requests with goroutine tracking
 type Client struct {
 	httpClient *http.Client
+	secret     string // optional HMAC-SHA256 signing secret
 	wg         sync.WaitGroup
 	mu         sync.RWMutex
 	closed     bool
@@ -44,6 +48,22 @@ func NewClient() *Client {
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+// NewClientWithSecret creates a webhook client that signs every request with an
+// HMAC-SHA256 signature in the X-Mailgrid-Signature header (GitHub-compatible format).
+func NewClientWithSecret(secret string) *Client {
+	return &Client{
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+		secret:     secret,
+	}
+}
+
+// signPayload computes sha256=<hex-hmac> for the given payload using the client secret.
+func (c *Client) signPayload(payload []byte) string {
+	mac := hmac.New(sha256.New, []byte(c.secret))
+	mac.Write(payload)
+	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }
 
 // SendNotification sends a POST request to webhook URL with campaign results.
@@ -76,6 +96,9 @@ func (c *Client) SendNotification(webhookURL string, result CampaignResult) erro
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Mailgrid-Webhook/1.0")
+	if c.secret != "" {
+		req.Header.Set("X-Mailgrid-Signature", c.signPayload(payload))
+	}
 
 	// Track goroutine with WaitGroup
 	c.wg.Add(1)
@@ -128,6 +151,9 @@ func (c *Client) SendNotificationSync(webhookURL string, result CampaignResult) 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Mailgrid-Webhook/1.0")
+	if c.secret != "" {
+		req.Header.Set("X-Mailgrid-Signature", c.signPayload(payload))
+	}
 
 	// Send request
 	resp, err := c.httpClient.Do(req)
