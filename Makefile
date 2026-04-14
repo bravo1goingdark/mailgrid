@@ -162,6 +162,18 @@ security:
 	fi
 	@echo "✅ Security scan complete!"
 
+# Run tests with race detector
+.PHONY: race
+race:
+	@echo "🏁 Running tests with race detector..."
+	@go test -race ./...
+	@echo "✅ Race tests passed!"
+
+# Pre-PR gate: lint + security + race + test
+.PHONY: check
+check: lint security race test
+	@echo "✅ All checks passed!"
+
 # Create GitHub release (requires gh CLI)
 .PHONY: github-release
 github-release: release

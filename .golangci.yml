@@ -1,0 +1,33 @@
+run:
+  timeout: 5m
+  go: "1.19"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosimple
+    - unused
+    - misspell
+    - gofmt
+    - ineffassign
+    - typecheck
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  govet:
+    enable-all: true
+  misspell:
+    locale: US
+
+issues:
+  exclude-rules:
+    # Test files get more leeway
+    - path: "_test\\.go"
+      linters:
+        - errcheck
+  max-issues-per-linter: 50
+  max-same-issues: 10
