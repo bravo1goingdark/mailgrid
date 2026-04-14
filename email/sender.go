@@ -78,8 +78,6 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 		return fmt.Errorf("RCPT TO error for %s: %w", to, err)
 	}
 
-	var ccFailures []string
-	var bccFailures []string
 	var rcptErr error
 
 	uniqueCC := make([]string, 0, len(task.CC))
@@ -95,7 +93,6 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 		seen[key] = struct{}{}
 		uniqueCC = append(uniqueCC, cc)
 		if err := client.Rcpt(cc); err != nil {
-			ccFailures = append(ccFailures, cc)
 			log.Printf("️ Failed to add CC: %s (%v)", cc, err)
 			// Track first RCPT error but continue processing others
 			if rcptErr == nil {
@@ -115,7 +112,6 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 		}
 		seen[key] = struct{}{}
 		if err := client.Rcpt(bcc); err != nil {
-			bccFailures = append(bccFailures, bcc)
 			log.Printf("️ Failed to add BCC: %s (%v)", bcc, err)
 			// Track first RCPT error but continue processing others
 			if rcptErr == nil {

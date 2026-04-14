@@ -88,7 +88,7 @@ func TestLogFunctions(t *testing.T) {
 	// Run in a temp directory so we don't pollute the working tree.
 	tmpDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	// Reset package-level loggers so they initialise fresh in tmpDir.
+	// Reset package-level loggers so they initialize fresh in tmpDir.
 	func() {
 		loggerMu.Lock()
 		defer loggerMu.Unlock()
