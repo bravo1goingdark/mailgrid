@@ -19,17 +19,23 @@ import (
 
 // PrepareEmailTasks renders the subject and body templates for each recipient
 // and returns a list of email.Task objects ready for sending.
-func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl string, attachments []string, ccList []string, bccList []string) ([]email.Task, error) {
+//
+// plainText is optional plain-text content (inline string or file path resolved
+// by the caller). When both templatePath (HTML) and plainText are provided, the
+// task carries both bodies so the sender can build a multipart/alternative message.
+func PrepareEmailTasks(recipients []parser.Recipient, templatePath, plainText, subjectTpl string, attachments []string, ccList []string, bccList []string) ([]email.Task, error) {
 	tmpl, err := template.New("subject").Option("missingkey=error").Parse(subjectTpl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid subject template: %w", err)
 	}
 
 	var tasks []email.Task
+	skipped := 0
 	for i, r := range recipients {
 		// Skip rows with missing fields
 		if HasMissingFields(r) {
 			log.Printf("️ Skipping %s: missing CSV fields", r.Email)
+			skipped++
 			continue
 		}
 
@@ -39,6 +45,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 			body, err = utils.RenderTemplate(r, templatePath)
 			if err != nil {
 				log.Printf("️ Skipping %s: template rendering failed (%v)", r.Email, err)
+				skipped++
 				continue
 			}
 		}
@@ -47,6 +54,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 		var sb bytes.Buffer
 		if err := tmpl.Execute(&sb, r.Data); err != nil {
 			log.Printf("️ Skipping %s: subject template failed (%v)", r.Email, err)
+			skipped++
 			continue
 		}
 
@@ -54,6 +62,7 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 			Recipient:   r,
 			Subject:     sb.String(),
 			Body:        body,
+			PlainText:   plainText,
 			Attachments: attachments,
 			CC:          ccList,
 			BCC:         bccList,
@@ -61,6 +70,11 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, subjectTpl s
 			Index:       i, // Add index for offset tracking
 		})
 	}
+
+	if skipped > 0 {
+		log.Printf("Prepared %d tasks. Skipped %d recipient(s) (missing fields or render errors).", len(tasks), skipped)
+	}
+
 	return tasks, nil
 }
 
@@ -78,52 +92,59 @@ func printDryRun(tasks []email.Task) {
 		if len(t.Attachments) > 0 {
 			fmt.Printf("Attachments: %v\n", t.Attachments)
 		}
-		if t.Body != "" {
+		switch {
+		case t.Body != "" && t.PlainText != "":
+			fmt.Printf("\n[plain text]\n%s\n\n[html]\n%s\n\n", t.PlainText, t.Body)
+		case t.Body != "":
 			fmt.Printf("\n%s\n\n", t.Body)
-		} else {
+		case t.PlainText != "":
+			fmt.Printf("\n%s\n\n", t.PlainText)
+		default:
 			fmt.Printf("\n(no body)\n\n")
 		}
 	}
 	fmt.Printf(" Dry-run complete: %d emails rendered\n", len(tasks))
 }
 
-// SendSingleEmail handles one-off email sending using --to along with either --template or --text (mutually exclusive).
+// SendSingleEmail handles one-off email sending using --to.
+//
+// Accepted combinations:
+//   - --template only: HTML email
+//   - --text only:     plain-text email
+//   - --template + --text: multipart/alternative (HTML + plain text)
 func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 	if args.To == "" {
 		return fmt.Errorf("--to flag is required for single email sending")
 	}
-	if (args.TemplatePath == "" && args.Text == "") || (args.TemplatePath != "" && args.Text != "") {
-		return fmt.Errorf("either --template or --text must be provided, but not both")
+	if args.TemplatePath == "" && args.Text == "" {
+		return fmt.Errorf("either --template or --text must be provided")
 	}
 
 	// Build a single recipient with minimal substitution map
 	recipient := parser.Recipient{
 		Email: args.To,
 		Data: map[string]string{
-			"email": args.To, // Can be expanded with more CLI-provided fields in future
+			"email": args.To,
 		},
 	}
 
-	var templatePath string
-	var body string
+	// Resolve plain-text input (inline string or file path)
+	var plainText string
 	var err error
-
-	if args.TemplatePath != "" {
-		templatePath = args.TemplatePath
-	} else {
-		body, err = utils.ReadTextInput(args.Text)
+	if args.Text != "" {
+		plainText, err = utils.ReadTextInput(args.Text)
 		if err != nil {
-			return fmt.Errorf("failed to read body: %w", err)
+			return fmt.Errorf("failed to read plain-text body: %w", err)
 		}
 	}
 
 	ccList := utils.SplitAndTrim(args.Cc)
 	bccList := utils.SplitAndTrim(args.Bcc)
 
-	// Use existing logic to render subject and body
 	tasks, err := PrepareEmailTasks(
 		[]parser.Recipient{recipient},
-		templatePath,
+		args.TemplatePath,
+		plainText,
 		args.Subject,
 		args.Attachments,
 		ccList,
@@ -134,11 +155,6 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 	}
 	if len(tasks) == 0 {
 		return fmt.Errorf("no task generated (maybe due to template/rendering failure)")
-	}
-
-	// If --text is used, override body (PrepareEmailTasks would leave it empty)
-	if args.TemplatePath == "" {
-		tasks[0].Body = body
 	}
 
 	if args.DryRun {
@@ -155,7 +171,7 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 	var mon monitor.Monitor = monitor.NewNoOpMonitor()
 	var monitorServer *monitor.Server
 	if args.Monitor {
-		monitorServer = monitor.NewServer(args.MonitorPort)
+		monitorServer = monitor.NewServer(args.MonitorPort, time.Duration(args.MonitorClientTimeout)*time.Second)
 		mon = monitorServer
 
 		// Start monitoring server in background
@@ -203,7 +219,7 @@ func SendSingleEmail(args CLIArgs, cfg config.SMTPConfig) error {
 		// If monitor is enabled, prefer its counts (includes retries)
 		if monitorServer != nil {
 			stats := monitorServer.GetStats()
-			if stats != nil && (stats.SentCount > 0 || stats.FailedCount > 0) {
+			if stats.SentCount > 0 || stats.FailedCount > 0 {
 				successfulDeliveries = stats.SentCount
 				failedDeliveries = stats.FailedCount
 			}

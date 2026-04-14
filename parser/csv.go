@@ -78,7 +78,7 @@ func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 		// Validate email address
 		if !IsValidEmail(email) {
 			skippedCount++
-			log.Printf("Warning: Skipping row with invalid email")
+			log.Printf("Warning: Skipping row %d with invalid email: %s", totalRows, email)
 			continue
 		}
 
@@ -99,11 +99,27 @@ func ParseCSVFromReader(reader io.Reader) ([]Recipient, error) {
 		})
 	}
 
-	if skippedCount > 0 {
-		log.Printf("CSV parsing: %d recipients loaded, %d rows skipped out of %d total", len(recipients), skippedCount, totalRows)
+	// Deduplicate by email (case-insensitive). A CSV with duplicate addresses
+	// would otherwise send the same email multiple times.
+	seen := make(map[string]struct{}, len(recipients))
+	deduped := recipients[:0]
+	var dupCount int
+	for _, r := range recipients {
+		key := strings.ToLower(r.Email)
+		if _, exists := seen[key]; exists {
+			dupCount++
+			continue
+		}
+		seen[key] = struct{}{}
+		deduped = append(deduped, r)
+	}
+	recipients = deduped
+
+	if skippedCount > 0 || dupCount > 0 {
+		log.Printf("CSV parsing: %d recipients loaded, %d rows skipped, %d duplicates removed (total rows: %d)",
+			len(recipients), skippedCount, dupCount, totalRows)
 	}
 
-	// Return the full list of recipients
 	return recipients, nil
 }
 

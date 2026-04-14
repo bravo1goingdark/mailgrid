@@ -3,8 +3,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/bravo1goingdark/mailgrid/cli"
 	"log"
+
+	"github.com/bravo1goingdark/mailgrid/cli"
+	"github.com/bravo1goingdark/mailgrid/logger"
 )
 
 // Version information (set at build time)
@@ -30,6 +32,12 @@ func main() {
 		showVersion()
 		return
 	}
+
+	// Configure structured logging (level + format) before any log output.
+	logger.Init(args.LogLevel, args.LogFormat)
+
+	// Flush CSV log files to disk when the process exits.
+	defer logger.FlushAndClose()
 
 	// Run the mailgrid workflow (load config, parse CSV, render/send emails)
 	if err := cli.Run(args); err != nil {

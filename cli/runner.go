@@ -195,6 +195,13 @@ func Run(args CLIArgs) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	if err := config.Validate(cfg.SMTP); err != nil {
+		return fmt.Errorf("invalid SMTP config: %w", err)
+	}
+	// Wire configurable SMTP dial timeout.
+	if args.SMTPTimeout > 0 {
+		cfg.SMTP.DialTimeout = time.Duration(args.SMTPTimeout) * time.Second
+	}
 	if args.Concurrency < 1 {
 		return fmt.Errorf("--concurrency must be at least 1")
 	}
@@ -223,6 +230,11 @@ func Run(args CLIArgs) error {
 		if info.Size() > maxAttachSize {
 			return fmt.Errorf("attachment too large (>%d bytes): %s", maxAttachSize, f)
 		}
+		file, err := os.Open(f)
+		if err != nil {
+			return fmt.Errorf("attachment not readable: %s", f)
+		}
+		file.Close()
 	}
 
 	if args.TemplatePath == "" && args.Text == "" && len(args.Attachments) == 0 {
@@ -288,10 +300,6 @@ func Run(args CLIArgs) error {
 			return fmt.Errorf("invalid filter: %w", err)
 		}
 
-		if err := parser.ValidateFields(expr, recipients); err != nil {
-			return fmt.Errorf("invalid filter field: %w", err)
-		}
-
 		recipients = parser.Filter(recipients, expr)
 
 		if len(recipients) == 0 {
@@ -314,8 +322,19 @@ func Run(args CLIArgs) error {
 		return utils.StartPreviewServer(rendered, args.PreviewPort)
 	}
 
+	// Resolve optional plain-text body for multipart/alternative sending.
+	var plainText string
+	if args.Text != "" && args.TemplatePath != "" {
+		// Both provided: HTML template + plain-text → multipart/alternative
+		var terr error
+		plainText, terr = utils.ReadTextInput(args.Text)
+		if terr != nil {
+			return fmt.Errorf("failed to read plain-text body: %w", terr)
+		}
+	}
+
 	// Render subject & body for each recipient and build email.Task list
-	tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, args.Subject, args.Attachments, ccList, bccList)
+	tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, plainText, args.Subject, args.Attachments, ccList, bccList)
 	if err != nil {
 		return err
 	}
@@ -331,7 +350,7 @@ func Run(args CLIArgs) error {
 		// Handle reset-offset flag
 		if args.ResetOffset {
 			if err := tracker.Reset(); err != nil {
-				log.Printf("️ Warning: Failed to reset offset: %v", err)
+				log.Printf("⚠️ Warning: Failed to reset offset: %v", err)
 			} else {
 				fmt.Println(" Offset file cleared, starting from beginning")
 			}
@@ -340,7 +359,7 @@ func Run(args CLIArgs) error {
 		// Load existing offset if resume is enabled
 		if args.Resume {
 			if err := tracker.Load(); err != nil {
-				log.Printf("️ Warning: Failed to load offset (starting from beginning): %v", err)
+				log.Printf("⚠️ Warning: Failed to load offset (starting from beginning): %v", err)
 			} else {
 				startOffset = tracker.GetOffset()
 				if startOffset > 0 {
@@ -349,7 +368,7 @@ func Run(args CLIArgs) error {
 						return nil
 					}
 					fmt.Printf(" Resuming from offset %d (skipping %d already sent emails)\n", startOffset, startOffset)
-					tasks = tasks[startOffset:] // Skip already sent emails
+					tasks = tasks[startOffset:]
 				}
 			}
 		}
@@ -384,7 +403,7 @@ func Run(args CLIArgs) error {
 	var monitorServer *monitor.Server
 
 	if args.Monitor {
-		monitorServer = monitor.NewServer(args.MonitorPort)
+		monitorServer = monitor.NewServer(args.MonitorPort, time.Duration(args.MonitorClientTimeout)*time.Second)
 		mon = monitorServer
 
 		// Start monitoring server in background
@@ -447,7 +466,7 @@ func Run(args CLIArgs) error {
 		// If monitor is enabled, prefer its counts (includes retries)
 		if monitorServer != nil {
 			stats := monitorServer.GetStats()
-			if stats != nil && (stats.SentCount > 0 || stats.FailedCount > 0) {
+			if stats.SentCount > 0 || stats.FailedCount > 0 {
 				successfulDeliveries = stats.SentCount
 				failedDeliveries = stats.FailedCount
 			}
@@ -477,8 +496,13 @@ func Run(args CLIArgs) error {
 			result.TemplateFile = args.TemplatePath
 		}
 
-		// Send webhook notification
-		webhookClient := webhook.NewClient()
+		// Send webhook notification (signed with HMAC if secret is provided)
+		var webhookClient *webhook.Client
+		if args.WebhookSecret != "" {
+			webhookClient = webhook.NewClientWithSecret(args.WebhookSecret)
+		} else {
+			webhookClient = webhook.NewClient()
+		}
 		if err := webhookClient.SendNotification(args.WebhookURL, result); err != nil {
 			fmt.Printf("️ Failed to send webhook notification: %v\n", err)
 		} else {

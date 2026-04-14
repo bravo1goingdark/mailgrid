@@ -24,7 +24,8 @@ type CLIArgs struct {
 	Bcc          string   // Comma-separated emails or file path for BCC
 	To           string   // Email address for one-off sending
 	Text         string   // Inline plain-text body or path to a text file
-	WebhookURL   string   // HTTP URL to send completion notification
+	WebhookURL    string   // HTTP URL to send completion notification
+	WebhookSecret string   // Optional HMAC-SHA256 secret for webhook signature
 
 	// Monitoring
 	Monitor     bool // Enable real-time monitoring dashboard
@@ -51,6 +52,14 @@ type CLIArgs struct {
 	Resume      bool   // Resume from last saved offset
 	ResetOffset bool   // Clear offset file and start from beginning
 	DBPath      string // Path to the BoltDB database file
+
+	// Timeouts
+	SMTPTimeout          int // SMTP dial timeout in seconds (default 10)
+	MonitorClientTimeout int // Idle SSE client timeout in seconds (default 300)
+
+	// Logging
+	LogLevel  string // Log level: debug, info, warn, error (default "info")
+	LogFormat string // Log format: text, json (default "text")
 }
 
 // printHelp prints a custom formatted help message with grouped flags
@@ -80,6 +89,7 @@ func printHelp() {
 	fmt.Println("  -c, --concurrency      int      Number of concurrent SMTP workers")
 	fmt.Println("  -b, --batch-size       int      Number of emails per SMTP batch")
 	fmt.Println("  -r, --retries          int      Retry attempts per failed email")
+	fmt.Println("      --smtp-timeout     int      SMTP dial timeout in seconds (default 10)")
 	fmt.Println()
 	fmt.Println("RESUMABLE SENDING:")
 	fmt.Println("      --resume                    Resume sending from last saved offset")
@@ -96,7 +106,9 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("MONITORING:")
 	fmt.Println("  -m, --monitor                   Enable real-time monitoring dashboard")
-	fmt.Println("      --monitor-port     int      Port for monitoring dashboard and metrics")
+	fmt.Println("      --monitor-port         int  Port for monitoring dashboard and metrics")
+	fmt.Println("      --monitor-client-timeout int Idle SSE client timeout in seconds (default 300)")
+	fmt.Println("      (metrics available at http://localhost:<port>/metrics when --monitor is set)")
 	fmt.Println()
 	fmt.Println("TESTING & DEBUG:")
 	fmt.Println("  -d, --dry-run                   Render emails to console without sending")
@@ -105,6 +117,10 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("NOTIFICATIONS:")
 	fmt.Println("  -w, --webhook          string   HTTP URL to send POST request with campaign results")
+	fmt.Println()
+	fmt.Println("LOGGING:")
+	fmt.Println("      --log-level        string   Log level: debug, info, warn, error (default \"info\")")
+	fmt.Println("      --log-format       string   Log format: text, json (default \"text\")")
 	fmt.Println()
 	fmt.Println("INFO:")
 	fmt.Println("      --version                   Show version information and exit")
@@ -137,6 +153,7 @@ func ParseFlags() CLIArgs {
 	pflag.StringVar(&args.To, "to", "", "Email address for single-recipient sending (mutually exclusive with --csv or --sheet-url)")
 	pflag.StringVar(&args.Text, "text", "", "Inline plain-text body or path to a .txt file (mutually exclusive with --template)")
 	pflag.StringVarP(&args.WebhookURL, "webhook", "w", "", "HTTP URL to send POST request with campaign results")
+	pflag.StringVar(&args.WebhookSecret, "webhook-secret", "", "HMAC-SHA256 secret for X-Mailgrid-Signature webhook header (optional)")
 
 	pflag.BoolVarP(&args.Monitor, "monitor", "m", false, "Enable real-time monitoring dashboard")
 	pflag.IntVar(&args.MonitorPort, "monitor-port", 9091, "Port for monitoring dashboard and metrics")
@@ -154,6 +171,12 @@ func ParseFlags() CLIArgs {
 	pflag.BoolVar(&args.Resume, "resume", false, "Resume sending from last saved offset")
 	pflag.BoolVar(&args.ResetOffset, "reset-offset", false, "Clear offset file and start from beginning")
 	pflag.StringVar(&args.DBPath, "db-path", "mailgrid.db", "Path to BoltDB database file for job persistence")
+
+	pflag.IntVar(&args.SMTPTimeout, "smtp-timeout", 10, "SMTP dial timeout in seconds")
+	pflag.IntVar(&args.MonitorClientTimeout, "monitor-client-timeout", 300, "Idle SSE client timeout in seconds")
+
+	pflag.StringVar(&args.LogLevel, "log-level", "info", "Log level: debug, info, warn, error")
+	pflag.StringVar(&args.LogFormat, "log-format", "text", "Log format: text, json")
 
 	// Add help flag manually to control behavior
 	pflag.BoolVarP(&showHelp, "help", "h", false, "Show this help message")

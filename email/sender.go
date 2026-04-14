@@ -147,7 +147,14 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 		}
 	}()
 
-	boundary := "mixed_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	ts := strconv.FormatInt(time.Now().UnixNano(), 10)
+	mixedBoundary := "mixed_" + ts
+	altBoundary := "alt_" + ts
+
+	hasHTML := body != ""
+	hasPlain := strings.TrimSpace(task.PlainText) != ""
+	hasAttachments := len(task.Attachments) > 0
+	isMultipart := hasHTML && hasPlain // send multipart/alternative when both are present
 
 	// Encode subject with RFC 2047 if it contains non-ASCII characters
 	subject := task.Subject
@@ -164,10 +171,16 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 	if len(uniqueCC) > 0 {
 		headers["CC"] = strings.Join(uniqueCC, ", ")
 	}
-	if len(task.Attachments) > 0 {
-		headers["Content-Type"] = "multipart/mixed; boundary=" + boundary
-	} else {
+
+	switch {
+	case hasAttachments:
+		headers["Content-Type"] = "multipart/mixed; boundary=" + mixedBoundary
+	case isMultipart:
+		headers["Content-Type"] = "multipart/alternative; boundary=" + altBoundary
+	case hasHTML:
 		headers["Content-Type"] = "text/html; charset=\"UTF-8\""
+	default:
+		headers["Content-Type"] = "text/plain; charset=\"UTF-8\""
 	}
 
 	for k, v := range headers {
@@ -179,21 +192,65 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 		return fmt.Errorf("write header/body separator: %w", err)
 	}
 
-	if len(task.Attachments) > 0 {
-		if task.Body != "" {
-			if _, err = bw.WriteString("--" + boundary + "\r\n"); err != nil {
-				return fmt.Errorf("write body boundary: %w", err)
+	// writeAltParts writes text/plain + text/html parts inside an
+	// existing multipart boundary (either altBoundary or inline).
+	writeAltParts := func(boundary string) error {
+		if hasPlain {
+			if _, e := bw.WriteString("--" + boundary + "\r\n"); e != nil {
+				return fmt.Errorf("write alt boundary: %w", e)
 			}
+			if _, e := bw.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n\r\n"); e != nil {
+				return fmt.Errorf("write plain headers: %w", e)
+			}
+			if _, e := bw.WriteString(strings.TrimSpace(task.PlainText) + "\r\n"); e != nil {
+				return fmt.Errorf("write plain body: %w", e)
+			}
+		}
+		if hasHTML {
+			if _, e := bw.WriteString("--" + boundary + "\r\n"); e != nil {
+				return fmt.Errorf("write alt boundary: %w", e)
+			}
+			if _, e := bw.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"); e != nil {
+				return fmt.Errorf("write html headers: %w", e)
+			}
+			if _, e := bw.WriteString(body + "\r\n"); e != nil {
+				return fmt.Errorf("write html body: %w", e)
+			}
+		}
+		_, e := bw.WriteString("--" + boundary + "--\r\n")
+		return e
+	}
+
+	if hasAttachments {
+		// Wrap text parts (single or alternative) as first sub-part of multipart/mixed.
+		if _, err = bw.WriteString("--" + mixedBoundary + "\r\n"); err != nil {
+			return fmt.Errorf("write body boundary: %w", err)
+		}
+		if isMultipart {
+			if _, err = bw.WriteString("Content-Type: multipart/alternative; boundary=" + altBoundary + "\r\n\r\n"); err != nil {
+				return fmt.Errorf("write alt content-type: %w", err)
+			}
+			if err = writeAltParts(altBoundary); err != nil {
+				return err
+			}
+		} else if hasPlain {
+			if _, err = bw.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n\r\n"); err != nil {
+				return fmt.Errorf("write plain content-type: %w", err)
+			}
+			if _, err = bw.WriteString(strings.TrimSpace(task.PlainText) + "\r\n"); err != nil {
+				return fmt.Errorf("write plain body: %w", err)
+			}
+		} else if hasHTML {
 			if _, err = bw.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"); err != nil {
-				return fmt.Errorf("write body headers: %w", err)
+				return fmt.Errorf("write html content-type: %w", err)
 			}
 			if _, err = bw.WriteString(body + "\r\n"); err != nil {
-				return fmt.Errorf("write body: %w", err)
+				return fmt.Errorf("write html body: %w", err)
 			}
 		}
 
 		for _, path := range task.Attachments {
-			if _, err = bw.WriteString("--" + boundary + "\r\n"); err != nil {
+			if _, err = bw.WriteString("--" + mixedBoundary + "\r\n"); err != nil {
 				return fmt.Errorf("write attachment boundary: %w", err)
 			}
 			mt := mime.TypeByExtension(filepath.Ext(path))
@@ -218,34 +275,40 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 			bufPtr := copyBufPool.Get().(*[]byte)
 			_, err = io.CopyBuffer(enc, file, *bufPtr)
 			copyBufPool.Put(bufPtr)
+			if cerr := file.Close(); cerr != nil {
+				log.Printf("Error closing attachment file %s: %v", path, cerr)
+			}
 			if err != nil {
-				if cerr := file.Close(); cerr != nil {
-					log.Printf("Error closing attachment file %s: %v", path, cerr)
-				}
 				if cerr := enc.Close(); cerr != nil {
 					log.Printf("Error closing base64 encoder: %v", cerr)
 				}
 				return fmt.Errorf("encode attachment: %w", err)
 			}
 			if err = enc.Close(); err != nil {
-				if cerr := file.Close(); cerr != nil {
-					log.Printf("Error closing attachment file %s: %v", path, cerr)
-				}
 				return fmt.Errorf("close encoder: %w", err)
-			}
-			if err = file.Close(); err != nil {
-				return fmt.Errorf("close attachment: %w", err)
 			}
 			if _, err = bw.WriteString("\r\n"); err != nil {
 				return fmt.Errorf("write attachment newline: %w", err)
 			}
 		}
-		if _, err = bw.WriteString("--" + boundary + "--"); err != nil {
+		if _, err = bw.WriteString("--" + mixedBoundary + "--"); err != nil {
 			return fmt.Errorf("write closing boundary: %w", err)
 		}
+	} else if isMultipart {
+		// No attachments, but both plain and HTML — send multipart/alternative.
+		if err = writeAltParts(altBoundary); err != nil {
+			return err
+		}
 	} else {
-		if _, err = bw.WriteString(body); err != nil {
-			return fmt.Errorf("write body: %w", err)
+		// Simple single-part body (plain text or HTML only).
+		if hasPlain {
+			if _, err = bw.WriteString(strings.TrimSpace(task.PlainText)); err != nil {
+				return fmt.Errorf("write plain body: %w", err)
+			}
+		} else {
+			if _, err = bw.WriteString(body); err != nil {
+				return fmt.Errorf("write body: %w", err)
+			}
 		}
 	}
 
