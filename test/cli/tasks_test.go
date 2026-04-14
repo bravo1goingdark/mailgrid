@@ -57,7 +57,7 @@ func TestPrepareEmailTasks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tasks, err := cli.PrepareEmailTasks(recipients, tmp.Name(), "Hello {{.name }}", []string{a.Name()}, []string{}, []string{})
+	tasks, err := cli.PrepareEmailTasks(recipients, tmp.Name(), "", "Hello {{.name }}", []string{a.Name()}, []string{}, []string{})
 	if err != nil {
 		t.Fatalf("prepareEmailTasks error: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestPrepareEmailTasks_AttachOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tasks, err := cli.PrepareEmailTasks(recipients, "", "Hi", []string{a.Name()}, []string{}, []string{})
+	tasks, err := cli.PrepareEmailTasks(recipients, "", "", "Hi", []string{a.Name()}, []string{}, []string{})
 	if err != nil {
 		t.Fatalf("prepareEmailTasks error: %v", err)
 	}
@@ -105,6 +105,7 @@ func TestPrepareEmailTasks_CC_BCC(t *testing.T) {
 
 	tasks, err := cli.PrepareEmailTasks(
 		recipients,
+		"",
 		"",
 		"Test Subject",
 		[]string{},
@@ -153,17 +154,32 @@ func TestSendSingleEmailRequiresContent(t *testing.T) {
 	}
 }
 
-func TestSendSingleEmailTemplateAndTextAreExclusive(t *testing.T) {
+// TestSendSingleEmailBothTemplatAndTextProducesMultipart verifies that
+// providing both --template and --text is allowed and produces a multipart
+// email (template renders HTML, text provides the plain-text alternative).
+// The test uses dry-run so no SMTP connection is needed.
+func TestSendSingleEmailBothTemplateAndTextProducesMultipart(t *testing.T) {
+	// Write a minimal HTML template
+	tmp, err := os.CreateTemp(t.TempDir(), "tmpl*.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tmp.WriteString("<p>Hello</p>"); err != nil {
+		t.Fatal(err)
+	}
+	tmp.Close()
+
 	args := cli.CLIArgs{
 		To:           "user@example.com",
 		Subject:      "Subj",
-		Text:         "inline content",
-		TemplatePath: "template.html",
+		Text:         "Plain text fallback",
+		TemplatePath: tmp.Name(),
 		DryRun:       true,
 	}
-	err := cli.SendSingleEmail(args, config.SMTPConfig{})
-	if err == nil || !strings.Contains(err.Error(), "either --template or --text must be provided") {
-		t.Fatalf("expected exclusivity error, got %v", err)
+	// Should succeed — both template and text are allowed for multipart/alternative.
+	err = cli.SendSingleEmail(args, config.SMTPConfig{})
+	if err != nil {
+		t.Fatalf("expected no error for template+text combination, got %v", err)
 	}
 }
 

@@ -104,15 +104,16 @@ func TestParseAddressInputFromFile(t *testing.T) {
 }
 
 func TestParseAddressInputFromNonExistentFile(t *testing.T) {
-	// Non-existent file is treated as inline (comma-separated) input
+	// A non-existent file path falls through to inline mode.
+	// The path "/path/that/does/not/exist.txt" is not a valid email address,
+	// so the function returns an empty slice without error.
 	nonExistentFile := "/path/that/does/not/exist.txt"
 	result, err := ParseAddressInput(nonExistentFile)
 	if err != nil {
 		t.Errorf("ParseAddressInput() returned unexpected error: %v", err)
 	}
-	// Should be treated as a single inline value
-	if len(result) != 1 || result[0] != nonExistentFile {
-		t.Errorf("ParseAddressInput() = %v, expected [%s]", result, nonExistentFile)
+	if len(result) != 0 {
+		t.Errorf("ParseAddressInput() = %v, expected empty slice (path is not a valid email)", result)
 	}
 }
 

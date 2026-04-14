@@ -6,7 +6,7 @@ import (
 )
 
 func TestNewServer(t *testing.T) {
-	server := NewServer(9091)
+	server := NewServer(9091, 0)
 
 	if server == nil {
 		t.Fatal("NewServer returned nil")
@@ -32,7 +32,7 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestInitializeCampaign(t *testing.T) {
-	server := NewServer(9091)
+	server := NewServer(9091, 0)
 
 	jobID := "test-job-123"
 	config := ConfigSummary{
@@ -68,7 +68,7 @@ func TestInitializeCampaign(t *testing.T) {
 }
 
 func TestUpdateRecipientStatus(t *testing.T) {
-	server := NewServer(9091)
+	server := NewServer(9091, 0)
 
 	// Initialize campaign first
 	server.InitializeCampaign("test-job", ConfigSummary{}, 10)
@@ -110,7 +110,7 @@ func TestUpdateRecipientStatus(t *testing.T) {
 }
 
 func TestUpdateRecipientStatusMultiple(t *testing.T) {
-	server := NewServer(9091)
+	server := NewServer(9091, 0)
 	server.InitializeCampaign("test-job", ConfigSummary{}, 10)
 
 	// Update multiple recipients with different statuses
@@ -153,7 +153,7 @@ func TestUpdateRecipientStatusMultiple(t *testing.T) {
 }
 
 func TestDomainBreakdownSingleRecipientMultipleTransitions(t *testing.T) {
-	server := NewServer(9091)
+	server := NewServer(9091, 0)
 	server.InitializeCampaign("test-job", ConfigSummary{}, 10)
 
 	email := "user@example.com"
@@ -176,7 +176,7 @@ func TestDomainBreakdownSingleRecipientMultipleTransitions(t *testing.T) {
 }
 
 func TestAddSMTPResponse(t *testing.T) {
-	server := NewServer(9091)
+	server := NewServer(9091, 0)
 
 	// Add some SMTP response codes
 	server.AddSMTPResponse("250")

@@ -19,14 +19,20 @@ func TestNew(t *testing.T) {
 	logger.Errorf("Test error message: %s", "test")
 }
 
-func TestAppendToCSV(t *testing.T) {
+// TestCSVLogger verifies that csvLogger writes and flushes correctly.
+func TestCSVLogger(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.csv")
 
-	// Test writing to a new file
-	appendToCSV(testFile, "test@example.com", "Test Subject", "OK")
+	l, err := newCSVLogger(testFile)
+	if err != nil {
+		t.Fatalf("newCSVLogger() error: %v", err)
+	}
+	defer l.close()
 
-	// Read the file and verify content
+	l.write("test@example.com", "Test Subject", "OK")
+	l.flush()
+
 	content, err := os.ReadFile(testFile)
 	if err != nil {
 		t.Fatalf("Failed to read test file: %v", err)
@@ -37,8 +43,9 @@ func TestAppendToCSV(t *testing.T) {
 		t.Errorf("File content = %q, expected %q", string(content), expected)
 	}
 
-	// Test appending to existing file
-	appendToCSV(testFile, "test2@example.com", "Test Subject 2", "Failed")
+	// Append a second entry
+	l.write("test2@example.com", "Test Subject 2", "Failed")
+	l.flush()
 
 	content, err = os.ReadFile(testFile)
 	if err != nil {
@@ -51,45 +58,83 @@ func TestAppendToCSV(t *testing.T) {
 	}
 }
 
-func TestAppendToCSVWithCommasInSubject(t *testing.T) {
+// TestCSVLoggerWithCommasInSubject verifies that subjects with commas are written as-is.
+func TestCSVLoggerWithCommasInSubject(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.csv")
 
-	// Test writing with commas in subject (this tests CSV format)
-	appendToCSV(testFile, "test@example.com", "Subject, with, commas", "OK")
+	l, err := newCSVLogger(testFile)
+	if err != nil {
+		t.Fatalf("newCSVLogger() error: %v", err)
+	}
+	defer l.close()
+
+	l.write("test@example.com", "Subject, with, commas", "OK")
+	l.flush()
 
 	content, err := os.ReadFile(testFile)
 	if err != nil {
 		t.Fatalf("Failed to read test file: %v", err)
 	}
 
-	// The function doesn't quote fields, so commas will break CSV format
-	// This is expected behavior based on the current implementation
+	// The logger writes raw CSV without quoting; commas in subject fields are unescaped.
 	if !strings.Contains(string(content), "Subject, with, commas") {
 		t.Error("Subject with commas was not written correctly")
 	}
 }
 
 func TestLogFunctions(t *testing.T) {
-	// These functions log to stdout and write to CSV files
-	// We can't easily test the log output, but we can test they don't panic
-
-	// Create temp directory for CSV files
+	// These functions log to stdout and write to CSV files.
+	// Run in a temp directory so we don't pollute the working tree.
 	tmpDir := t.TempDir()
 	originalDir, _ := os.Getwd()
+	// Reset package-level loggers so they initialise fresh in tmpDir.
+	func() {
+		loggerMu.Lock()
+		defer loggerMu.Unlock()
+		if successLogger != nil {
+			successLogger.close()
+			successLogger = nil
+		}
+		if failedLogger != nil {
+			failedLogger.close()
+			failedLogger = nil
+		}
+	}()
 	os.Chdir(tmpDir)
-	defer os.Chdir(originalDir)
+	defer func() {
+		os.Chdir(originalDir)
+		// Reset again after the test so other tests start clean.
+		loggerMu.Lock()
+		defer loggerMu.Unlock()
+		if successLogger != nil {
+			successLogger.close()
+			successLogger = nil
+		}
+		if failedLogger != nil {
+			failedLogger.close()
+			failedLogger = nil
+		}
+	}()
 
 	// Test LogSuccess
 	LogSuccess("success@example.com", "Success Subject")
+	FlushAndClose()
 
-	// Verify success.csv was created
+	// Verify success.csv was created and flushed
 	if _, err := os.Stat("success.csv"); os.IsNotExist(err) {
 		t.Error("success.csv was not created")
 	}
 
+	// Reset so LogFailure gets a fresh handle in the same dir
+	loggerMu.Lock()
+	successLogger = nil
+	failedLogger = nil
+	loggerMu.Unlock()
+
 	// Test LogFailure
 	LogFailure("failure@example.com", "Failure Subject")
+	FlushAndClose()
 
 	// Verify failed.csv was created
 	if _, err := os.Stat("failed.csv"); os.IsNotExist(err) {
