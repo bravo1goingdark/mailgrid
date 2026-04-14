@@ -13,11 +13,22 @@ import "strings"
 //
 // The expression is evaluated case-insensitively, and field names are normalized to lowercase.
 func Filter(recipients []Recipient, exp Expression) []Recipient {
+	if len(recipients) == 0 {
+		return nil
+	}
+
 	var out []Recipient
 
+	// Preallocate once with capacity hint; clear and reuse for each recipient
+	// to avoid allocating a new map per call.
+	data := make(map[string]string, len(recipients[0].Data)+1)
+
 	for _, r := range recipients {
-		// Normalize field names for filtering
-		data := make(map[string]string)
+		// Clear previous iteration's data without re-allocating.
+		for k := range data {
+			delete(data, k)
+		}
+
 		data["email"] = r.Email
 		for k, v := range r.Data {
 			data[strings.ToLower(k)] = v

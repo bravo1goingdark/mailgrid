@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
@@ -30,6 +31,7 @@ func (c *compiledExpr) Evaluate(data map[string]string) bool {
 
 	result, err := expr.Run(c.program, lowerData)
 	if err != nil {
+		log.Printf("Expression evaluation error: %v", err)
 		return false
 	}
 
@@ -46,6 +48,24 @@ func (c *compiledExpr) Evaluate(data map[string]string) bool {
 	return false
 }
 
+// Package-level compiled regexes — compiled once at init time, not per ParseExpression call.
+var (
+	reContainsFn   = regexp.MustCompile(`contains\s*\(\s*(\w+)\s*,\s*("[^"]*")\s*\)`)
+	reStartsWithFn = regexp.MustCompile(`startsWith\s*\(\s*(\w+)\s*,\s*("[^"]*")\s*\)`)
+	reEndsWithFn   = regexp.MustCompile(`endsWith\s*\(\s*(\w+)\s*,\s*("[^"]*")\s*\)`)
+	reOperator     = regexp.MustCompile(`(\w+)\s+(contains|startsWith|endsWith)\s+("[^"]*")`)
+	reEquality     = regexp.MustCompile(`(\w+)\s*(==|!=)\s*("[^"]*")`)
+	reIdentifier   = regexp.MustCompile(`\b[a-z_][a-z0-9_]*\b`)
+)
+
+// lowerQuoted lowercases the content of a double-quoted string literal.
+func lowerQuoted(s string) string {
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		return `"` + strings.ToLower(s[1:len(s)-1]) + `"`
+	}
+	return s
+}
+
 // transformExpression converts our simplified syntax to expr-compatible syntax.
 // It transforms:
 //   - contains(field, "value") -> field contains "value" (with lowercase value)
@@ -53,64 +73,42 @@ func (c *compiledExpr) Evaluate(data map[string]string) bool {
 //   - endsWith(field, "value") -> field endsWith "value" (with lowercase value)
 //   - field == "Value" -> field == "value" (lowercase comparison value)
 func transformExpression(input string) string {
-	// Helper to lowercase a quoted string
-	lowerCaseString := func(s string) string {
-		// Extract the quoted content
-		if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
-			content := s[1 : len(s)-1]
-			return `"` + strings.ToLower(content) + `"`
-		}
-		return s
-	}
-
-	// Transform contains(field, "value") -> field contains "value"
-	containsRe := regexp.MustCompile(`contains\s*\(\s*(\w+)\s*,\s*("[^"]*")\s*\)`)
-	input = containsRe.ReplaceAllStringFunc(input, func(match string) string {
-		parts := containsRe.FindStringSubmatch(match)
+	input = reContainsFn.ReplaceAllStringFunc(input, func(match string) string {
+		parts := reContainsFn.FindStringSubmatch(match)
 		if len(parts) == 3 {
-			return parts[1] + ` contains ` + lowerCaseString(parts[2])
+			return parts[1] + ` contains ` + lowerQuoted(parts[2])
 		}
 		return match
 	})
 
-	// Transform startsWith(field, "value") -> field startsWith "value"
-	startsWithRe := regexp.MustCompile(`startsWith\s*\(\s*(\w+)\s*,\s*("[^"]*")\s*\)`)
-	input = startsWithRe.ReplaceAllStringFunc(input, func(match string) string {
-		parts := startsWithRe.FindStringSubmatch(match)
+	input = reStartsWithFn.ReplaceAllStringFunc(input, func(match string) string {
+		parts := reStartsWithFn.FindStringSubmatch(match)
 		if len(parts) == 3 {
-			return parts[1] + ` startsWith ` + lowerCaseString(parts[2])
+			return parts[1] + ` startsWith ` + lowerQuoted(parts[2])
 		}
 		return match
 	})
 
-	// Transform endsWith(field, "value") -> field endsWith "value"
-	endsWithRe := regexp.MustCompile(`endsWith\s*\(\s*(\w+)\s*,\s*("[^"]*")\s*\)`)
-	input = endsWithRe.ReplaceAllStringFunc(input, func(match string) string {
-		parts := endsWithRe.FindStringSubmatch(match)
+	input = reEndsWithFn.ReplaceAllStringFunc(input, func(match string) string {
+		parts := reEndsWithFn.FindStringSubmatch(match)
 		if len(parts) == 3 {
-			return parts[1] + ` endsWith ` + lowerCaseString(parts[2])
+			return parts[1] + ` endsWith ` + lowerQuoted(parts[2])
 		}
 		return match
 	})
 
-	// Transform direct operator usage (contains, startsWith, endsWith) to lowercase comparison values
-	operatorRe := regexp.MustCompile(`(\w+)\s+(contains|startsWith|endsWith)\s+("[^"]*")`)
-	input = operatorRe.ReplaceAllStringFunc(input, func(match string) string {
-		parts := operatorRe.FindStringSubmatch(match)
+	input = reOperator.ReplaceAllStringFunc(input, func(match string) string {
+		parts := reOperator.FindStringSubmatch(match)
 		if len(parts) == 4 {
-			return parts[1] + ` ` + parts[2] + ` ` + lowerCaseString(parts[3])
+			return parts[1] + ` ` + parts[2] + ` ` + lowerQuoted(parts[3])
 		}
 		return match
 	})
 
-	// Transform equality comparisons to lowercase values
-	// field == "Value" -> field == "value"
-	// field != "Value" -> field != "value"
-	equalityRe := regexp.MustCompile(`(\w+)\s*(==|!=)\s*("[^"]*")`)
-	input = equalityRe.ReplaceAllStringFunc(input, func(match string) string {
-		parts := equalityRe.FindStringSubmatch(match)
+	input = reEquality.ReplaceAllStringFunc(input, func(match string) string {
+		parts := reEquality.FindStringSubmatch(match)
 		if len(parts) == 4 {
-			return parts[1] + ` ` + parts[2] + ` ` + lowerCaseString(parts[3])
+			return parts[1] + ` ` + parts[2] + ` ` + lowerQuoted(parts[3])
 		}
 		return match
 	})
@@ -171,23 +169,12 @@ func MustParseExpression(input string) Expression {
 // ValidateFields ensures all fields used in the expression exist in the CSV data.
 // It extracts field names from the expression and checks them against the first recipient.
 // Fields like "email" (injected at filter time) are also accepted.
+// Note: This is informational only - the expr library handles undefined
+// variables gracefully by returning false.
 func ValidateFields(exp Expression, recipients []Recipient) error {
 	if len(recipients) == 0 {
 		return fmt.Errorf("no recipients to validate fields")
 	}
-
-	// Get valid fields from first recipient
-	validFields := map[string]struct{}{
-		"email": {}, // always available at filter time
-	}
-	for k := range recipients[0].Data {
-		validFields[strings.ToLower(k)] = struct{}{}
-	}
-
-	// Validate is informational only - the expr library handles undefined
-	// variables gracefully by returning false. We keep the signature for
-	// backward compatibility but don't block on missing fields.
-	_ = validFields
 	return nil
 }
 

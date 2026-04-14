@@ -57,42 +57,47 @@ func NewTemplateCache(maxAge time.Duration, maxSize int) *TemplateCache {
 	return c
 }
 
-// Get retrieves a template from cache or parses it if not found
+// Get retrieves a template from cache (checking age) or parses it if missing/expired.
 func (c *TemplateCache) Get(path string) (*template.Template, error) {
-	// Calculate template hash
+	// Use canonical path so ./template.html and template.html share an entry.
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+
 	hash, err := c.hashFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	// Try to get from cache first
+	// Check cache under read lock; verify the entry hasn't aged out.
 	c.mu.RLock()
-	if tmpl, ok := c.templates[hash]; ok {
-		c.lastAccess[hash] = time.Now()
-		c.mu.RUnlock()
-		return tmpl, nil
-	}
+	tmpl, inCache := c.templates[hash]
+	lastAccess := c.lastAccess[hash]
 	c.mu.RUnlock()
 
-	// Parse template
-	tmpl, err := template.ParseFiles(path)
+	if inCache && time.Since(lastAccess) <= c.maxAge {
+		c.mu.Lock()
+		c.lastAccess[hash] = time.Now()
+		c.mu.Unlock()
+		return tmpl, nil
+	}
+
+	// Parse from disk.
+	tmpl, err = template.ParseFiles(path)
 	if err != nil {
 		return nil, err
 	}
 
-	// Store in cache
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Enforce size limit BEFORE adding new template
-	if c.currentSize >= c.maxSize {
+	if !inCache && c.currentSize >= c.maxSize {
 		c.evictOldest()
 	}
 
-	// Double-check after eviction in case multiple threads are racing
-	if c.currentSize < c.maxSize {
-		c.templates[hash] = tmpl
-		c.lastAccess[hash] = time.Now()
+	c.templates[hash] = tmpl
+	c.lastAccess[hash] = time.Now()
+	if !inCache {
 		c.currentSize++
 	}
 

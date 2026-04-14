@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -22,102 +23,111 @@ type cachedTemplate struct {
 }
 
 // TemplateCache is a bounded, TTL-based cache for parsed templates.
+// Keys are canonical (absolute) file paths.
 type TemplateCache struct {
-	mu    sync.RWMutex
+	mu    sync.Mutex
 	cache map[string]cachedTemplate
-	order []string // Track insertion order for LRU eviction
+	order []string // Insertion order for FIFO eviction (LRU-approximation)
 }
 
 // Global template cache instance
 var templateCache = &TemplateCache{
 	cache: make(map[string]cachedTemplate),
-	order: []string{},
 }
 
+// Get returns the cached template for path, or (nil, false) if absent or expired.
+// Expired entries are removed on detection so they don't linger in the cache.
 func (tc *TemplateCache) Get(path string) (*template.Template, bool) {
-	tc.mu.RLock()
-	defer tc.mu.RUnlock()
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
 
 	entry, ok := tc.cache[path]
 	if !ok {
 		return nil, false
 	}
 
-	// Check if entry has expired
+	// Remove and report miss if entry has expired.
 	if time.Since(entry.loadedAt) > cacheEntryTTL {
+		delete(tc.cache, path)
+		tc.removeFromOrder(path)
 		return nil, false
 	}
 
 	return entry.template, true
 }
 
+// Set stores a parsed template under the given (already canonicalized) path.
+// If the cache is full, the oldest entry is evicted first.
 func (tc *TemplateCache) Set(path string, tmpl *template.Template) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 
-	// Check if cache is full and needs eviction
-	if len(tc.cache) >= maxCacheSize && tc.cache[path] == (cachedTemplate{}) {
-		// Evict oldest entry (LRU)
-		if len(tc.order) > 0 {
-			oldest := tc.order[0]
-			delete(tc.cache, oldest)
-			tc.order = tc.order[1:]
-		}
+	// If path already exists, update in place without evicting.
+	if _, exists := tc.cache[path]; exists {
+		tc.cache[path] = cachedTemplate{template: tmpl, loadedAt: time.Now()}
+		return
 	}
 
-	tc.cache[path] = cachedTemplate{
-		template: tmpl,
-		loadedAt: time.Now(),
+	// Evict oldest entry if the cache is at capacity.
+	if len(tc.cache) >= maxCacheSize && len(tc.order) > 0 {
+		oldest := tc.order[0]
+		delete(tc.cache, oldest)
+		tc.order = tc.order[1:]
 	}
 
-	// Update order for LRU
-	found := false
+	tc.cache[path] = cachedTemplate{template: tmpl, loadedAt: time.Now()}
+	tc.order = append(tc.order, path)
+}
+
+// removeFromOrder removes a path from the ordering slice.
+// Must be called with tc.mu held.
+func (tc *TemplateCache) removeFromOrder(path string) {
 	for i, p := range tc.order {
 		if p == path {
 			tc.order = append(tc.order[:i], tc.order[i+1:]...)
-			found = true
-			break
+			return
 		}
 	}
-	tc.order = append(tc.order, path)
-	_ = found // suppress unused warning
+}
+
+// canonicalPath returns the absolute path, falling back to the original on error.
+func canonicalPath(path string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		return abs
+	}
+	return path
 }
 
 // LoadTemplate parses and caches an HTML template file by its path.
-//
-// If the template has been parsed before and is not expired, it returns the cached version.
-// Otherwise, it loads and parses the template and stores it in memory.
+// The path is canonicalized so "./template.html" and "template.html" share a cache entry.
 func LoadTemplate(path string) (*template.Template, error) {
-	if tmpl, ok := templateCache.Get(path); ok {
+	abs := canonicalPath(path)
+
+	if tmpl, ok := templateCache.Get(abs); ok {
 		return tmpl, nil
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := os.Stat(abs); os.IsNotExist(err) {
 		return nil, fmt.Errorf("template file not found: %s", path)
 	}
 
-	tmpl, err := template.ParseFiles(path)
+	tmpl, err := template.ParseFiles(abs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
 
-	templateCache.Set(path, tmpl)
+	templateCache.Set(abs, tmpl)
 	return tmpl, nil
 }
 
-// RenderTemplate renders an HTML template with given recipient's data.
-//
-// It uses caching internally for performance. Recipient values can be accessed in template via:
-//   - {{ .email }} for recipient email
-//   - {{ .name }}, {{ .age }}, etc. for CSV fields (same as subject templates)
+// RenderTemplate renders an HTML template with the given recipient's data.
+// Recipient fields are accessible in templates as {{ .email }}, {{ .name }}, etc.
 func RenderTemplate(recipient parser.Recipient, templatePath string) (string, error) {
 	tmpl, err := LoadTemplate(templatePath)
 	if err != nil {
 		return "", err
 	}
 
-	// Flatten data structure for consistent template access
-	// Include email field and all CSV data fields at top level
 	data := make(map[string]any)
 	data["email"] = recipient.Email
 	for key, value := range recipient.Data {
