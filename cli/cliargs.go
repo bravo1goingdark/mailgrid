@@ -7,23 +7,23 @@ import (
 
 // CLIArgs holds all configurable options passed via the command line.
 type CLIArgs struct {
-	EnvPath      string   // Path to an SMTP config JSON file
-	CSVPath      string   // Path to recipient CSV file
-	TemplatePath string   // Path to HTML email template
-	Subject      string   // Subject line (supports templating with {{ .name }})
-	DryRun       bool     // If true, render but do not send emails
-	ShowPreview  bool     // If true, serve rendered HTML via localhost
-	PreviewPort  int      // Port to run the preview server on
-	Concurrency  int      // Number of parallel SMTP workers
-	RetryLimit   int      // Max retry attempts for failed sending
-	BatchSize    int      // Number of emails sent per SMTP batch
-	SheetURL     string   // Optional Google Sheet URL for CSV import
-	Filter       string   // Logical filter expression for recipients
-	Attachments  []string // File paths to attach to every email
-	Cc           string   // Comma-separated emails or file path for CC
-	Bcc          string   // Comma-separated emails or file path for BCC
-	To           string   // Email address for one-off sending
-	Text         string   // Inline plain-text body or path to a text file
+	EnvPath       string   // Path to an SMTP config JSON file
+	CSVPath       string   // Path to recipient CSV file
+	TemplatePath  string   // Path to HTML email template
+	Subject       string   // Subject line (supports templating with {{ .name }})
+	DryRun        bool     // If true, render but do not send emails
+	ShowPreview   bool     // If true, serve rendered HTML via localhost
+	PreviewPort   int      // Port to run the preview server on
+	Concurrency   int      // Number of parallel SMTP workers
+	RetryLimit    int      // Max retry attempts for failed sending
+	BatchSize     int      // Number of emails sent per SMTP batch
+	SheetURL      string   // Optional Google Sheet URL for CSV import
+	Filter        string   // Logical filter expression for recipients
+	Attachments   []string // File paths to attach to every email
+	Cc            string   // Comma-separated emails or file path for CC
+	Bcc           string   // Comma-separated emails or file path for BCC
+	To            string   // Email address for one-off sending
+	Text          string   // Inline plain-text body or path to a text file
 	WebhookURL    string   // HTTP URL to send completion notification
 	WebhookSecret string   // Optional HMAC-SHA256 secret for webhook signature
 

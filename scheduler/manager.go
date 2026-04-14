@@ -196,7 +196,9 @@ func InitGlobalManager(config ManagerConfig) {
 	defer globalManagerMu.Unlock()
 
 	if globalManager != nil {
-		globalManager.Stop()
+		if err := globalManager.Stop(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: stopping previous global manager: %v\n", err)
+		}
 	}
 
 	globalManager = NewSchedulerManager(config)

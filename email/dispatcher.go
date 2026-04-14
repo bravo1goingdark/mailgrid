@@ -15,8 +15,8 @@ import (
 type Task struct {
 	Recipient   parser.Recipient
 	Subject     string
-	Body        string    // HTML body (from --template)
-	PlainText   string    // Plain-text body (from --text, for multipart/alternative)
+	Body        string // HTML body (from --template)
+	PlainText   string // Plain-text body (from --text, for multipart/alternative)
 	Retries     int
 	Attachments []string
 	CC          []string

@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"io"
 	"log"
 	"os"
 
@@ -60,7 +59,3 @@ type structLogger struct {
 func (l *structLogger) Infof(format string, v ...any)  { l.entry.Infof(format, v...) }
 func (l *structLogger) Warnf(format string, v ...any)  { l.entry.Warnf(format, v...) }
 func (l *structLogger) Errorf(format string, v ...any) { l.entry.Errorf(format, v...) }
-
-// writer is returned by logrus.StandardLogger().Writer() but we expose a
-// convenience helper for tests.
-func newDiscardLogger() io.Writer { return io.Discard }

@@ -95,8 +95,8 @@ type Server struct {
 	startTime     time.Time
 
 	// Broadcast debounce: callers set dirty; the broadcaster goroutine flushes at 100ms cadence.
-	dirty    atomic.Bool
-	quit     chan struct{} // closed by Stop() to terminate background goroutines
+	dirty atomic.Bool
+	quit  chan struct{} // closed by Stop() to terminate background goroutines
 }
 
 // NewServer creates a new monitoring server. clientTimeout controls how long
@@ -687,7 +687,9 @@ func (s *Server) handleStatusAPI(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.RUnlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s.stats)
+	if err := json.NewEncoder(w).Encode(s.stats); err != nil {
+		http.Error(w, "failed to encode status", http.StatusInternalServerError)
+	}
 }
 
 // handleStatusStream provides real-time updates via Server-Sent Events.

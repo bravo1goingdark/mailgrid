@@ -55,7 +55,6 @@ var (
 	reEndsWithFn   = regexp.MustCompile(`endsWith\s*\(\s*(\w+)\s*,\s*("[^"]*")\s*\)`)
 	reOperator     = regexp.MustCompile(`(\w+)\s+(contains|startsWith|endsWith)\s+("[^"]*")`)
 	reEquality     = regexp.MustCompile(`(\w+)\s*(==|!=)\s*("[^"]*")`)
-	reIdentifier   = regexp.MustCompile(`\b[a-z_][a-z0-9_]*\b`)
 )
 
 // lowerQuoted lowercases the content of a double-quoted string literal.
