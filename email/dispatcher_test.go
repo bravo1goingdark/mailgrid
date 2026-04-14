@@ -85,6 +85,19 @@ func TestTaskStruct(t *testing.T) {
 	if len(task.Attachments) != 2 {
 		t.Errorf("Expected 2 attachments, got %d", len(task.Attachments))
 	}
+
+	if task.Body != "Test Body" {
+		t.Errorf("Expected Body 'Test Body', got '%s'", task.Body)
+	}
+	if task.Retries != 0 {
+		t.Errorf("Expected Retries 0, got %d", task.Retries)
+	}
+	if len(task.CC) != 1 || task.CC[0] != "cc@example.com" {
+		t.Errorf("Expected CC [cc@example.com], got %v", task.CC)
+	}
+	if len(task.BCC) != 1 || task.BCC[0] != "bcc@example.com" {
+		t.Errorf("Expected BCC [bcc@example.com], got %v", task.BCC)
+	}
 }
 
 func TestDispatchOptionsDefaults(t *testing.T) {

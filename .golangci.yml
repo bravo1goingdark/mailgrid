@@ -25,6 +25,8 @@ linters-settings:
       - shadow
   misspell:
     locale: US
+    ignore-words:
+      - cancelled
 
 issues:
   exclude-rules:
