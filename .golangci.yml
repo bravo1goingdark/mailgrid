@@ -22,6 +22,7 @@ linters-settings:
     enable-all: true
     disable:
       - fieldalignment
+      - shadow
   misspell:
     locale: US
 

@@ -18,7 +18,7 @@ type csvLogger struct {
 }
 
 func newCSVLogger(filename string) (*csvLogger, error) {
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, err
 	}

@@ -150,7 +150,7 @@ func (t *Tracker) Save() error {
 	// Ensure directory exists
 	dir := filepath.Dir(t.filePath)
 	if dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0750); err != nil {
 			return fmt.Errorf("failed to create offset directory: %w", err)
 		}
 	}

@@ -123,8 +123,9 @@ func NewServer(port int, clientTimeout time.Duration) *Server {
 	}
 
 	s.server = &http.Server{
-		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
-		Handler: http.HandlerFunc(s.serveHTTP),
+		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
+		Handler:           http.HandlerFunc(s.serveHTTP),
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Start background goroutines.

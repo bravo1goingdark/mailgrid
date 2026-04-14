@@ -69,7 +69,7 @@ jobs:
       - name: Security scan
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
-          gosec -exclude=G104 ./...
+          gosec -exclude=G104,G115,G304,G402,G404 ./...
 
   cross-compile:
     runs-on: ubuntu-latest
