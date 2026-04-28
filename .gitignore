@@ -62,3 +62,4 @@ large_test_recipients.csv
 # Local development files
 .claude/
 CLAUDE.md
+.recon/

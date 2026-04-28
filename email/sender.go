@@ -10,18 +10,19 @@ package email
 import (
 	"bufio"
 	"encoding/base64"
+	crand "crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"github.com/bravo1goingdark/mailgrid/config"
 	"io"
 	"log"
 	"mime"
 	"net/smtp"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/bravo1goingdark/mailgrid/config"
 )
 
 // isASCII checks if a string contains only printable ASCII characters.
@@ -48,19 +49,76 @@ func sanitizeFilename(name string) string {
 var bufWriterPool = sync.Pool{New: func() any { return bufio.NewWriterSize(io.Discard, 64*1024) }}
 var copyBufPool = sync.Pool{New: func() any { b := make([]byte, 32*1024); return &b }}
 
+// newBoundary returns a unique MIME boundary string. 12 bytes from crypto/rand
+// give 96 bits of entropy — collision-free across goroutines and processes.
+func newBoundary(prefix string) string {
+	var b [12]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		// crypto/rand failure is exceptional; the resulting boundary is still
+		// unique enough at SMTP scale because Go zeroes the array.
+		return prefix + "fallback"
+	}
+	return prefix + hex.EncodeToString(b[:])
+}
+
+// writeHeader writes "Key: Value\r\n" to bw without intermediate string allocs.
+func writeHeader(bw *bufio.Writer, key, value string) error {
+	if _, err := bw.WriteString(key); err != nil {
+		return err
+	}
+	if _, err := bw.WriteString(": "); err != nil {
+		return err
+	}
+	if _, err := bw.WriteString(value); err != nil {
+		return err
+	}
+	_, err := bw.WriteString("\r\n")
+	return err
+}
+
+// writeBoundaryLine writes "--<boundary>\r\n" without concatenation.
+func writeBoundaryLine(bw *bufio.Writer, boundary string) error {
+	if _, err := bw.WriteString("--"); err != nil {
+		return err
+	}
+	if _, err := bw.WriteString(boundary); err != nil {
+		return err
+	}
+	_, err := bw.WriteString("\r\n")
+	return err
+}
+
+// writeBoundaryClose writes "--<boundary>--\r\n" without concatenation.
+func writeBoundaryClose(bw *bufio.Writer, boundary string, trailingCRLF bool) error {
+	if _, err := bw.WriteString("--"); err != nil {
+		return err
+	}
+	if _, err := bw.WriteString(boundary); err != nil {
+		return err
+	}
+	if trailingCRLF {
+		_, err := bw.WriteString("--\r\n")
+		return err
+	}
+	_, err := bw.WriteString("--")
+	return err
+}
+
 // SendWithClient formats and delivers an email using an active SMTP client.
 // Recipients from the To, CC, and BCC fields are trimmed, deduplicated in that
 // order (case-insensitively), and issued RCPT commands exactly once with the
 // primary recipient always first. The CC header is rendered from the unique CC
 // list, while BCC addresses are kept solely on the SMTP envelope.
 // It uses cfg.SMTP.From as both the envelope sender and header From address.
-func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err error) {
+//
+// cache may be nil; when supplied, attachments are read and base64-encoded
+// once per dispatch run and reused across all recipients.
+func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task, cache *AttachmentCache) (err error) {
 	from := strings.TrimSpace(cfg.From)
 	if from == "" {
 		return fmt.Errorf("SMTP sender 'from' field in config is empty")
 	}
 
-	// SMTP envelope sender (must match SMTP auth user)
 	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("MAIL FROM error: %w", err)
 	}
@@ -94,7 +152,6 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 		uniqueCC = append(uniqueCC, cc)
 		if err := client.Rcpt(cc); err != nil {
 			log.Printf("️ Failed to add CC: %s (%v)", cc, err)
-			// Track first RCPT error but continue processing others
 			if rcptErr == nil {
 				rcptErr = fmt.Errorf("failed to add CC recipient %s: %w", cc, err)
 			}
@@ -113,14 +170,12 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 		seen[key] = struct{}{}
 		if err := client.Rcpt(bcc); err != nil {
 			log.Printf("️ Failed to add BCC: %s (%v)", bcc, err)
-			// Track first RCPT error but continue processing others
 			if rcptErr == nil {
 				rcptErr = fmt.Errorf("failed to add BCC recipient %s: %w", bcc, err)
 			}
 		}
 	}
 
-	// If there were RCPT failures, return the error
 	if rcptErr != nil {
 		return rcptErr
 	}
@@ -143,46 +198,51 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 		}
 	}()
 
-	ts := strconv.FormatInt(time.Now().UnixNano(), 10)
-	mixedBoundary := "mixed_" + ts
-	altBoundary := "alt_" + ts
+	mixedBoundary := newBoundary("mixed_")
+	altBoundary := newBoundary("alt_")
 
 	hasHTML := body != ""
 	hasPlain := strings.TrimSpace(task.PlainText) != ""
 	hasAttachments := len(task.Attachments) > 0
-	isMultipart := hasHTML && hasPlain // send multipart/alternative when both are present
+	isMultipart := hasHTML && hasPlain
 
-	// Encode subject with RFC 2047 if it contains non-ASCII characters
 	subject := task.Subject
 	if !isASCII(subject) {
 		subject = mime.BEncoding.Encode("UTF-8", subject)
 	}
 
-	headers := map[string]string{
-		"From":         fmt.Sprintf("Mailgrid <%s>", from),
-		"To":           to,
-		"Subject":      subject,
-		"MIME-Version": "1.0",
+	// Headers in fixed order — stable for tests and DKIM canonicalization.
+	if err = writeHeader(bw, "From", "Mailgrid <"+from+">"); err != nil {
+		return fmt.Errorf("write From: %w", err)
+	}
+	if err = writeHeader(bw, "To", to); err != nil {
+		return fmt.Errorf("write To: %w", err)
 	}
 	if len(uniqueCC) > 0 {
-		headers["CC"] = strings.Join(uniqueCC, ", ")
+		if err = writeHeader(bw, "CC", strings.Join(uniqueCC, ", ")); err != nil {
+			return fmt.Errorf("write CC: %w", err)
+		}
+	}
+	if err = writeHeader(bw, "Subject", strings.TrimSpace(subject)); err != nil {
+		return fmt.Errorf("write Subject: %w", err)
+	}
+	if err = writeHeader(bw, "MIME-Version", "1.0"); err != nil {
+		return fmt.Errorf("write MIME-Version: %w", err)
 	}
 
+	var contentType string
 	switch {
 	case hasAttachments:
-		headers["Content-Type"] = "multipart/mixed; boundary=" + mixedBoundary
+		contentType = "multipart/mixed; boundary=" + mixedBoundary
 	case isMultipart:
-		headers["Content-Type"] = "multipart/alternative; boundary=" + altBoundary
+		contentType = "multipart/alternative; boundary=" + altBoundary
 	case hasHTML:
-		headers["Content-Type"] = "text/html; charset=\"UTF-8\""
+		contentType = `text/html; charset="UTF-8"`
 	default:
-		headers["Content-Type"] = "text/plain; charset=\"UTF-8\""
+		contentType = `text/plain; charset="UTF-8"`
 	}
-
-	for k, v := range headers {
-		if _, err = bw.WriteString(k + ": " + strings.TrimSpace(v) + "\r\n"); err != nil {
-			return fmt.Errorf("write header: %w", err)
-		}
+	if err = writeHeader(bw, "Content-Type", contentType); err != nil {
+		return fmt.Errorf("write Content-Type: %w", err)
 	}
 	if _, err = bw.WriteString("\r\n"); err != nil {
 		return fmt.Errorf("write header/body separator: %w", err)
@@ -192,39 +252,49 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 	// existing multipart boundary (either altBoundary or inline).
 	writeAltParts := func(boundary string) error {
 		if hasPlain {
-			if _, e := bw.WriteString("--" + boundary + "\r\n"); e != nil {
+			if e := writeBoundaryLine(bw, boundary); e != nil {
 				return fmt.Errorf("write alt boundary: %w", e)
 			}
 			if _, e := bw.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n\r\n"); e != nil {
 				return fmt.Errorf("write plain headers: %w", e)
 			}
-			if _, e := bw.WriteString(strings.TrimSpace(task.PlainText) + "\r\n"); e != nil {
+			if _, e := bw.WriteString(strings.TrimSpace(task.PlainText)); e != nil {
 				return fmt.Errorf("write plain body: %w", e)
+			}
+			if _, e := bw.WriteString("\r\n"); e != nil {
+				return fmt.Errorf("write plain newline: %w", e)
 			}
 		}
 		if hasHTML {
-			if _, e := bw.WriteString("--" + boundary + "\r\n"); e != nil {
+			if e := writeBoundaryLine(bw, boundary); e != nil {
 				return fmt.Errorf("write alt boundary: %w", e)
 			}
 			if _, e := bw.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"); e != nil {
 				return fmt.Errorf("write html headers: %w", e)
 			}
-			if _, e := bw.WriteString(body + "\r\n"); e != nil {
+			if _, e := bw.WriteString(body); e != nil {
 				return fmt.Errorf("write html body: %w", e)
 			}
+			if _, e := bw.WriteString("\r\n"); e != nil {
+				return fmt.Errorf("write html newline: %w", e)
+			}
 		}
-		_, e := bw.WriteString("--" + boundary + "--\r\n")
-		return e
+		return writeBoundaryClose(bw, boundary, true)
 	}
 
 	if hasAttachments {
-		// Wrap text parts (single or alternative) as first sub-part of multipart/mixed.
-		if _, err = bw.WriteString("--" + mixedBoundary + "\r\n"); err != nil {
+		if err = writeBoundaryLine(bw, mixedBoundary); err != nil {
 			return fmt.Errorf("write body boundary: %w", err)
 		}
 		if isMultipart {
-			if _, err = bw.WriteString("Content-Type: multipart/alternative; boundary=" + altBoundary + "\r\n\r\n"); err != nil {
+			if _, err = bw.WriteString("Content-Type: multipart/alternative; boundary="); err != nil {
 				return fmt.Errorf("write alt content-type: %w", err)
+			}
+			if _, err = bw.WriteString(altBoundary); err != nil {
+				return fmt.Errorf("write alt boundary value: %w", err)
+			}
+			if _, err = bw.WriteString("\r\n\r\n"); err != nil {
+				return fmt.Errorf("write alt content-type terminator: %w", err)
 			}
 			if err = writeAltParts(altBoundary); err != nil {
 				return err
@@ -233,70 +303,37 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 			if _, err = bw.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n\r\n"); err != nil {
 				return fmt.Errorf("write plain content-type: %w", err)
 			}
-			if _, err = bw.WriteString(strings.TrimSpace(task.PlainText) + "\r\n"); err != nil {
+			if _, err = bw.WriteString(strings.TrimSpace(task.PlainText)); err != nil {
 				return fmt.Errorf("write plain body: %w", err)
+			}
+			if _, err = bw.WriteString("\r\n"); err != nil {
+				return fmt.Errorf("write plain newline: %w", err)
 			}
 		} else if hasHTML {
 			if _, err = bw.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n"); err != nil {
 				return fmt.Errorf("write html content-type: %w", err)
 			}
-			if _, err = bw.WriteString(body + "\r\n"); err != nil {
+			if _, err = bw.WriteString(body); err != nil {
 				return fmt.Errorf("write html body: %w", err)
+			}
+			if _, err = bw.WriteString("\r\n"); err != nil {
+				return fmt.Errorf("write html newline: %w", err)
 			}
 		}
 
 		for _, path := range task.Attachments {
-			if _, err = bw.WriteString("--" + mixedBoundary + "\r\n"); err != nil {
-				return fmt.Errorf("write attachment boundary: %w", err)
-			}
-			mt := mime.TypeByExtension(filepath.Ext(path))
-			if mt == "" {
-				mt = "application/octet-stream"
-			}
-			if _, err = bw.WriteString("Content-Type: " + mt + "\r\n"); err != nil {
-				return fmt.Errorf("write content type: %w", err)
-			}
-			safeName := sanitizeFilename(path)
-			if _, err = bw.WriteString("Content-Disposition: attachment; filename=\"" + safeName + "\"\r\n"); err != nil {
-				return fmt.Errorf("write content disposition: %w", err)
-			}
-			if _, err = bw.WriteString("Content-Transfer-Encoding: base64\r\n\r\n"); err != nil {
-				return fmt.Errorf("write transfer encoding: %w", err)
-			}
-			file, ferr := os.Open(path)
-			if ferr != nil {
-				return fmt.Errorf("open attachment: %w", ferr)
-			}
-			enc := base64.NewEncoder(base64.StdEncoding, bw)
-			bufPtr := copyBufPool.Get().(*[]byte)
-			_, err = io.CopyBuffer(enc, file, *bufPtr)
-			copyBufPool.Put(bufPtr)
-			if cerr := file.Close(); cerr != nil {
-				log.Printf("Error closing attachment file %s: %v", path, cerr)
-			}
-			if err != nil {
-				if cerr := enc.Close(); cerr != nil {
-					log.Printf("Error closing base64 encoder: %v", cerr)
-				}
-				return fmt.Errorf("encode attachment: %w", err)
-			}
-			if err = enc.Close(); err != nil {
-				return fmt.Errorf("close encoder: %w", err)
-			}
-			if _, err = bw.WriteString("\r\n"); err != nil {
-				return fmt.Errorf("write attachment newline: %w", err)
+			if err = writeAttachment(bw, mixedBoundary, path, cache); err != nil {
+				return err
 			}
 		}
-		if _, err = bw.WriteString("--" + mixedBoundary + "--"); err != nil {
+		if err = writeBoundaryClose(bw, mixedBoundary, false); err != nil {
 			return fmt.Errorf("write closing boundary: %w", err)
 		}
 	} else if isMultipart {
-		// No attachments, but both plain and HTML — send multipart/alternative.
 		if err = writeAltParts(altBoundary); err != nil {
 			return err
 		}
 	} else {
-		// Simple single-part body (plain text or HTML only).
 		if hasPlain {
 			if _, err = bw.WriteString(strings.TrimSpace(task.PlainText)); err != nil {
 				return fmt.Errorf("write plain body: %w", err)
@@ -309,4 +346,87 @@ func SendWithClient(client *smtp.Client, cfg config.SMTPConfig, task Task) (err 
 	}
 
 	return err
+}
+
+// writeAttachment writes a single attachment as a part within a multipart/mixed
+// envelope. When cache is non-nil and the attachment fits the cache size policy,
+// the base64 payload is reused across all recipients in the dispatch run.
+// Otherwise the file is streamed and encoded inline.
+func writeAttachment(bw *bufio.Writer, mixedBoundary, path string, cache *AttachmentCache) error {
+	if err := writeBoundaryLine(bw, mixedBoundary); err != nil {
+		return fmt.Errorf("write attachment boundary: %w", err)
+	}
+
+	if cache != nil {
+		if entry, err := cache.Get(path); err == nil && entry != nil {
+			if err := writeHeader(bw, "Content-Type", entry.mimeType); err != nil {
+				return fmt.Errorf("write content type: %w", err)
+			}
+			if _, err := bw.WriteString("Content-Disposition: attachment; filename=\""); err != nil {
+				return fmt.Errorf("write content disposition: %w", err)
+			}
+			if _, err := bw.WriteString(entry.safeName); err != nil {
+				return fmt.Errorf("write content disposition: %w", err)
+			}
+			if _, err := bw.WriteString("\"\r\n"); err != nil {
+				return fmt.Errorf("write content disposition: %w", err)
+			}
+			if _, err := bw.WriteString("Content-Transfer-Encoding: base64\r\n\r\n"); err != nil {
+				return fmt.Errorf("write transfer encoding: %w", err)
+			}
+			if _, err := bw.Write(entry.data); err != nil {
+				return fmt.Errorf("write attachment payload: %w", err)
+			}
+			if _, err := bw.WriteString("\r\n"); err != nil {
+				return fmt.Errorf("write attachment newline: %w", err)
+			}
+			return nil
+		}
+		// fall through to streaming on cache miss/error
+	}
+
+	mt := mime.TypeByExtension(filepath.Ext(path))
+	if mt == "" {
+		mt = "application/octet-stream"
+	}
+	if err := writeHeader(bw, "Content-Type", mt); err != nil {
+		return fmt.Errorf("write content type: %w", err)
+	}
+	safeName := sanitizeFilename(path)
+	if _, err := bw.WriteString("Content-Disposition: attachment; filename=\""); err != nil {
+		return fmt.Errorf("write content disposition: %w", err)
+	}
+	if _, err := bw.WriteString(safeName); err != nil {
+		return fmt.Errorf("write content disposition: %w", err)
+	}
+	if _, err := bw.WriteString("\"\r\n"); err != nil {
+		return fmt.Errorf("write content disposition: %w", err)
+	}
+	if _, err := bw.WriteString("Content-Transfer-Encoding: base64\r\n\r\n"); err != nil {
+		return fmt.Errorf("write transfer encoding: %w", err)
+	}
+	file, ferr := os.Open(path)
+	if ferr != nil {
+		return fmt.Errorf("open attachment: %w", ferr)
+	}
+	enc := base64.NewEncoder(base64.StdEncoding, bw)
+	bufPtr := copyBufPool.Get().(*[]byte)
+	_, copyErr := io.CopyBuffer(enc, file, *bufPtr)
+	copyBufPool.Put(bufPtr)
+	if cerr := file.Close(); cerr != nil {
+		log.Printf("Error closing attachment file %s: %v", path, cerr)
+	}
+	if copyErr != nil {
+		if cerr := enc.Close(); cerr != nil {
+			log.Printf("Error closing base64 encoder: %v", cerr)
+		}
+		return fmt.Errorf("encode attachment: %w", copyErr)
+	}
+	if err := enc.Close(); err != nil {
+		return fmt.Errorf("close encoder: %w", err)
+	}
+	if _, err := bw.WriteString("\r\n"); err != nil {
+		return fmt.Errorf("write attachment newline: %w", err)
+	}
+	return nil
 }

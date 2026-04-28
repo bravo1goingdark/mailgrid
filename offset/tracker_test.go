@@ -3,6 +3,7 @@ package offset
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -186,6 +187,102 @@ func TestTracker_GetInfo(t *testing.T) {
 
 	if info.Offset != 30 {
 		t.Errorf("Expected offset 30, got %d", info.Offset)
+	}
+}
+
+func TestTracker_MarkComplete_InOrder(t *testing.T) {
+	tracker := NewTracker("")
+
+	tracker.MarkComplete(0)
+	tracker.MarkComplete(1)
+	tracker.MarkComplete(2)
+
+	if got := tracker.GetOffset(); got != 3 {
+		t.Fatalf("expected offset 3, got %d", got)
+	}
+}
+
+func TestTracker_MarkComplete_OutOfOrderHoldsBackOffset(t *testing.T) {
+	tracker := NewTracker("")
+
+	// Worker B finishes index 5 before worker A finishes 0..4. Offset must
+	// stay at 0 — losing it would cause already-pending sends to be skipped
+	// on resume after a crash.
+	tracker.MarkComplete(5)
+	if got := tracker.GetOffset(); got != 0 {
+		t.Fatalf("offset advanced past gap: got %d", got)
+	}
+
+	tracker.MarkComplete(0)
+	if got := tracker.GetOffset(); got != 1 {
+		t.Fatalf("expected 1 after closing the first slot, got %d", got)
+	}
+
+	// Fill the rest in any order — offset should jump to 6 once contiguous.
+	tracker.MarkComplete(2)
+	tracker.MarkComplete(4)
+	tracker.MarkComplete(1)
+	tracker.MarkComplete(3)
+
+	if got := tracker.GetOffset(); got != 6 {
+		t.Fatalf("expected 6 after gap closes, got %d", got)
+	}
+}
+
+func TestTracker_MarkComplete_DuplicateBelowOffsetIsIgnored(t *testing.T) {
+	tracker := NewTracker("")
+
+	tracker.MarkComplete(0)
+	tracker.MarkComplete(1)
+	if got := tracker.GetOffset(); got != 2 {
+		t.Fatalf("expected offset 2, got %d", got)
+	}
+
+	// A retry firing late after the offset has already moved past must not
+	// regress or double-count.
+	tracker.MarkComplete(0)
+	tracker.MarkComplete(1)
+
+	if got := tracker.GetOffset(); got != 2 {
+		t.Fatalf("offset moved on duplicate mark, got %d", got)
+	}
+}
+
+func TestTracker_MarkComplete_RespectsResumeBaseline(t *testing.T) {
+	tracker := NewTracker("")
+	tracker.UpdateOffset(100) // resume baseline
+
+	// Workers begin processing tasks Index=100 onwards.
+	tracker.MarkComplete(100)
+	if got := tracker.GetOffset(); got != 101 {
+		t.Fatalf("expected 101 after first post-resume mark, got %d", got)
+	}
+
+	tracker.MarkComplete(102)
+	tracker.MarkComplete(101)
+
+	if got := tracker.GetOffset(); got != 103 {
+		t.Fatalf("expected 103, got %d", got)
+	}
+}
+
+func TestTracker_MarkComplete_Concurrent(t *testing.T) {
+	tracker := NewTracker("")
+	const total = 1000
+
+	var wg sync.WaitGroup
+	wg.Add(total)
+	for i := 0; i < total; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			tracker.MarkComplete(i)
+		}()
+	}
+	wg.Wait()
+
+	if got := tracker.GetOffset(); got != total {
+		t.Fatalf("expected offset %d, got %d", total, got)
 	}
 }
 

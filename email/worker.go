@@ -192,7 +192,7 @@ func processBatch(w worker, clientPtr **smtp.Client, batch []Task) {
 			start := time.Now()
 			w.Monitor.UpdateRecipientStatus(task.Recipient.Email, monitor.StatusSending, 0, "")
 
-			err := SendWithClient(*clientPtr, w.Config, task)
+			err := SendWithClient(*clientPtr, w.Config, task, w.AttachmentCache)
 
 			// Reconnect on connection errors and retry once immediately
 			if isConnectionError(err) {
@@ -206,28 +206,25 @@ func processBatch(w worker, clientPtr **smtp.Client, batch []Task) {
 				} else {
 					*clientPtr = newClient
 					start = time.Now()
-					err = SendWithClient(*clientPtr, w.Config, task)
+					err = SendWithClient(*clientPtr, w.Config, task, w.AttachmentCache)
 				}
 			}
 
 			duration := time.Since(start)
 
 			if err == nil {
-				// Success
 				logger.LogSuccess(task.Recipient.Email, task.Subject)
 				w.Monitor.UpdateRecipientStatus(task.Recipient.Email, monitor.StatusSent, duration, "")
 				w.Monitor.AddSMTPResponse("250")
 				w.Sent.Add(1)
 
-				// Save offset after every successful send for crash-safety
+				// Mark this index complete; the tracker maintains a contiguous
+				// high-water mark so resume is correct under concurrency. The
+				// disk write is coalesced by the dispatcher's flusher.
 				if w.Tracker != nil {
-					newOffset := w.StartOffset + task.Index + 1
-					w.Tracker.UpdateOffset(newOffset)
-					if err := w.Tracker.Save(); err != nil {
-						log.Printf("[Worker %d] Warning: failed to save offset: %v", w.ID, err)
-					}
+					w.Tracker.MarkComplete(task.Index)
 				}
-				break // done with this task
+				break
 			}
 
 			// Send failed

@@ -29,10 +29,9 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, plainText, s
 		return nil, fmt.Errorf("invalid subject template: %w", err)
 	}
 
-	var tasks []email.Task
+	tasks := make([]email.Task, 0, len(recipients))
 	skipped := 0
-	for i, r := range recipients {
-		// Skip rows with missing fields
+	for _, r := range recipients {
 		if HasMissingFields(r) {
 			log.Printf("️ Skipping %s: missing CSV fields", r.Email)
 			skipped++
@@ -50,7 +49,6 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, plainText, s
 			}
 		}
 
-		// Render personalized subject line
 		var sb bytes.Buffer
 		if err := tmpl.Execute(&sb, r.Data); err != nil {
 			log.Printf("️ Skipping %s: subject template failed (%v)", r.Email, err)
@@ -67,7 +65,10 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, plainText, s
 			CC:          ccList,
 			BCC:         bccList,
 			Retries:     0,
-			Index:       i, // Add index for offset tracking
+			// Index is the position in the post-skip task list. This keeps
+			// the offset's contiguous high-water mark advancing without gaps
+			// when recipients are skipped (missing fields, render errors).
+			Index: len(tasks),
 		})
 	}
 
@@ -76,6 +77,103 @@ func PrepareEmailTasks(recipients []parser.Recipient, templatePath, plainText, s
 	}
 
 	return tasks, nil
+}
+
+// StreamEmailTasks renders subject and body templates lazily and writes the
+// resulting tasks to the returned channel. The channel is closed when all
+// recipients have been processed or ctx is cancelled.
+//
+// Use this in place of PrepareEmailTasks when the recipient set is large
+// enough that materializing all rendered bodies in RAM is undesirable; the
+// channel-based dispatcher (email.StartDispatcherStream) consumes the same
+// channel directly so render and send overlap.
+//
+// skipN drops the first N renderable tasks before emitting any — used to
+// resume from a saved offset. Each emitted task carries Index = N + position
+// after the skip, matching the offset baseline so MarkComplete advances the
+// tracker correctly. Recipients that fail to render (missing fields, template
+// error) are logged, skipped, and never count toward skipN or Index.
+func StreamEmailTasks(ctx context.Context, recipients []parser.Recipient, templatePath, plainText, subjectTpl string, attachments []string, ccList []string, bccList []string, skipN, bufSize int) (<-chan email.Task, <-chan error) {
+	if bufSize <= 0 {
+		bufSize = 64
+	}
+	out := make(chan email.Task, bufSize)
+	errCh := make(chan error, 1)
+
+	tmpl, err := template.New("subject").Option("missingkey=error").Parse(subjectTpl)
+	if err != nil {
+		close(out)
+		errCh <- fmt.Errorf("invalid subject template: %w", err)
+		close(errCh)
+		return out, errCh
+	}
+
+	go func() {
+		defer close(out)
+		defer close(errCh)
+
+		skipped := 0
+		emitted := 0
+		processed := 0 // counts every renderable task including those skipped for resume
+		for _, r := range recipients {
+			if ctx.Err() != nil {
+				return
+			}
+			if HasMissingFields(r) {
+				log.Printf("️ Skipping %s: missing CSV fields", r.Email)
+				skipped++
+				continue
+			}
+
+			var body string
+			if templatePath != "" {
+				var rerr error
+				body, rerr = utils.RenderTemplate(r, templatePath)
+				if rerr != nil {
+					log.Printf("️ Skipping %s: template rendering failed (%v)", r.Email, rerr)
+					skipped++
+					continue
+				}
+			}
+
+			var sb bytes.Buffer
+			if rerr := tmpl.Execute(&sb, r.Data); rerr != nil {
+				log.Printf("️ Skipping %s: subject template failed (%v)", r.Email, rerr)
+				skipped++
+				continue
+			}
+
+			if processed < skipN {
+				processed++
+				continue
+			}
+
+			task := email.Task{
+				Recipient:   r,
+				Subject:     sb.String(),
+				Body:        body,
+				PlainText:   plainText,
+				Attachments: attachments,
+				CC:          ccList,
+				BCC:         bccList,
+				Retries:     0,
+				Index:       processed,
+			}
+			processed++
+			select {
+			case out <- task:
+				emitted++
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		if skipped > 0 || skipN > 0 {
+			log.Printf("Streamed %d tasks. Skipped %d recipient(s); resumed past %d.", emitted, skipped, skipN)
+		}
+	}()
+
+	return out, errCh
 }
 
 // HasMissingFields returns true if the recipient email is empty.

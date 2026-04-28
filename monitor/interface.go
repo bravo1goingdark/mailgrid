@@ -7,6 +7,11 @@ type Monitor interface {
 	// InitializeCampaign sets up campaign tracking
 	InitializeCampaign(jobID string, config ConfigSummary, totalRecipients int)
 
+	// InitializePending registers a batch of recipients in the Pending state
+	// under a single lock acquisition. Use this in place of N sequential
+	// UpdateRecipientStatus calls when seeding the dashboard at dispatch start.
+	InitializePending(emails []string)
+
 	// UpdateRecipientStatus updates the status of a specific recipient
 	UpdateRecipientStatus(email string, status EmailStatus, duration time.Duration, errorMsg string)
 
@@ -21,6 +26,7 @@ type Monitor interface {
 type NoOpMonitor struct{}
 
 func (n *NoOpMonitor) InitializeCampaign(jobID string, config ConfigSummary, totalRecipients int) {}
+func (n *NoOpMonitor) InitializePending(emails []string)                                          {}
 func (n *NoOpMonitor) UpdateRecipientStatus(email string, status EmailStatus, duration time.Duration, errorMsg string) {
 }
 func (n *NoOpMonitor) AddSMTPResponse(code string)              {}

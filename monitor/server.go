@@ -257,6 +257,35 @@ func (s *Server) InitializeCampaign(jobID string, config ConfigSummary, totalRec
 	s.broadcastUpdate()
 }
 
+// InitializePending registers a batch of recipients in the Pending state under
+// a single lock acquisition, skipping the per-recipient broadcast/metrics work
+// that UpdateRecipientStatus performs. Use at dispatch start to seed the
+// dashboard with O(N) recipients without N broadcaster wake-ups.
+func (s *Server) InitializePending(emails []string) {
+	if len(emails) == 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	for _, email := range emails {
+		if email == "" {
+			continue
+		}
+		if _, ok := s.stats.Recipients[email]; ok {
+			continue
+		}
+		s.stats.Recipients[email] = &RecipientStatus{
+			Email:       email,
+			Status:      StatusPending,
+			LastAttempt: now,
+		}
+		s.stats.PendingCount++
+	}
+	s.calculateMetrics()
+	s.broadcastUpdate()
+}
+
 // UpdateRecipientStatus updates the status of a specific recipient.
 // The actual SSE broadcast is debounced via the broadcaster goroutine.
 func (s *Server) UpdateRecipientStatus(email string, status EmailStatus, duration time.Duration, errorMsg string) {

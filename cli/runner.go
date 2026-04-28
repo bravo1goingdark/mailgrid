@@ -333,21 +333,15 @@ func Run(args CLIArgs) error {
 		}
 	}
 
-	// Render subject & body for each recipient and build email.Task list
-	tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, plainText, args.Subject, args.Attachments, ccList, bccList)
-	if err != nil {
-		return err
-	}
-
 	// Initialize offset tracker for resumable delivery
 	var tracker *offset.Tracker
 	var startOffset int
 
-	// Handle offset tracking (only for bulk operations, not single emails)
-	if len(tasks) > 1 {
+	// Tracker is created for any bulk run (more than one recipient). We can no
+	// longer gate on len(tasks) because tasks are now streamed lazily.
+	if len(recipients) > 1 {
 		tracker = offset.NewTracker(".mailgrid.offset")
 
-		// Handle reset-offset flag
 		if args.ResetOffset {
 			if err := tracker.Reset(); err != nil {
 				log.Printf("⚠️ Warning: Failed to reset offset: %v", err)
@@ -356,41 +350,45 @@ func Run(args CLIArgs) error {
 			}
 		}
 
-		// Load existing offset if resume is enabled
 		if args.Resume {
 			if err := tracker.Load(); err != nil {
 				log.Printf("⚠️ Warning: Failed to load offset (starting from beginning): %v", err)
 			} else {
 				startOffset = tracker.GetOffset()
 				if startOffset > 0 {
-					if startOffset >= len(tasks) {
-						fmt.Printf(" All emails already sent (offset: %d, total: %d)\n", startOffset, len(tasks))
+					// Upper-bound check: if the offset already covers every
+					// recipient (including ones that will skip due to render
+					// errors) we are definitely done.
+					if startOffset >= len(recipients) {
+						fmt.Printf(" All emails already sent (offset: %d, recipients: %d)\n", startOffset, len(recipients))
 						return nil
 					}
-					fmt.Printf(" Resuming from offset %d (skipping %d already sent emails)\n", startOffset, startOffset)
-					tasks = tasks[startOffset:]
+					fmt.Printf(" Resuming from offset %d (skipping %d already sent)\n", startOffset, startOffset)
 				}
 			}
 		}
 
-		// Generate unique job ID and set it in tracker
 		jobID := fmt.Sprintf("mailgrid-%d", time.Now().Unix())
-		if tracker != nil {
-			tracker.SetJobID(jobID)
-		}
+		tracker.SetJobID(jobID)
 	}
 
-	// If dry-run mode, print emails and skip sending
+	// Dry-run uses the slice path because printDryRun consumes a slice and
+	// dry-run has no scaling concern.
 	if args.DryRun {
+		tasks, err := PrepareEmailTasks(recipients, args.TemplatePath, plainText, args.Subject, args.Attachments, ccList, bccList)
+		if err != nil {
+			return err
+		}
+		if startOffset > 0 && startOffset < len(tasks) {
+			tasks = tasks[startOffset:]
+		}
 		printDryRun(tasks)
 		return nil
 	}
 
-	// Otherwise, send emails using dispatcher
 	start := time.Now()
 	email.SetRetryLimit(args.RetryLimit)
 
-	// Use existing job ID from tracker or generate new one
 	var jobID string
 	if tracker != nil && tracker.GetJobID() != "" {
 		jobID = tracker.GetJobID()
@@ -398,7 +396,15 @@ func Run(args CLIArgs) error {
 		jobID = fmt.Sprintf("mailgrid-%d", start.Unix())
 	}
 
-	// Initialize monitoring if enabled
+	// Pre-compute the email list for the monitor seed. This is cheap and
+	// avoids materializing rendered bodies up front.
+	pendingEmails := make([]string, 0, len(recipients))
+	for _, r := range recipients {
+		if r.Email != "" {
+			pendingEmails = append(pendingEmails, r.Email)
+		}
+	}
+
 	var mon monitor.Monitor = monitor.NewNoOpMonitor()
 	var monitorServer *monitor.Server
 
@@ -406,14 +412,12 @@ func Run(args CLIArgs) error {
 		monitorServer = monitor.NewServer(args.MonitorPort, time.Duration(args.MonitorClientTimeout)*time.Second)
 		mon = monitorServer
 
-		// Start monitoring server in background
 		go func() {
 			if err := monitorServer.Start(); err != nil && err != http.ErrServerClosed {
 				log.Printf("️ Monitor server failed: %v", err)
 			}
 		}()
 
-		// Initialize campaign tracking
 		configSummary := monitor.ConfigSummary{
 			CSVFile:           args.CSVPath,
 			SheetURL:          args.SheetURL,
@@ -423,20 +427,27 @@ func Run(args CLIArgs) error {
 			RetryLimit:        args.RetryLimit,
 			FilterExpression:  args.Filter,
 		}
-		mon.InitializeCampaign(jobID, configSummary, len(tasks))
+		mon.InitializeCampaign(jobID, configSummary, len(pendingEmails))
 
 		fmt.Printf("  Monitor dashboard: http://localhost:%d\n", args.MonitorPort)
 	}
 
-	// Use offset-aware dispatcher if tracker is available
+	// Stream rendered tasks into a single attachment cache shared across the
+	// dispatch run so each unique attachment is base64-encoded exactly once.
+	cache := email.NewAttachmentCache(0)
+	taskCh, _ := StreamEmailTasks(ctx, recipients, args.TemplatePath, plainText, args.Subject, args.Attachments, ccList, bccList, startOffset, args.Concurrency*args.BatchSize)
+
 	opts := &email.DispatchOptions{
-		Context:     ctx,
-		Monitor:     mon,
-		Tracker:     tracker,
-		StartOffset: startOffset,
+		Context:         ctx,
+		Monitor:         mon,
+		Tracker:         tracker,
+		AttachmentCache: cache,
+		PendingEmails:   pendingEmails,
 	}
-	dispatchResult := email.StartDispatcher(tasks, cfg.SMTP, args.Concurrency, args.BatchSize, opts)
-	// Save final offset after campaign completion
+	dispatchResult := email.StartDispatcherStream(ctx, taskCh, cfg.SMTP, args.Concurrency, args.BatchSize, opts)
+
+	// Save final offset after campaign completion (defense-in-depth: the
+	// dispatcher already does this internally before returning).
 	if tracker != nil {
 		if err := tracker.Save(); err != nil {
 			log.Printf("️ Warning: Failed to save final offset: %v", err)
@@ -476,7 +487,7 @@ func Run(args CLIArgs) error {
 		result := webhook.CampaignResult{
 			JobID:                jobID,
 			Status:               "completed",
-			TotalRecipients:      len(tasks),
+			TotalRecipients:      len(pendingEmails),
 			SuccessfulDeliveries: successfulDeliveries,
 			FailedDeliveries:     failedDeliveries,
 			StartTime:            start,

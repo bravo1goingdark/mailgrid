@@ -12,13 +12,27 @@ import (
 
 const DefaultOffsetFile = ".mailgrid.offset"
 
-// Tracker manages email delivery offset tracking for resumable campaigns
+// Tracker manages email delivery offset tracking for resumable campaigns.
+//
+// Concurrency model:
+//   - GetOffset / ShouldSkip / GetJobID / GetInfo: read-only; safe from any goroutine.
+//   - UpdateOffset / SetJobID: writer methods used by the CLI before/after dispatch.
+//   - MarkComplete: hot-path call from worker goroutines. Maintains a contiguous
+//     high-water mark so the persisted offset advances only past indices that
+//     have all been completed (correct under concurrent out-of-order completion).
+//   - Save: serializes to disk; the file write happens outside the lock so
+//     readers and MarkComplete callers do not block on I/O.
 type Tracker struct {
-	mu       sync.RWMutex
+	mu       sync.Mutex
 	filePath string
-	offset   int
+	offset   int  // contiguous high-water mark: all indices < offset are completed
 	jobID    string
-	dirty    bool // Track if offset needs to be written
+	dirty    bool
+
+	// pending holds completed indices that arrived out of order (i.e. with
+	// idx > offset at the time of MarkComplete). The map is drained as the
+	// contiguous prefix advances.
+	pending map[int]struct{}
 }
 
 // OffsetInfo contains information about the current offset state
@@ -36,8 +50,6 @@ func NewTracker(filePath string) *Tracker {
 
 	return &Tracker{
 		filePath: filePath,
-		offset:   0,
-		dirty:    false,
 	}
 }
 
@@ -49,7 +61,6 @@ func (t *Tracker) Load() error {
 	file, err := os.Open(t.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// File doesn't exist, start from beginning
 			t.offset = 0
 			t.jobID = ""
 			return nil
@@ -67,36 +78,32 @@ func (t *Tracker) Load() error {
 			return nil
 		}
 
-		// Parse line format: "jobID:offset" or just "offset" for backward compatibility
 		parts := strings.Split(line, ":")
-		if len(parts) == 2 {
+		switch len(parts) {
+		case 2:
 			t.jobID = parts[0]
 			if offset, err := strconv.Atoi(parts[1]); err == nil {
 				t.offset = offset
 			} else {
-				// If parsing fails, reset to start and warn user
 				t.offset = 0
 				t.jobID = ""
-				t.dirty = true // Mark for cleanup
+				t.dirty = true
 				return fmt.Errorf("invalid offset format in file: %s (resetting to start)", line)
 			}
-		} else if len(parts) == 1 {
-			// Backward compatibility: just offset number
+		case 1:
 			if offset, err := strconv.Atoi(parts[0]); err == nil {
 				t.offset = offset
 				t.jobID = ""
 			} else {
-				// If parsing fails, reset to start and warn user
 				t.offset = 0
 				t.jobID = ""
-				t.dirty = true // Mark for cleanup
+				t.dirty = true
 				return fmt.Errorf("invalid offset format in file: %s (resetting to start)", line)
 			}
-		} else {
-			// If format is completely wrong, reset to start and warn user
+		default:
 			t.offset = 0
 			t.jobID = ""
-			t.dirty = true // Mark for cleanup
+			t.dirty = true
 			return fmt.Errorf("invalid offset format in file: %s (resetting to start)", line)
 		}
 	}
@@ -104,17 +111,17 @@ func (t *Tracker) Load() error {
 	return scanner.Err()
 }
 
-// GetOffset returns the current offset
+// GetOffset returns the current offset (contiguous high-water mark).
 func (t *Tracker) GetOffset() int {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return t.offset
 }
 
 // GetJobID returns the current job ID
 func (t *Tracker) GetJobID() string {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return t.jobID
 }
 
@@ -128,7 +135,10 @@ func (t *Tracker) SetJobID(jobID string) {
 	}
 }
 
-// UpdateOffset updates the offset and marks it for saving
+// UpdateOffset sets the offset directly. Used by the CLI to seed the tracker
+// from a persisted state and by tests; production worker code should use
+// MarkComplete instead. Calling UpdateOffset clears any pending out-of-order
+// completions because they no longer correspond to a meaningful baseline.
 func (t *Tracker) UpdateOffset(newOffset int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -136,61 +146,116 @@ func (t *Tracker) UpdateOffset(newOffset int) {
 		t.offset = newOffset
 		t.dirty = true
 	}
+	t.pending = nil
 }
 
-// Save writes the current offset to file (buffered writes)
-func (t *Tracker) Save() error {
+// MarkComplete records that the absolute task index `idx` has been delivered.
+// The persisted offset advances to one past the highest index N such that all
+// indices in [t.offset, N] have been marked complete. Indices that arrive out
+// of order are buffered in t.pending and drained when the gap closes.
+//
+// Indices that arrive below the current offset (e.g. duplicates from a retry
+// after a flusher has already moved past) are ignored.
+func (t *Tracker) MarkComplete(idx int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if !t.dirty {
-		return nil // No changes to save
+	if idx < t.offset {
+		return
+	}
+	if idx == t.offset {
+		t.offset++
+		if t.pending != nil {
+			for {
+				if _, ok := t.pending[t.offset]; !ok {
+					break
+				}
+				delete(t.pending, t.offset)
+				t.offset++
+			}
+			if len(t.pending) == 0 {
+				t.pending = nil
+			}
+		}
+		t.dirty = true
+		return
 	}
 
-	// Ensure directory exists
-	dir := filepath.Dir(t.filePath)
+	if t.pending == nil {
+		t.pending = make(map[int]struct{})
+	}
+	t.pending[idx] = struct{}{}
+}
+
+// Save writes the current offset to disk atomically (write to temp + rename).
+// The disk I/O happens outside the tracker lock so concurrent MarkComplete
+// callers are not blocked on fsync.
+func (t *Tracker) Save() error {
+	t.mu.Lock()
+	if !t.dirty {
+		t.mu.Unlock()
+		return nil
+	}
+	offset := t.offset
+	jobID := t.jobID
+	filePath := t.filePath
+	t.dirty = false
+	t.mu.Unlock()
+
+	dir := filepath.Dir(filePath)
 	if dir != "." {
 		if err := os.MkdirAll(dir, 0750); err != nil {
+			t.markDirty()
 			return fmt.Errorf("failed to create offset directory: %w", err)
 		}
 	}
 
-	// Write to temporary file first for atomic operation
-	tempFile := t.filePath + ".tmp"
+	tempFile := filePath + ".tmp"
 	file, err := os.Create(tempFile)
 	if err != nil {
+		t.markDirty()
 		return fmt.Errorf("failed to create temporary offset file: %w", err)
 	}
 
 	var content string
-	if t.jobID != "" {
-		content = fmt.Sprintf("%s:%d\n", t.jobID, t.offset)
+	if jobID != "" {
+		content = fmt.Sprintf("%s:%d\n", jobID, offset)
 	} else {
-		content = fmt.Sprintf("%d\n", t.offset)
+		content = fmt.Sprintf("%d\n", offset)
 	}
 
 	if _, err := file.WriteString(content); err != nil {
 		file.Close()
 		os.Remove(tempFile)
+		t.markDirty()
 		return fmt.Errorf("failed to write offset: %w", err)
 	}
-
 	if err := file.Sync(); err != nil {
 		file.Close()
 		os.Remove(tempFile)
+		t.markDirty()
 		return fmt.Errorf("failed to sync offset file: %w", err)
 	}
-
-	file.Close()
-
-	// Atomic rename
-	if err := os.Rename(tempFile, t.filePath); err != nil {
+	if err := file.Close(); err != nil {
 		os.Remove(tempFile)
+		t.markDirty()
+		return fmt.Errorf("failed to close offset file: %w", err)
+	}
+	if err := os.Rename(tempFile, filePath); err != nil {
+		os.Remove(tempFile)
+		t.markDirty()
 		return fmt.Errorf("failed to rename offset file: %w", err)
 	}
-
-	t.dirty = false
 	return nil
+}
+
+// markDirty re-flags the tracker so a future Save retries. Used when a Save
+// fails after we've already cleared the dirty bit; without this, a transient
+// I/O error would silently lose the next offset advance.
+func (t *Tracker) markDirty() {
+	t.mu.Lock()
+	t.dirty = true
+	t.mu.Unlock()
 }
 
 // Reset clears the offset and removes the offset file
@@ -201,20 +266,18 @@ func (t *Tracker) Reset() error {
 	t.offset = 0
 	t.jobID = ""
 	t.dirty = false
+	t.pending = nil
 
-	// Remove the offset file
 	if err := os.Remove(t.filePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove offset file: %w", err)
 	}
-
 	return nil
 }
 
 // GetInfo returns current offset information
 func (t *Tracker) GetInfo() OffsetInfo {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return OffsetInfo{
 		JobID:  t.jobID,
 		Offset: t.offset,
@@ -223,7 +286,7 @@ func (t *Tracker) GetInfo() OffsetInfo {
 
 // ShouldSkip returns true if the given index should be skipped based on offset
 func (t *Tracker) ShouldSkip(index int) bool {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return index < t.offset
 }
