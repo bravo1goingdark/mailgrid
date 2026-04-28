@@ -25,7 +25,7 @@ const DefaultOffsetFile = ".mailgrid.offset"
 type Tracker struct {
 	mu       sync.Mutex
 	filePath string
-	offset   int  // contiguous high-water mark: all indices < offset are completed
+	offset   int // contiguous high-water mark: all indices < offset are completed
 	jobID    string
 	dirty    bool
 

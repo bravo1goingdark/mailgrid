@@ -9,8 +9,8 @@ package email
 
 import (
 	"bufio"
-	"encoding/base64"
 	crand "crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"

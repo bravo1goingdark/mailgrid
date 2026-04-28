@@ -68,7 +68,7 @@ func TestOffsetFlusher_CoalescesSavesUnderConcurrency(t *testing.T) {
 
 	stop()
 
-	// Final synchronous save (matches runDispatch behaviour).
+	// Final synchronous save (matches runDispatch behavior).
 	if err := tr.Save(); err != nil {
 		t.Fatalf("final save: %v", err)
 	}
